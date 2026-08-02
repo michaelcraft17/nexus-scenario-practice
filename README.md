@@ -163,6 +163,20 @@ sent to the browser (see `server/src/data/scenarioStore.js`) — showing the
 "answer" up front would defeat the point of practicing. Feel free to revise
 scenario content throughout the week without touching any app code.
 
+Two more fields frame the scenario before it starts:
+
+- `preview` — a 1-2 sentence hook shown on the picker card, so you know what
+  you're walking into before clicking.
+- `sceneSetting` — a 2-4 sentence scene-direction paragraph (not dialogue)
+  shown once, right before the AI's opening line, establishing who you're
+  playing, who the AI is playing, and the immediate situation. This same
+  text is also prepended to the system prompt on every single `/api/chat`
+  call (see `generateReply` in `server/src/engine/dialogueEngine.js`) — since
+  the API is stateless and the full system prompt is resent every turn, this
+  acts as a persistent anchor the model gets re-grounded in on every reply,
+  which is what keeps the character consistent even as the conversation goes
+  in unscripted directions.
+
 ## Project status
 
 See [PROGRESS.md](./PROGRESS.md) for what's built, what's next, and open

@@ -9,6 +9,7 @@ import ChatHeader from "./ChatHeader.jsx";
 import MessageBubble from "./MessageBubble.jsx";
 import FeedbackPanel from "./FeedbackPanel.jsx";
 import ResponseOptions from "./ResponseOptions.jsx";
+import SceneIntro from "./SceneIntro.jsx";
 
 let nextId = 1;
 function makeId() {
@@ -119,6 +120,8 @@ export default function ChatScreen({ scenario, onExit }) {
         >
           <div className="chat-screen__scene-text">{scenario.setting}</div>
         </div>
+
+        <SceneIntro text={scenario.sceneSetting} />
 
         <div className="chat-screen__messages">
           {messages.map((message) => (

@@ -16,12 +16,25 @@ const scenarios = JSON.parse(
  */
 export function getAllPublic() {
   return scenarios.map(
-    ({ id, title, setting, aiRole, opener, teachingPoint, color, responseOptions }) => ({
+    ({
       id,
       title,
+      preview,
       setting,
       aiRole,
       opener,
+      sceneSetting,
+      teachingPoint,
+      color,
+      responseOptions,
+    }) => ({
+      id,
+      title,
+      preview,
+      setting,
+      aiRole,
+      opener,
+      sceneSetting,
       teachingPoint,
       color,
       responseOptions: (responseOptions ?? []).map(({ id: optionId, text }) => ({

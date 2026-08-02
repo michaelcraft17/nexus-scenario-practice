@@ -2,9 +2,11 @@
   {
     "id": "missing-details",
     "title": "The Missing Details",
+    "preview": "You're a few weeks into a new job. Your manager hands you a task without much detail -- how do you handle it when the result isn't what they expected?",
     "setting": "Your first week as a new employee, your manager stops by with a task",
     "aiRole": "Priya, your manager",
     "opener": "Hey, can you prepare that report and make sure it's ready soon? Thanks!",
+    "sceneSetting": "You're a few weeks into a new job, still finding your footing. Priya, your manager, is about to stop by your desk with a task for you -- she's busy and doesn't always spell out every detail, even though she means well.",
     "teachingPoint": "Asking clarifying questions instead of over-apologizing or getting defensive.",
     "color": "#4F8A8B",
     "responseOptions": [
@@ -29,9 +31,11 @@
   {
     "id": "unexpected-conversation",
     "title": "The Unexpected Conversation",
+    "preview": "You're checking out at a small shop when the cashier starts chatting about the weather and her cat. Do you need something clever to say back?",
     "setting": "Checkout counter at a small local shop, right after paying",
     "aiRole": "Dana, the cashier",
     "opener": "Alright, you're all set! Gosh, this weather's been something lately, hasn't it?",
+    "sceneSetting": "You're finishing up a purchase at a small local shop. Dana, the cashier, is warm and chatty, and likes to make easy small talk with customers while she rings them up -- it doesn't need to go anywhere, she's just being friendly.",
     "teachingPoint": "Small talk doesn't require a deep or \"correct\" answer -- short responses are enough.",
     "color": "#E4A34C",
     "responseOptions": [
@@ -56,9 +60,11 @@
   {
     "id": "too-much-happening",
     "title": "Too Much Happening at Once",
+    "preview": "It's your first haircut in ages, and the salon is loud and busy. How do you handle it when the noise starts to feel like too much?",
     "setting": "A hair salon, first haircut in a long time -- hairdryers running and other conversations happening nearby",
     "aiRole": "Marcus, your hairstylist",
     "opener": "So, are we thinking just a trim today, or switching things up a bit?",
+    "sceneSetting": "You're at the hair salon for your first haircut in a long time. Marcus, your stylist, is friendly and talkative, and the salon is loud today -- hairdryers running nearby, another stylist chatting loudly with their client a few feet away. You're about to get started.",
     "teachingPoint": "Noticing sensory overload early and asking for what you need before it becomes too much.",
     "color": "#6C5B7B",
     "responseOptions": [
@@ -83,9 +89,11 @@
   {
     "id": "asking-for-a-change",
     "title": "Asking for a Change",
+    "preview": "You're trying to focus in class, but the lights are too bright. Is it okay to just... say something?",
     "setting": "Classroom, during quiet study/test prep time -- the overhead lights are uncomfortably bright",
     "aiRole": "Ms. Alvarez, your teacher",
     "opener": "Hey, you okay? You seem a little distracted today.",
+    "sceneSetting": "You're in class during quiet study time, trying to focus, but the overhead lights are uncomfortably bright. Ms. Alvarez, your teacher, notices you seem distracted and is about to check in.",
     "teachingPoint": "Self-advocacy -- asking for a reasonable adjustment isn't causing trouble.",
     "color": "#C1666B",
     "responseOptions": [
