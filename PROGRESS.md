@@ -1,7 +1,8 @@
 # Progress
 
 Living doc — update this across sessions this week rather than relying on
-memory of what's been done. Last updated: 2026-08-01 (Phase 1 initial build).
+memory of what's been done. Last updated: 2026-08-01 (Phase 1 initial build,
+then switched from Claude to OpenAI the same day -- see below).
 
 ## What's built (Phase 1 — text prototype)
 
@@ -37,6 +38,14 @@ memory of what's been done. Last updated: 2026-08-01 (Phase 1 initial build).
       for a better "Add to Home Screen" experience.
 - [x] `.env.example` on both sides; `.env` gitignored.
 - [x] README with local run instructions.
+- [x] Switched the AI provider from Claude (Anthropic) to OpenAI
+      (`server/src/engine/openaiClient.js`, using `chat.completions.create`
+      with model `gpt-4o` by default). The original spec called for Claude;
+      switched same-day at the user's request since they only had an OpenAI
+      key on hand. Nothing outside `openaiClient.js` and the env
+      var names (`OPENAI_API_KEY`/`OPENAI_MODEL`) had to change -- the
+      dialogue engine's `complete({system, messages, maxTokens})` interface
+      is provider-agnostic by design.
 
 ## What's next
 
@@ -53,24 +62,27 @@ memory of what's been done. Last updated: 2026-08-01 (Phase 1 initial build).
 
 ## Open decisions
 
-- **Prompt caching**: skipped for Phase 1. Scenario `systemPrompt`s
-  (~200–350 tokens) are likely under Claude's cacheable minimum anyway: not
-  worth the complexity for the timeline. Revisit if the explain/feedback
-  templates grow (e.g. with few-shot examples) or if per-turn latency/cost
-  becomes a problem.
+- **Prompt caching**: skipped for Phase 1 -- not worth the complexity for the
+  timeline given how short the scenario prompts are. Revisit if the
+  explain/feedback templates grow (e.g. with few-shot examples) or if
+  per-turn latency/cost becomes a problem.
 - **Streaming**: `/api/chat`, `/api/explain`, and `/api/feedback` are all
   non-streaming request/response for now (simplest to build and debug this
   week). If typing-indicator latency feels bad in testing, consider streaming
   `/api/chat` specifically.
-- **Model**: defaults to `claude-opus-5` via `ANTHROPIC_MODEL`. If iterating
-  quickly during testing gets expensive or slow, swap to `claude-sonnet-5` or
-  `claude-haiku-4-5` in `server/.env` — no code changes needed.
-- **Voice architecture (Phase 3, not yet decided)**: whether `dialogueEngine`
-  gains a streaming/session-oriented variant to pair with the OpenAI Realtime
-  API's own streaming model, or whether voice stays request/response with
-  STT feeding into the existing `generateReply` and TTS wrapping its output.
-  Leaning toward the latter to start (reuse everything as-is), but worth
-  revisiting once actually building Phase 3.
+- **Model**: defaults to `gpt-4o` via `OPENAI_MODEL`. If iterating quickly
+  during testing gets expensive or slow, swap to `gpt-4o-mini` in
+  `server/.env` — no code changes needed. If OpenAI ships a newer default
+  model by the time you're reading this, check
+  https://platform.openai.com/docs/models and update `OPENAI_MODEL`.
+- **Voice architecture (Phase 3)**: now simpler than originally planned,
+  since text chat is already on OpenAI too — the OpenAI Realtime API can
+  likely reuse `scenario.systemPrompt` and the same scenario data directly.
+  Still undecided whether `dialogueEngine` gains a streaming/session-oriented
+  variant to pair with the Realtime API's own streaming model, or whether
+  voice stays request/response with STT feeding into the existing
+  `generateReply` and TTS wrapping its output. Worth revisiting once actually
+  building Phase 3.
 - **Feedback trigger**: currently a manual "Get feedback" button only
   (available any time there's at least one user reply). Explicitly not
   auto-triggered on "Exit scenario" per the original spec — exiting should
@@ -80,7 +92,7 @@ memory of what's been done. Last updated: 2026-08-01 (Phase 1 initial build).
 ## Resuming a session
 
 1. `cd server && npm install && npm run dev` (needs `server/.env` with a
-   real `ANTHROPIC_API_KEY` — copy from `.env.example` if starting fresh).
+   real `OPENAI_API_KEY` — copy from `.env.example` if starting fresh).
 2. `cd client && npm install && npm run dev`, open the printed localhost URL.
 3. Check this file's "What's next" section before starting new work, and
    update the checklist above as you go.
