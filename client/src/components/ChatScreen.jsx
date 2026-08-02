@@ -5,6 +5,7 @@ import {
   getReflection,
   getHint,
 } from "../services/api.js";
+import { useAccessibility } from "../a11y/AccessibilityContext.jsx";
 import ChatHeader from "./ChatHeader.jsx";
 import MessageBubble from "./MessageBubble.jsx";
 import ReflectionPanel from "./ReflectionPanel.jsx";
@@ -36,6 +37,7 @@ function toApiShape(messages) {
 }
 
 export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExit }) {
+  const { resolvedMotion, registerReadableContent } = useAccessibility();
   const [messages, setMessages] = useState(() => [
     { id: makeId(), role: "assistant", content: scenario.opener, isOpener: true },
   ]);
@@ -53,10 +55,34 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
   const autoReflectedRef = useRef(false);
 
   const userTurnCount = messages.filter((m) => m.role === "user").length;
+  const npcName = scenario.aiRole.split(" (")[0];
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, sending]);
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: resolvedMotion === "reduce" ? "auto" : "smooth",
+    });
+  }, [messages, sending, resolvedMotion]);
+
+  // "Read aloud" on this screen reads the scene setting plus the
+  // conversation so far, in order -- the chat equivalent of the picker's
+  // resource list. Narrator asides are included since they carry scene
+  // context a screen-reader-style read-aloud shouldn't skip.
+  useEffect(() => {
+    return registerReadableContent(() => {
+      const parts = [scenario.setting, scenario.narratorOpening, scenario.narratorAtmosphere];
+      for (const m of messages) {
+        if (m.role === "narrator") {
+          parts.push(m.content);
+        } else if (m.role === "assistant") {
+          parts.push(m.isOpener ? m.content : `${npcName} said: ${m.content}`);
+        } else if (m.role === "user") {
+          parts.push(`You said: ${m.content}`);
+        }
+      }
+      return parts.filter(Boolean).join(" ");
+    });
+  }, [messages, scenario, registerReadableContent, npcName]);
 
   // Auto-open the Reflection once the conversation has enough real content
   // to reflect on. Guarded by a ref so it only ever fires once per session
@@ -162,7 +188,6 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
 
   const canReflect = userTurnCount > 0;
   const showResponseOptions = userTurnCount === 0 && !sending;
-  const npcName = scenario.aiRole.split(" (")[0];
 
   return (
     <div className="chat-screen">

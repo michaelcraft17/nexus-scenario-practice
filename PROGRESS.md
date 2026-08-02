@@ -1,18 +1,145 @@
 # Progress
 
 Living doc — update this across sessions this week rather than relying on
-memory of what's been done. Last updated: 2026-08-02 -- **v6, new feature**:
-an end-of-conversation Reflection (7 sections, never a score) that replaces
-the old simple-prose feedback panel entirely, auto-opening once the user
-has contributed roughly 10 lines. Full writeup below and in the README's
-new "Reflection" section. Earlier the same day, in order: v5.1 (bug fix --
-the Narrator's stall detection from v5 wasn't actually triggering in real
-low-engagement conversations); v5, the major architecture shift (NPC
-blueprints, template events, Narrator as social director, difficulty
-levels, multi-NPC support); the app was renamed IncludAI -> Nexus and the
-Narrator was introduced as a distinct layer (v4); scene-setting framing to
-reduce AI drift (v3); new scenario content + the Hint feature (v2).
-Originally built 2026-08-01 on Claude, switched to OpenAI the same day.
+memory of what's been done. Last updated: 2026-08-02 -- **v7, new feature**:
+a consolidated Accessibility Features system (color scheme, theme, text
+size, typeface, contrast, motion, read-aloud, favorites, data export)
+replacing the old dark/dyslexia toggles, plus a scenario-card visual polish
+pass. Full writeup below. Earlier the same day: v6, an end-of-conversation
+Reflection (7 sections, never a score) that replaces the old simple-prose
+feedback panel entirely, auto-opening once the user has contributed roughly
+10 lines. Full writeup below and in the README's new "Reflection" section.
+Earlier still, in order: v5.1 (bug fix -- the Narrator's stall detection
+from v5 wasn't actually triggering in real low-engagement conversations);
+v5, the major architecture shift (NPC blueprints, template events, Narrator
+as social director, difficulty levels, multi-NPC support); the app was
+renamed IncludAI -> Nexus and the Narrator was introduced as a distinct
+layer (v4); scene-setting framing to reduce AI drift (v3); new scenario
+content + the Hint feature (v2). Originally built 2026-08-01 on Claude,
+switched to OpenAI the same day.
+
+## v7 — Accessibility Features: consolidated prefs, favorites, read-aloud, scenario-card polish
+
+**What it is:** a single "Accessibility Features" pill button, present in
+both the picker header and the chat header, opening one shared slide-in
+`AccessibilityPanel`. Everything it controls lives in one consolidated
+prefs object (`AccessibilityContext.jsx`), persisted to `localStorage`.
+There were no pre-existing separate dark/dyslexia toggles in Nexus to
+literally "replace" -- this was built fresh, adapted to Nexus's actual two
+screens (picker + chat; there's no "Results screen"), confirmed with the
+user before building.
+
+**Architecture (`client/src/a11y/AccessibilityContext.jsx`, new):**
+- [x] One `prefs` object -- `{colorScheme, theme, textSize, typeface,
+      contrast, motion}` -- persisted as `a11y_prefs`; `favorites` (array of
+      scenario ids) persisted separately as `a11y_favs`. Both loaded via a
+      try/catch JSON parse that falls back to defaults on any corruption.
+- [x] `AccessibilityProvider` resolves `theme: "device"` and `motion:
+      "device"` against `matchMedia("(prefers-color-scheme: dark)")` /
+      `(prefers-reduced-motion: reduce)`, with live `change` listeners so
+      flipping the OS setting updates the app without a reload. Applies the
+      resolved state to `<html>` as `data-color-scheme` / `data-theme` /
+      `data-contrast` / `data-typeface` / `data-motion` attributes --
+      `index.css` styles off these directly; the context owns state and
+      side effects only, no inline visual styling.
+- [x] **Text size via CSS `zoom`** (`root.style.zoom`), not a relative type
+      scale -- deliberate, since the app uses hardcoded px throughout and a
+      relative rem/em scale would have meant touching every component's
+      CSS. `zoom` scales layout and text together uniformly. Non-standard
+      but broadly supported in Chromium/Safari; acceptable tradeoff for a
+      hackathon timeline.
+- [x] **Read-aloud registry pattern**: rather than lifting `ScenarioPicker`'s
+      scenario list or `ChatScreen`'s `messages` state up to a shared
+      ancestor, both screens call `registerReadableContent(getTextFn)` in a
+      `useEffect` (re-registering when their content changes); the context
+      holds only a ref to the latest getter. `playSpeech` calls it lazily
+      right before speaking, so read-aloud always reads what's currently on
+      screen without either screen's local state ever leaving that screen.
+      Built on `window.speechSynthesis` / `SpeechSynthesisUtterance` --
+      play/pause/stop, 4 speed presets, and a voice picker populated from
+      `speechSynthesis.getVoices()` (loaded async via `onvoiceschanged`,
+      per-browser quirk).
+- [x] **Favorites**: `isFavorite`/`toggleFavorite`, rendered as a ★/☆ toggle
+      button on each `ScenarioCard` (`scenario-card__favorite`, absolutely
+      positioned top-right over the color block). Not surfaced anywhere else
+      yet (no dedicated "favorites" filter/view) -- see Open decisions.
+- [x] **Your data**: `exportData` (Blob + `URL.createObjectURL` +
+      programmatic `<a download>` click) downloads `{prefs, favorites}` as
+      JSON; `deleteAllData` clears both `localStorage` keys and resets state
+      to defaults, gated behind a `window.confirm` in the panel.
+
+**Components (all new):**
+- [x] `AccessibilityButton.jsx` -- the shared pill; accepts an optional
+      `className` that *replaces* rather than combines with the default
+      `.a11y-button` styling (not `${className} a11y-button`), so it can
+      take on `chat-header__hint`'s look in the chat header without a CSS
+      cascade fight over which class wins.
+- [x] `AccessibilityPanel.jsx` -- one `OptionGroup` helper renders each
+      pref as a row of pill buttons (`aria-pressed`); rendered once, in
+      `App.jsx`, as a sibling of whichever screen is active, so its
+      `panelOpen` state (also in the context) stays in sync no matter which
+      header's button opened it.
+- [x] Registered in `ScenarioPicker.jsx` (readable content = every
+      scenario's title + preview + teaching point, joined) and
+      `ChatScreen.jsx` (readable content = scene setting + narrator
+      opening/atmosphere + the conversation so far, in order, with
+      "You said:" / "{NPC} said:" prefixes so the read-aloud output makes
+      sense as audio rather than a jumbled transcript). `ChatScreen`'s
+      auto-scroll also now checks `resolvedMotion` -- `behavior: "auto"`
+      instead of `"smooth"` when motion is reduced.
+
+**CSS (`client/src/index.css`):** color variables restructured from a bare
+`:root` into four scoped blocks (`[data-color-scheme][data-theme]` combos:
+calm-earthy/light (existing palette, now scoped rather than default-only),
+calm-earthy/dark, blue-yellow/light, blue-yellow/dark, all new). `[data-
+contrast="high"]` widens `--border-width` to 2px and forces pure black/white
+borders and collapses `--color-text-muted` into `--color-text`. `[data-
+typeface="dyslexia"]` swaps in a Verdana/Tahoma/Trebuchet MS stack with
+wider letter/word/line spacing (no external font load, so it works offline
+and doesn't add a network dependency). `[data-motion="reduce"] *` neutralizes
+transitions/animations/smooth-scroll globally. New `.a11y-*` classes for the
+button/overlay/slide-in panel (`animation: a11y-slide-in 0.2s ease-out`,
+respects the same motion override) and `.scenario-card__favorite`.
+
+**Pragmatic tradeoff, documented inline in the CSS:** `--color-primary` is
+reused both as a *background* (chat header, user bubbles, active-state
+buttons, paired with `--color-primary-contrast` text) and as plain
+*foreground text* on `--color-tint` backgrounds (teaching-point text,
+default difficulty-button text). A single token can't be ideal in both
+roles at once, especially in dark mode. Picked medium-lightness purple/blue
+values (`#7d68d6` calm-earthy dark, `#5b9bdb` blue-yellow dark) with white
+contrast text, rather than a very light primary that would read well as
+text-on-tint but invert the "primary = dark brand color" pattern everything
+else assumes (e.g. `rgba(255,255,255,0.15)` overlay buttons on the chat
+header). Good enough for both roles, not a perfect solution for either --
+would take separate background/foreground tokens to fully resolve, not done
+given the timeline.
+
+**Also this session -- scenario card visual polish** (`ScenarioCard.jsx`
+CSS only, no logic change): title (`.scenario-card__title`) enlarged and
+bolded (1.1rem -> 1.4rem, `font-weight: 700`); description
+(`.scenario-card__preview`) shrunk and lightened (0.92rem -> 0.85rem,
+`var(--color-text)` -> `var(--color-text-muted)`); the teaching-point
+element redesigned from a fully-rounded pill (`border-radius: 999px`, which
+let long teaching-point text visually crowd/touch the rounded ends) into a
+quote-block: `position: relative` with `::before`/`::after` pseudo-elements
+placing a serif `"` top-left and `"` bottom-right (Georgia, 2.4rem, low
+opacity), based on a reference screenshot the user provided of a card-style
+UI element with corner quotation marks.
+
+**Verified live via Playwright** (headless Chromium, 420x900 viewport,
+against the running dev server): default picker view (card polish visible,
+quote marks not touching text), panel open/close from both the picker and
+chat headers, full combination of blue-yellow + dark theme + higher
+contrast + dyslexia typeface + largest text size (legible and correctly
+styled together), favoriting a card, clicking Play (no console/page errors
+from `speechSynthesis`), and delete-all-data resetting cleanly back to
+defaults on both screens. One real bug caught this way and fixed: a
+`ReferenceError` (temporal-dead-zone) in `ChatScreen.jsx` from a
+`useEffect` dependency array referencing `npcName` before its `const`
+declaration further down the function -- fixed by hoisting the declaration
+above the effects that use it. Without the Playwright check this would have
+been a silent blank-screen crash on entering any scenario.
 
 ## v6 — Reflection: replaces the feedback panel with a 7-section, non-graded reflection
 
@@ -451,6 +578,25 @@ prose), and drift prevention (the model has nowhere to improvise *from*).
 
 ## Open decisions
 
+- **Favorites have no dedicated view yet (v7)**: the ★ toggle on each
+  scenario card persists to `a11y_favs` and is fully functional, but
+  there's no "show favorites only" filter or sorting-favorites-first on the
+  picker grid -- the spec described favorites as part of the accessibility
+  data model, not a specific UI request, so this stops at persistence +
+  the toggle. Easy follow-up if wanted: a filter chip in `ScenarioPicker.jsx`
+  reading `favorites`/`isFavorite` from the same context.
+- **Text-size `zoom` is Chromium/Safari-only, not standard CSS (v7)**: works
+  correctly in the browsers most users will actually use, but has no effect
+  in Firefox (no `zoom` support) -- the Text size control would silently do
+  nothing there. Verified only in Chromium (via Playwright) this session,
+  not cross-browser. If Firefox support turns out to matter, the fix is
+  larger: converting the app's hardcoded px to a relative unit and scaling
+  a root `font-size` instead.
+- **`--color-primary` dual-role compromise, not a full fix (v7)**: see the
+  v7 section above -- one CSS variable serves as both background and
+  on-tint text color, so the dark-mode values are a deliberate middle
+  ground rather than optimal for either use. Worth splitting into separate
+  background/foreground tokens if dark mode gets more visual polish passes.
 - **Prompt caching**: skipped for Phase 1 -- not worth the complexity for the
   timeline given how short the scenario prompts are. Revisit if the
   explain/reflection templates grow (e.g. with few-shot examples) or if
