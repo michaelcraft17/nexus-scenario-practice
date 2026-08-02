@@ -64,17 +64,25 @@ the browser's React state for the duration of a session.
 
 ```
 includai-scenario-practice/
-├── server/            Express API, OpenAI integration, scenario data
+├── server/            Express API, OpenAI integration, scenario/NPC data
 │   └── src/
-│       ├── index.js           app entry
-│       ├── routes/api.js      GET /scenarios, POST /chat, /explain, /hint, /feedback
-│       ├── engine/            dialogue logic, decoupled from HTTP (see below)
-│       └── data/               scenarios.json + loader
+│       ├── index.js               app entry
+│       ├── routes/api.js          GET /scenarios, POST /chat, /explain, /hint, /feedback
+│       ├── engine/
+│       │   ├── openaiClient.js    thin OpenAI SDK wrapper
+│       │   ├── npcPromptBuilder.js  renders an NPC blueprint into a system prompt
+│       │   ├── sceneDirector.js   stall detection + template event selection (no LLM call)
+│       │   ├── prompts.js         explain/feedback/hint/narrator-subtext templates
+│       │   └── dialogueEngine.js  orchestrates the above; the seam for Phase 3 voice
+│       └── data/
+│           ├── scenarios.json + scenarioStore.js   scenario framing, events, picker
+│           └── npcs.json + npcStore.js             NPC blueprints (pre-built characters)
 └── client/            React SPA (Vite)
     └── src/
         ├── services/api.js    the only module that calls fetch()
-        └── components/        picker, chat screen, message bubbles, Narrator
-                                (intro + inline notes), feedback panel
+        └── components/        picker (with difficulty selection), chat screen,
+                                message bubbles, Narrator (intro + inline notes),
+                                feedback panel
 ```
 
 Note: the project folder itself is still named `includai-scenario-practice/`
@@ -153,6 +161,23 @@ No database, so this is deploy-anywhere-with-a-Node-runtime. A likely split:
 
 Then set `VITE_API_BASE_URL` on the client build to the deployed server URL.
 
+## Core principle: pre-built social simulation
+
+> **NPCs create the interaction. The Narrator creates understanding.**
+
+As of this version, the AI does not improvise a new character or plot each
+time it runs. It performs **pre-built** NPCs (structured blueprints, not
+freeform prompts) inside **pre-built** scenes, and can only draw on a small,
+data-defined library of **template events** for anything beyond direct
+dialogue. The Narrator (see below) decides *when* something happens; the
+data decides *what* can happen. The model is never handed an open-ended "be
+creative" prompt for any of this — it receives the relevant NPC blueprint,
+the current scene state, and (at most) one template event, assembled into a
+compact prompt. This is deliberate: it keeps characters consistent across a
+whole session, keeps prompts short (lower token cost per turn), and
+prevents the AI from drifting off-personality or inventing plot points that
+have nothing to do with the scenario.
+
 ## Scenario content
 
 All 4 scenarios live in one place: `server/src/data/scenarios.json`:
@@ -162,72 +187,170 @@ All 4 scenarios live in one place: `server/src/data/scenarios.json`:
 2. **The Unexpected Conversation** — a cashier makes small talk after
    checkout; practice noticing that short, low-effort replies are enough.
 3. **Too Much Happening at Once** — a loud, busy hair salon; practice
-   naming a sensory need before it becomes overload.
+   naming a sensory need before it becomes overload. This is the one
+   scenario with a secondary NPC (see below).
 4. **Asking for a Change** — a teacher notices you're distracted in an
    uncomfortably bright classroom; practice self-advocacy for a reasonable
    adjustment.
 
-Each scenario has a `systemPrompt` describing how the AI should play that
-character, and a `responseOptions` array of a few example replies (not
-exhaustive — free text always works too). `systemPrompt` and each option's
-internal `note` (which one is "recommended" and why) are intentionally never
-sent to the browser (see `server/src/data/scenarioStore.js`) — showing the
-"answer" up front would defeat the point of practicing. Feel free to revise
-scenario content throughout the week without touching any app code.
+Each scenario references its NPC by `npcId` (and, for the salon scenario, a
+`secondaryNpcId`) rather than embedding a prompt — the actual character
+definition lives in `npcs.json` (see below). A `responseOptions` array still
+offers a few example replies per scenario (not exhaustive — free text always
+works too); each option's internal `note` (which one is "recommended" and
+why) is never sent to the browser, same reasoning as before — showing the
+"answer" up front would defeat the point of practicing. A `preview` field
+gives a 1-2 sentence hook shown on the picker card. `narratorOpening` and
+`narratorAtmosphere` belong to the Narrator's opening framing (see below).
+`templateEvents` is the scenario's small library of pre-built story beats —
+see "Template events" below.
 
-A `preview` field also gives a 1-2 sentence hook shown on the picker card,
-so you know what you're walking into before clicking. The rest of the
-scenario's framing — `narratorOpening` and `narratorAtmosphere` — belongs to
-the Narrator; see below.
+## NPC blueprints
+
+`server/src/data/npcs.json` holds one blueprint per character — the AI's
+manager, cashier, stylist, teacher, and one secondary character (Jamie, the
+customer in the next salon chair). Each blueprint is structured data, not
+prose:
+
+- **Basic info** — name, age, occupation, and the scenario it belongs to.
+- **Personality traits** — a short list (e.g. "busy," "well-intentioned,"
+  "a little rushed").
+- **Communication style** — formality, whether they use humor, how often
+  they ask follow-ups, plus a free-text note.
+- **Background** — a few concrete facts (how long at the job, what they're
+  known for).
+- **Social behavior rules** — generic reactions to three situations: the
+  user gives short answers, the user seems engaged, the user goes quiet.
+- **Scenario-specific reactions** — a list of `{trigger, reaction}` pairs
+  for the particular decision points that scenario is built around (e.g.
+  Priya's manager reacts very differently to a clarifying question vs. a
+  self-blaming apology vs. being blamed outright).
+- **Goals** — what the character wants out of the interaction.
+
+`server/src/engine/npcPromptBuilder.js` renders a blueprint into the actual
+system prompt sent to the model — bulleted, not paragraph prose, which is
+part of what keeps the per-turn prompt (and cost) small. The model is
+explicitly told to perform this character consistently and never invent new
+personality traits or background facts beyond what's given. NPC blueprints
+never reach the client — same privacy reasoning as the old `systemPrompt`
+field they replace.
+
+## Difficulty levels
+
+Every scenario can be started at **beginner**, **intermediate**, or
+**advanced** — chosen via three buttons on the scenario card, no separate
+step. The three tiers (`getAllDifficultyGoals()` in `npcPromptBuilder.js`,
+returned once from `GET /api/scenarios` rather than duplicated per
+scenario) shape both the Narrator's opening framing and what happens
+mid-conversation:
+
+- **Beginner** — respond naturally, practice short exchanges, notice common
+  social cues. Template events never fire beyond stall recovery, so the
+  scene stays simple.
+- **Intermediate** — build a little connection: share something, ask a
+  follow-up, sustain the conversation a bit longer. Unlocks "random"
+  flavor events (a phone buzzing, a line forming) at a small per-turn
+  chance.
+- **Advanced** — stay flexible: topics can shift unexpectedly, an awkward
+  moment can happen, someone else can join in. Unlocks everything
+  intermediate does, plus events that require a secondary NPC.
+
+The chosen difficulty is sent with every `/api/chat` call, not just used for
+the opening framing — it also gates which template events are eligible each
+turn (see "Template events" below).
+
+## Multiple NPCs per scenario
+
+The hair salon scenario ("Too Much Happening at Once") is the one scenario
+extended to prove this pattern: it has a `secondaryNpcId` (Jamie, another
+customer in the next chair) alongside its primary NPC (Marcus). Jamie has a
+full blueprint like any other NPC, but — deliberately, to keep this simple —
+Jamie doesn't get their own live model call. Their interjections are
+pre-written template events (`eventType: "secondaryNpcLine"`) that can only
+fire at advanced difficulty, narrated the same way an atmosphere beat is
+(see below), giving the primary NPC something real to react to without a
+second character needing to be independently generated. The blueprint is
+still there and still used for schema completeness / a future upgrade path
+— a live secondary voice is a natural next step, not built this pass.
 
 ## The Narrator
 
-The Narrator is a separate voice from the in-scene character (the manager,
-cashier, stylist, or teacher) — visually and textually distinct in the UI,
-the way a narration box is distinct from a dialogue box in a visual novel.
-It has three jobs:
+The Narrator is a separate voice from the in-scene character — visually and
+textually distinct in the UI, the way a narration box is distinct from a
+dialogue box in a visual novel. It's not a character in the scene; it's a
+behind-the-scenes layer with four jobs:
 
 1. **Opening.** Before the character's first line, the Narrator frames the
    situation like a goal to work toward, not just a location description —
    the immediate situation, a brief general nod to why this is worth
-   practicing (never a diagnosis or label), and what you're trying to
-   practice. This is `scenario.narratorOpening`.
+   practicing (never a diagnosis or label), and the current difficulty's
+   practice goal. This is `scenario.narratorOpening` plus the resolved
+   difficulty goal.
 2. **Atmosphere.** Alongside the opening, the Narrator describes the
    sensory/social environment where it's relevant — noise, crowding,
    multiple things happening at once — as scene-setting prose, not
-   dialogue. This is `scenario.narratorAtmosphere`. Both fields are shown
-   together, once, via the `NarratorIntro` component, before the AI
-   character's opening line ever appears.
+   dialogue. This is `scenario.narratorAtmosphere`. Both are shown
+   together, once, via `NarratorIntro`, before the AI character's opening
+   line appears.
 3. **Subtext.** After a roleplay exchange, the Narrator can *proactively*
    step in — without being asked — to explain the hidden social context
-   behind what the character just said, without judgment (e.g. "The barber
-   is asking for more detail because 'shorter' means different things to
-   different people — they're trying to understand your preference, not
-   challenging you."). This is deliberately occasional, not constant
-   commentary: a lightweight model call after every `/api/chat` turn
-   (`generateNarratorSubtext` in `server/src/engine/dialogueEngine.js`)
-   decides whether anything is actually worth surfacing for that exchange,
-   and says nothing (literally responds `NONE`, which the client never
-   sees) most of the time. When it does have something to say, it's
-   rendered as a `NarratorNote` interspersed right after the exchange it's
-   commenting on.
+   behind what the character just said, without judgment. Deliberately
+   occasional: a lightweight model call after every `/api/chat` turn
+   (`generateNarratorSubtext`) decides whether anything is worth surfacing,
+   and says nothing (`NONE`, never shown) most of the time.
+4. **Intervention (scene progression).** When the conversation stalls —
+   the NPC's last line and the user's new reply are both minimal, with
+   nowhere obvious to go — the Narrator inserts a brief, pre-built
+   atmospheric beat (e.g. "The shop gets quieter for a moment...") that
+   gives the NPC a natural reason to introduce something new, rather than
+   awkwardly re-asking a question. This is `server/src/engine/
+   sceneDirector.js`'s `detectStall` (a plain word-count/filler-word
+   heuristic — deliberately **not** an LLM call, so it costs nothing and
+   never invents a beat) plus `selectTemplateEvent`, which picks from the
+   scenario's `templateEvents` library. See "Template events" below.
 
 The same voice also powers "Explain that" (job 3, but on request instead of
 proactive) — both use the same non-judgmental, exploratory framing, and
 share the same visual styling (`.narrator-box` — a distinct serif italic
 typeface, set apart from the sans-serif character dialogue).
 
-**The opening framing is also a persistent anchor**, the same mechanism the
-old scene-setting paragraph used: `narratorOpening` and `narratorAtmosphere`
-are prepended to the system prompt on every single `/api/chat` call, not
-just the first. Since the API is stateless and resends the full system
-prompt every turn, this means the in-character AI is re-grounded in who
-it's playing and the situation on every reply, however long or unscripted
-the conversation runs — without ever constraining how the user's side of
-the conversation can go. The explicit design goal throughout: this is not
-teaching a rigid social script or coaching the user to mask — it's meant to
-support exploring different communication strategies and building
-confidence, never pushing toward one "correct" way to act.
+**The opening framing is also a persistent anchor**: `narratorOpening`,
+`narratorAtmosphere`, and the current difficulty goal are prepended to the
+system prompt on every single `/api/chat` call, not just the first. Since
+the API is stateless and resends the full system prompt every turn, the
+in-character AI is re-grounded in who it's playing and the situation on
+every reply, however long or unscripted the conversation runs — without
+ever constraining how the user's side can go. Explicit design goal, folded
+into the prompts themselves: this is not teaching a rigid social script or
+coaching the user to mask — it's meant to support exploring different
+communication strategies and building confidence, never pushing toward one
+"correct" way to act.
+
+## Template events
+
+Each scenario's `templateEvents` array is its library of possible story
+beats — data, not freely generated plot points. Every event has:
+
+- `id` — stable identifier, used to avoid repeating the same beat (the
+  client tracks which event ids have already fired this session and sends
+  them back as `firedEventIds`, so the Narrator picks something else while
+  other options remain).
+- `trigger` — `"stall"` (only offered when `detectStall` fires) or
+  `"random"` (a small per-turn chance above beginner difficulty).
+- `eventType` — `"atmosphere"` (pure narration, e.g. "the shop gets
+  busier") or `"secondaryNpcLine"` (a pre-written line from a secondary
+  NPC, gated to advanced difficulty).
+- `text` — the exact template content; the model never generates this, it
+  only reacts to it.
+- `difficulty` — which levels this event is eligible at.
+- `requiresSecondaryNpc` (optional) — only selectable when the scenario has
+  one and difficulty is advanced.
+
+When an event fires, it's folded into the NPC's system prompt for that turn
+(`buildEventInjection` in `npcPromptBuilder.js`) so the reply can react to
+or use it as a segue, and it's also sent to the client as `event` in the
+`/api/chat` response, rendered as a `NarratorNote` right before the NPC's
+reply it set up.
 
 ## Project status
 

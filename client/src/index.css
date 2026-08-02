@@ -104,12 +104,6 @@ input {
   padding: 0;
   overflow: hidden;
   width: 100%;
-  min-height: 44px;
-  transition: transform 0.1s ease;
-}
-
-.scenario-card:active {
-  transform: scale(0.98);
 }
 
 .scenario-card__image {
@@ -134,13 +128,36 @@ input {
 }
 
 .scenario-card__teaching-point {
-  margin: 0;
+  margin: 0 0 var(--space-3);
   font-size: 0.85rem;
   color: var(--color-primary);
   background: #efedf5;
   display: inline-block;
   padding: var(--space-1) var(--space-2);
   border-radius: 999px;
+}
+
+.scenario-card__difficulty {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.scenario-card__difficulty-button {
+  flex: 1;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-primary);
+  border-radius: 999px;
+  padding: var(--space-2) var(--space-1);
+  min-height: 40px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.scenario-card__difficulty-button:active {
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
 }
 
 /* ---------- Chat Screen ---------- */
@@ -170,6 +187,7 @@ input {
 
 .chat-header__row--secondary {
   padding-top: 0;
+  justify-content: space-between;
 }
 
 .chat-header__exit {
@@ -219,6 +237,16 @@ input {
   min-height: 36px;
   font-weight: 600;
   font-size: 0.8rem;
+}
+
+.chat-header__difficulty {
+  color: var(--color-primary-contrast);
+  opacity: 0.75;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
 }
 
 .hint-bar {

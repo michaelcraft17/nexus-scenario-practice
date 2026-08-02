@@ -4,7 +4,7 @@
     "title": "The Missing Details",
     "preview": "You're a few weeks into a new job. Your manager hands you a task without much detail -- how do you handle it when the result isn't what they expected?",
     "setting": "Your first week as a new employee, your manager stops by with a task",
-    "aiRole": "Priya, your manager",
+    "npcId": "priya",
     "opener": "Hey, can you prepare that report and make sure it's ready soon? Thanks!",
     "narratorOpening": "You are starting a task for your manager, a few weeks into a new job. In previous experiences, unclear instructions have led to misunderstandings and frustration on both sides. Your goal is to practice asking for what you need to get it right, instead of guessing or carrying all the blame yourself.",
     "narratorAtmosphere": "The office is quiet for now -- keyboards clicking, someone's phone buzzing a few desks away. You're still new enough that you don't yet know the unwritten rules, and Priya is already half-turned to leave.",
@@ -27,14 +27,36 @@
         "note": "Asks a clarifying question -- recommended approach."
       }
     ],
-    "systemPrompt": "You are Priya, the user's manager. You are busy and gave a vague task ('prepare the report, make sure it's ready soon') without specifying what the report should include or when exactly it's due -- you were rushing and didn't realize how unclear that was.\n\nReact based on what the user actually says next:\n- If they ask a specific, direct clarifying question (e.g. what should be included, what format, what the actual deadline is), respond helpfully and concretely -- give a real answer (e.g. 'Oh, good question -- I need it to cover last month's numbers and a short summary, and I'd like it by Thursday afternoon'). Sound a little relieved and appreciative that they asked, not annoyed.\n- If they respond with something vague, an unquestioning 'okay, I'll get it done,' or just start describing work without asking anything, let the conversation continue for one more exchange and then have the report come back not matching what you actually wanted. At that point say something like 'Hmm, this isn't really what I was expecting' -- mildly frustrated but not harsh or cruel -- and if they then ask a clarifying question at that point, respond helpfully just the same; it's never too late to ask.\n- If they respond by blaming you for being unclear (e.g. 'you weren't clear' with no question attached), get a little defensive and short in return, the way a busy manager might.\n- If they respond by fully blaming and apologizing to themselves (e.g. 'sorry, I should have understood') without asking what you actually wanted, accept the apology briefly but do NOT clarify anything -- just say something like 'no worries, just try to get it closer next time' and move on, since nothing was actually asked. This should feel like a slightly unsatisfying non-resolution, illustrating that an apology alone doesn't fix a knowledge gap.\n\nStay professional, a little rushed, and realistic throughout -- not mean, not a caricature, just a genuinely busy manager who under-communicated."
+    "templateEvents": [
+      {
+        "id": "phone-buzzes",
+        "trigger": "random",
+        "eventType": "atmosphere",
+        "text": "Priya's phone buzzes on the desk. She glances at it before turning back to you.",
+        "difficulty": ["intermediate", "advanced"]
+      },
+      {
+        "id": "coworker-wave",
+        "trigger": "random",
+        "eventType": "atmosphere",
+        "text": "A coworker passes by and gives Priya a quick wave, pulling her attention for a second.",
+        "difficulty": ["advanced"]
+      },
+      {
+        "id": "stall-recovery",
+        "trigger": "stall",
+        "eventType": "atmosphere",
+        "text": "The office hums on around you both for a beat before Priya glances back at her notes.",
+        "difficulty": ["beginner", "intermediate", "advanced"]
+      }
+    ]
   },
   {
     "id": "unexpected-conversation",
     "title": "The Unexpected Conversation",
     "preview": "You're checking out at a small shop when the cashier starts chatting about the weather and her cat. Do you need something clever to say back?",
     "setting": "Checkout counter at a small local shop, right after paying",
-    "aiRole": "Dana, the cashier",
+    "npcId": "dana",
     "opener": "Alright, you're all set! Gosh, this weather's been something lately, hasn't it?",
     "narratorOpening": "You are finishing up a purchase at a small shop. In previous experiences, casual small talk has felt confusing, like it's asking for more than you know how to give. Your goal is to practice responding in a way that's comfortable for you -- short is allowed.",
     "narratorAtmosphere": "The shop is calm, just a short line forming behind you. Dana finishes ringing up your total and looks up, in no hurry to end the conversation.",
@@ -57,14 +79,30 @@
         "note": "Simple, short, reciprocal -- recommended, low effort is enough."
       }
     ],
-    "systemPrompt": "You are Dana, a friendly cashier at a small local shop. The transaction is basically done -- you're just making easy, low-stakes small talk while the user is still standing there (the weather, the upcoming holidays, your cat). None of it requires a deep or thoughtful answer; you're just filling a friendly moment, the way people do while a receipt prints.\n\nReact naturally to whatever the user says:\n- If they give a short, simple, reciprocal reply (e.g. 'yeah, it's been nice out' or 'hope you have a good one too'), that's plenty -- respond warmly, keep the small talk light and brief, then wrap up naturally ('Alright, have a good one!').\n- If they stay very quiet or just say something like 'yeah' or 'mmm', don't push or make it awkward -- stay warm and just naturally wind the conversation down yourself.\n- If they give a long, detailed explanation (e.g. about why small talk is hard for them), respond kindly but a little unsure how to respond to that in a checkout-line moment -- something like 'oh, totally... well, anyway, have a good one!' -- not unkind, just a realistic mismatch in register, no big deal.\n- Never require a witty or 'correct' response to keep the conversation going -- you're happy with anything friendly, however brief.\n\nKeep every line short (1-2 sentences) and casual -- this is quick small talk, not a real conversation."
+    "templateEvents": [
+      {
+        "id": "line-forms",
+        "trigger": "random",
+        "eventType": "atmosphere",
+        "text": "A small line is starting to form behind you, though Dana doesn't seem to notice or mind.",
+        "difficulty": ["intermediate", "advanced"]
+      },
+      {
+        "id": "stall-recovery",
+        "trigger": "stall",
+        "eventType": "atmosphere",
+        "text": "The register beeps quietly as Dana straightens a stack of receipts, unhurried.",
+        "difficulty": ["beginner", "intermediate", "advanced"]
+      }
+    ]
   },
   {
     "id": "too-much-happening",
     "title": "Too Much Happening at Once",
     "preview": "It's your first haircut in ages, and the salon is loud and busy. How do you handle it when the noise starts to feel like too much?",
     "setting": "A hair salon, first haircut in a long time -- hairdryers running and other conversations happening nearby",
-    "aiRole": "Marcus, your hairstylist",
+    "npcId": "marcus",
+    "secondaryNpcId": "jamie",
     "opener": "So, are we thinking just a trim today, or switching things up a bit?",
     "narratorOpening": "You are visiting a new stylist today. In previous experiences, staying in a loud, crowded space for a while has been hard to manage without feeling overwhelmed. Your goal is to practice noticing what you need and speaking up before it becomes too much.",
     "narratorAtmosphere": "The salon is crowded. People are talking, a hair dryer is running nearby, other customers are waiting, and Marcus turns toward you, scissors in hand, ready to start.",
@@ -87,14 +125,52 @@
         "note": "Names the need directly -- recommended, gives the stylist a chance to adjust."
       }
     ],
-    "systemPrompt": "You are Marcus, a friendly, talkative hairstylist mid-haircut. The salon is loud and busy right now -- a couple of hairdryers are running nearby and another stylist is chatting loudly with their client a few feet away. You keep up a steady stream of easy small talk while you work (plans for the week, the haircut itself, whatever), the way a chatty stylist naturally would, unless the user asks you not to.\n\nReact based on what the user says:\n- If the user clearly and specifically tells you they're feeling overwhelmed by the noise or conversation and asks for something concrete (e.g. a quieter appointment, fewer questions, a moment of quiet), respond warmly and actually accommodate it right away -- dial back the chatter, lower your voice, or offer a practical adjustment (e.g. 'Of course, no problem at all -- I'll keep it quiet, just let me know if you need anything'). Make it clear this is a completely normal, easy request, not a big deal.\n- If the user doesn't say anything about being overwhelmed and just keeps responding normally, continue the busy, chatty, noisy atmosphere as normal background texture -- mention the noise/environment naturally once or twice (e.g. 'sorry, it's a full house today, huh?') without the user having to bring it up first, but don't resolve or reduce it yourself unless asked.\n- If the user says something like they need to leave or can't do this right now, respond with mild concern and let them go gracefully -- no guilt-tripping, just 'oh, no worries, take care of yourself.'\n\nKeep your lines conversational and not overly long (this is a haircut, not a therapy session) -- 1-3 sentences each."
+    "templateEvents": [
+      {
+        "id": "shop-busy",
+        "trigger": "random",
+        "eventType": "atmosphere",
+        "text": "The shop gets even busier -- another hairdryer clicks on nearby.",
+        "difficulty": ["intermediate", "advanced"]
+      },
+      {
+        "id": "npc-joke",
+        "trigger": "random",
+        "eventType": "atmosphere",
+        "text": "Marcus cracks a small joke about Mondays, half to you and half to the room.",
+        "difficulty": ["intermediate", "advanced"]
+      },
+      {
+        "id": "customer-interrupts",
+        "trigger": "random",
+        "eventType": "secondaryNpcLine",
+        "text": "Jamie, in the next chair, leans over with a grin: \"First cut in a while too? I feel that.\"",
+        "difficulty": ["advanced"],
+        "requiresSecondaryNpc": true
+      },
+      {
+        "id": "secondary-npc-joins",
+        "trigger": "random",
+        "eventType": "secondaryNpcLine",
+        "text": "Jamie chimes in on your conversation with Marcus: \"Honestly, I always just tell them 'surprise me' and hope for the best.\"",
+        "difficulty": ["advanced"],
+        "requiresSecondaryNpc": true
+      },
+      {
+        "id": "awkward-silence",
+        "trigger": "stall",
+        "eventType": "atmosphere",
+        "text": "The shop gets quieter for a moment, just the hum of the dryers filling the space.",
+        "difficulty": ["beginner", "intermediate", "advanced"]
+      }
+    ]
   },
   {
     "id": "asking-for-a-change",
     "title": "Asking for a Change",
     "preview": "You're trying to focus in class, but the lights are too bright. Is it okay to just... say something?",
     "setting": "Classroom, during quiet study/test prep time -- the overhead lights are uncomfortably bright",
-    "aiRole": "Ms. Alvarez, your teacher",
+    "npcId": "alvarez",
     "opener": "Hey, you okay? You seem a little distracted today.",
     "narratorOpening": "You are trying to focus during quiet study time, in a classroom that isn't working for you today. In previous experiences, asking for an adjustment has felt like it might be asking for too much. Your goal is to practice speaking up for what would actually help.",
     "narratorAtmosphere": "The room is quiet except for the hum and flicker of the overhead lights, too bright today. Papers shuffle around you as everyone works through the study packet, and Ms. Alvarez glances over.",
@@ -117,6 +193,21 @@
         "note": "Names the barrier and a specific request -- recommended, gives the teacher something to act on."
       }
     ],
-    "systemPrompt": "You are Ms. Alvarez, a warm, attentive teacher. You noticed the user seems distracted during quiet study time and checked in. You don't know why yet -- you're waiting to hear from them.\n\nReact based on what they tell you:\n- If they say something vague like 'I'm fine' or brush it off, accept that gently and let it drop -- say something like 'Okay, just checking -- let me know if you need anything' and move on. The underlying problem (the lights) stays unaddressed, which is fine and realistic; don't force it.\n- If they name the frustration but not a specific need (e.g. 'the lights are annoying'), respond with sympathy and open a door without fully solving it yourself -- something like 'Oh, sorry about that -- is there anything that would help?' -- giving them a chance to say more, but don't assume or offer a fix unprompted.\n- If they clearly explain the barrier and ask for a specific, reasonable adjustment (e.g. dimming some lights, or sitting somewhere with less direct light), respond warmly and actually accommodate it -- say something like 'Of course, thanks for telling me -- let's turn a few of these off' or 'sure, go ahead and move over there' and follow through. Make clear this is an easy, completely reasonable thing to ask for, never a bother.\n\nStay warm and unhurried throughout -- you genuinely want the user to be okay, you just need them to tell you what's actually going on. 1-3 sentences per reply."
+    "templateEvents": [
+      {
+        "id": "papers-shuffle",
+        "trigger": "random",
+        "eventType": "atmosphere",
+        "text": "A few classmates shift in their seats, papers rustling as everyone works.",
+        "difficulty": ["intermediate", "advanced"]
+      },
+      {
+        "id": "stall-recovery",
+        "trigger": "stall",
+        "eventType": "atmosphere",
+        "text": "Ms. Alvarez glances back at her own papers for a moment, giving the room a beat of quiet.",
+        "difficulty": ["beginner", "intermediate", "advanced"]
+      }
+    ]
   }
 ]

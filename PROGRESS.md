@@ -1,14 +1,135 @@
 # Progress
 
 Living doc — update this across sessions this week rather than relying on
-memory of what's been done. Last updated: 2026-08-02 (renamed the app to
-Nexus; added the Narrator as a distinct architectural layer, replacing the
-earlier scene-setting paragraph -- see below). Earlier the same day: scene-
-setting framing to reduce AI drift, then before that, new scenario content +
-Hint feature. Originally built 2026-08-01, then switched from Claude to
-OpenAI the same day.
+memory of what's been done. Last updated: 2026-08-02 -- **major architecture
+shift (v5), not a small tweak**: Nexus moved from live-generated NPC dialogue
+to a pre-built "social simulation" model (NPC blueprints, template events, a
+Narrator that acts as social director, difficulty levels, multi-NPC
+support). Full writeup below and in the README's new "Core principle:
+pre-built social simulation" section. Earlier the same day, in order: the
+app was renamed IncludAI -> Nexus and the Narrator was introduced as a
+distinct layer (v4); before that, scene-setting framing to reduce AI drift
+(v3); before that, new scenario content + the Hint feature (v2). Originally
+built 2026-08-01 on Claude, switched to OpenAI the same day.
 
-## What's built (Phase 1 — text prototype)
+## v5 — Pre-built social simulation architecture (this session, major)
+
+**Core principle, now the organizing idea of the whole backend:** *NPCs
+create the interaction. The Narrator creates understanding.* The AI no
+longer receives an open-ended "be creative, you are this character" prompt.
+It receives a pre-built NPC blueprint, the current scene state, and at most
+one pre-built template event, assembled into a compact prompt -- never asked
+to invent a personality, a background fact, or a plot beat on its own. This
+directly targets three things: character consistency across a whole
+session, lower token cost per turn (bulleted blueprint data vs. hand-written
+prose), and drift prevention (the model has nowhere to improvise *from*).
+
+- [x] **NPC blueprints** (`server/src/data/npcs.json` + `npcStore.js`) --
+      structured data replacing the old freeform `systemPrompt` per
+      scenario. Five blueprints: Priya (manager), Dana (cashier), Marcus
+      (hairstylist), Jamie (secondary -- see below), Ms. Alvarez (teacher).
+      Each has: basic info (name/age/occupation/relational role),
+      personality traits, communication style, background facts, generic
+      social behavior rules (reactions to short answers / engagement /
+      going quiet), a list of scenario-specific `{trigger, reaction}` pairs
+      (this is where the old detailed branching logic -- e.g. Priya's
+      manager reacting differently to a clarifying question vs. a
+      self-blaming apology vs. being blamed outright -- now lives, as
+      structured data instead of a paragraph), and goals. Never sent to the
+      client, same reasoning as the old `systemPrompt`.
+- [x] **`npcPromptBuilder.js`** -- renders a blueprint into the actual
+      system prompt (`renderNpcBlueprint`), builds the scene anchor
+      (`buildSceneAnchor`, now folding in the difficulty goal), builds the
+      continuity addendum (explicitly: "do not invent new personality
+      traits, background facts, or plot developments beyond what's given"),
+      and folds a selected template event into the prompt
+      (`buildEventInjection`). Also owns the shared `DIFFICULTY_GOALS` data
+      (see below) so it's defined once, not duplicated per scenario.
+- [x] **`sceneDirector.js`** -- the Narrator acting as social director,
+      deliberately implemented as a **plain heuristic, not an LLM call**:
+      - `detectStall(messages)`: true when both the NPC's last line and the
+        user's new reply are low-content (≤2 words, or a short filler-word
+        match like "yeah"/"ok"/"nice"). Free, deterministic, no added
+        latency or token cost on every turn just to check this.
+      - `selectTemplateEvent(...)`: picks a template event for this turn.
+        On a stall, always tries a `"stall"`-trigger event (the graceful
+        way out of dead air the spec asked for). Otherwise, above beginner
+        difficulty, a 20% per-turn chance of a `"random"` flavor event.
+        `requiresSecondaryNpc` events additionally need both an active
+        secondary NPC and advanced difficulty. Avoids repeating an event
+        while others in its pool haven't fired yet (tracked via
+        client-sent `firedEventIds` -- see below), falling back to allowing
+        repeats only once a pool is exhausted.
+- [x] **`generateReply` rewritten as an orchestrator**
+      (`dialogueEngine.js`): now `(scenario, npc, messages, {difficulty,
+      firedEventIds, hasSecondaryNpc}) -> {text, event}`. Runs stall
+      detection + event selection first (both free), assembles the system
+      prompt from scene anchor + rendered blueprint + event injection +
+      continuity addendum, then makes exactly one model call. Still just
+      one model call for the reply itself -- the architecture shift changed
+      *what* goes into that call, not how many calls it takes.
+- [x] **Template events** -- each scenario's `templateEvents` array in
+      `scenarios.json` (3-5 events each) is its library of possible beats:
+      `id`, `trigger` (`"stall"` | `"random"`), `eventType`
+      (`"atmosphere"` | `"secondaryNpcLine"`), fixed `text` (the model never
+      generates this), `difficulty` eligibility, optional
+      `requiresSecondaryNpc`. When one fires, its `id`/`type`/`text` come
+      back from `/api/chat` as `event`, rendered client-side as a
+      `NarratorNote` right before the NPC reply it set up (narrated, not
+      spoken by the NPC) -- and the client appends its id to
+      `firedEventIds`, sent on every subsequent `/api/chat` call so the
+      Narrator doesn't repeat itself while other options remain.
+- [x] **Narrator's fourth job: intervention.** The README's Narrator
+      section now lists four jobs, not three -- opening, atmosphere,
+      subtext (existing), and this session's addition: stepping in with an
+      atmospheric beat specifically when the conversation stalls, so the
+      NPC gets a natural segue instead of awkwardly re-asking a question.
+- [x] **Difficulty levels** -- beginner / intermediate / advanced, chosen
+      via three buttons directly on each scenario card (`ScenarioCard.jsx`
+      restructured from a single whole-card button to a card + 3 explicit
+      difficulty buttons). `DIFFICULTY_GOALS` (three short descriptions,
+      matching the spec's per-tier social goals almost verbatim) lives once
+      in `npcPromptBuilder.js` and is returned from `GET /api/scenarios` as
+      a top-level `difficultyGoals` object (response shape changed from a
+      bare array to `{scenarios, difficultyGoals}` -- see below) rather
+      than being duplicated as client-side UI copy. The chosen difficulty
+      is sent with every `/api/chat` call and shapes both the Narrator's
+      opening framing (an extra sentence in `NarratorIntro`) and which
+      template events are eligible that turn. Shown as a small badge in
+      the chat header for orientation (not explicitly requested, low-cost
+      addition).
+- [x] **Multiple NPCs, proven on one scenario** -- "Too Much Happening at
+      Once" (the salon) gets a `secondaryNpcId` (Jamie). Per the spec's
+      "don't overbuild this," Jamie's interjections are **pre-written
+      template events** (`eventType: "secondaryNpcLine"`), not a second
+      live model call -- narrated the same way an atmosphere beat is,
+      gated to advanced difficulty. Jamie still has a full blueprint in
+      `npcs.json` for schema completeness and as a natural upgrade path
+      (a future pass could make Jamie's lines live-generated from that
+      blueprint without touching the event-selection architecture), but
+      that upgrade wasn't built this pass -- see Open decisions.
+- [x] **API surface changes**: `GET /api/scenarios` now returns
+      `{scenarios, difficultyGoals}` instead of a bare array (client
+      updated to match). `POST /api/chat` request gains `difficulty`
+      (defaults to `"beginner"` if missing/invalid -- not worth a 400 over)
+      and `firedEventIds`; response gains `event` (`{id, type, text}` or
+      `null`) alongside the existing `message`/`narratorNote`.
+      `explainMessage`/`generateFeedback`/`generateHint`/
+      `generateNarratorSubtext` in `dialogueEngine.js` now take an explicit
+      `aiRole` string parameter instead of reading `scenario.aiRole`
+      (which no longer exists as stored data -- `aiRole` is now derived
+      once per request in `routes/api.js` via
+      `formatAiRole(getNpcById(scenario.npcId))`, and the now-unused
+      `scenario` parameter was dropped from those four functions rather
+      than left dead).
+- [x] `scenarioStore.js` updated: `getAllPublic()` derives `aiRole` from
+      the linked NPC blueprint (single source of truth, no more storing it
+      redundantly on the scenario) and returns the new `{scenarios,
+      difficultyGoals}` shape; still excludes `npcId`/`secondaryNpcId`/
+      `templateEvents` from the client payload, same privacy reasoning as
+      the old `systemPrompt` exclusion.
+
+## What's built (through v4, still current)
 
 - [x] **Renamed IncludAI -> Nexus (v4)**: the app's own name/branding
       changed everywhere self-referential -- `index.html` title and Apple
@@ -20,8 +141,9 @@ OpenAI the same day.
       name (`includai-scenario-practice/`) also wasn't renamed, to avoid
       unrelated path churn -- just the product name/UI text changed.
 - [x] **The Narrator (v4)** -- a new architectural layer, distinct from the
-      in-scene AI character, with three jobs (see the README's "The
-      Narrator" section for the full writeup):
+      in-scene AI character. Originally three jobs (a fourth, intervention
+      on stalls, was added in v5 -- see above; see the README's "The
+      Narrator" section for the current full writeup):
       1. **Opening** -- `scenario.narratorOpening`, a goal/mission-style
          framing (situation + a general, non-diagnostic nod to why this is
          worth practicing + the practice goal), replacing the flatter old
@@ -58,9 +180,12 @@ OpenAI the same day.
       `server/src/data/scenarios.json` with content based on real first-person
       accounts from the autistic community -- The Missing Details, The
       Unexpected Conversation, Too Much Happening at Once, Asking for a
-      Change. Each has a roleplay `systemPrompt` with explicit branches for
-      how the AI character should react to different response styles (e.g.
-      self-blaming vs. blaming vs. asking a clarifying question), plus a
+      Change. Originally had a roleplay `systemPrompt` with explicit
+      branches for how the AI character should react to different response
+      styles (e.g. self-blaming vs. blaming vs. asking a clarifying
+      question); as of v5 those branches live as structured
+      `scenarioReactions` on the linked NPC blueprint instead (see v5
+      above) -- same content, restructured as data. Also has a
       `responseOptions` array of a few example replies (not exhaustive).
 - [x] Non-conformity framing: the app never coaches the user to "act normal"
       or evaluates responses on social conformity -- only on whether a need
@@ -168,12 +293,16 @@ OpenAI the same day.
   https://platform.openai.com/docs/models and update `OPENAI_MODEL`.
 - **Voice architecture (Phase 3)**: now simpler than originally planned,
   since text chat is already on OpenAI too — the OpenAI Realtime API can
-  likely reuse `scenario.systemPrompt` and the same scenario data directly.
-  Still undecided whether `dialogueEngine` gains a streaming/session-oriented
+  likely reuse the NPC-blueprint-rendered system prompt (`npcPromptBuilder.js`)
+  directly, which if anything got easier to carry over since v5 (it's
+  structured data assembly now, not a hand-written paragraph). Still
+  undecided whether `dialogueEngine` gains a streaming/session-oriented
   variant to pair with the Realtime API's own streaming model, or whether
   voice stays request/response with STT feeding into the existing
-  `generateReply` and TTS wrapping its output. Worth revisiting once actually
-  building Phase 3.
+  `generateReply` and TTS wrapping its output; also undecided whether
+  stall detection / template events make sense at all in a live-voice
+  context (a "stall" reads very differently when the user might just be
+  thinking, not typing). Worth revisiting once actually building Phase 3.
 - **Feedback trigger**: currently a manual "Get feedback" button only
   (available any time there's at least one user reply). Explicitly not
   auto-triggered on "Exit scenario" per the original spec — exiting should
@@ -232,6 +361,45 @@ OpenAI the same day.
   tonally more appropriate for an accessibility tool, and still satisfies
   the structural ask (situation, why-it-matters, goal). Easy to push more
   literally gamified if that's actually what was wanted.
+- **Secondary NPC lines are template text, not live-generated
+  (interpretation call, v5)**: the spec's "don't overbuild this" pointed
+  toward the simplest thing that proves the pattern. Jamie's interjections
+  in the salon scenario are pre-written `secondaryNpcLine` events, narrated
+  rather than spoken as a distinct character bubble -- no second model
+  call, no speaker-attribution plumbing through explain/hint/feedback. The
+  blueprint schema fully supports a live secondary voice (Jamie has a
+  complete blueprint, `npcPromptBuilder.renderNpcBlueprint` works on any
+  NPC, not just primaries) -- upgrading to a real second LLM character
+  later is a matter of wiring, not a schema change.
+- **Stall-detection heuristic is unvalidated**: `detectStall`'s "≤2 words
+  or a filler word" rule is a reasonable-sounding guess, not something
+  tuned against real conversation transcripts. It may fire too eagerly
+  (interrupting a user who's just being naturally terse) or not eagerly
+  enough (missing a real stall phrased in more words). Worth watching in
+  play-testing and adjusting the word-count/filler-list thresholds in
+  `sceneDirector.js` directly -- no architecture change needed, just
+  number-tuning.
+- **20% random-event chance is a guess**: `RANDOM_EVENT_CHANCE` in
+  `sceneDirector.js` was picked to feel occasional without being constant,
+  not derived from anything. If intermediate/advanced scenarios feel too
+  busy or too quiet in testing, this is the one constant to adjust.
+- **`firedEventIds` tracking lives client-side only**: consistent with the
+  rest of the app's stateless-backend design (the client is already the
+  source of truth for conversation history), but it does mean a page
+  refresh mid-conversation forgets which events already fired, and a
+  conversation could theoretically see the same "random" event twice
+  across a refresh. Same tradeoff class as losing the whole conversation
+  on refresh already accepted elsewhere in the app -- not a new risk, just
+  flagging it applies here too.
+- **Narrator/social-director cost stacks (extends the existing "Narrator
+  subtext cost/latency" item above)**: a turn can now involve up to two
+  free heuristic checks (stall detection, event selection) plus the same
+  two model calls as before (reply, then subtext) -- the heuristics don't
+  add API cost, but it's worth being clear that v5 didn't reduce the
+  per-turn call count, it changed what goes *into* the first call's
+  prompt. Token cost per call should be lower on average now (bulleted
+  blueprint vs. paragraph systemPrompt), but that hasn't been measured,
+  only assumed from the design.
 
 ## Resuming a session
 

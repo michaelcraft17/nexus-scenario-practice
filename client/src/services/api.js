@@ -23,7 +23,11 @@ async function request(path, options) {
   return data;
 }
 
-/** GET the list of scenarios (public fields only -- no system prompts). */
+/**
+ * GET the list of scenarios (public fields only -- no NPC blueprints or
+ * template events) plus the shared difficulty-level descriptions.
+ * @returns {Promise<{scenarios: object[], difficultyGoals: {beginner: string, intermediate: string, advanced: string}}>}
+ */
 export function fetchScenarios() {
   return request("/scenarios");
 }
@@ -34,12 +38,17 @@ export function fetchScenarios() {
  * @param {{role: "user"|"assistant", content: string}[]} messages - History
  *   so far (excluding the scenario's static opener), ending with the user's
  *   newest message.
- * @returns {Promise<{message: string}>}
+ * @param {object} [options]
+ * @param {"beginner"|"intermediate"|"advanced"} [options.difficulty]
+ * @param {string[]} [options.firedEventIds] - Template event ids already
+ *   used this session, so the Narrator doesn't repeat a beat while others
+ *   are still available.
+ * @returns {Promise<{message: string, event: {id: string, type: string, text: string}|null, narratorNote: string|null}>}
  */
-export function sendChatMessage(scenarioId, messages) {
+export function sendChatMessage(scenarioId, messages, { difficulty, firedEventIds } = {}) {
   return request("/chat", {
     method: "POST",
-    body: JSON.stringify({ scenarioId, messages }),
+    body: JSON.stringify({ scenarioId, messages, difficulty, firedEventIds }),
   });
 }
 
