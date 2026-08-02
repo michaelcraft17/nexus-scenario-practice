@@ -4,10 +4,11 @@ import { getById as getNpcById, formatAiRole } from "../data/npcStore.js";
 import {
   generateReply,
   explainMessage,
-  generateFeedback,
+  generateReflection,
   generateHint,
   generateNarratorSubtext,
 } from "../engine/dialogueEngine.js";
+import { computeConversationBalance } from "../engine/conversationStats.js";
 
 const router = Router();
 
@@ -34,8 +35,8 @@ function resolveDifficulty(value) {
 }
 
 /** Every route needs the scenario's display label for the character it's
- * talking about (transcript labels, explain/feedback/hint framing) -- derive
- * it once here from the linked NPC blueprint. */
+ * talking about (transcript labels, explain/reflection/hint framing) --
+ * derive it once here from the linked NPC blueprint. */
 function getAiRoleForScenario(scenario) {
   return formatAiRole(getNpcById(scenario.npcId));
 }
@@ -131,7 +132,7 @@ router.post("/hint", async (req, res, next) => {
   }
 });
 
-router.post("/feedback", async (req, res, next) => {
+router.post("/reflection", async (req, res, next) => {
   try {
     const { scenarioId, messages } = req.body ?? {};
 
@@ -144,8 +145,15 @@ router.post("/feedback", async (req, res, next) => {
       return res.status(400).json({ error: "messages must be a non-empty array of {role, content}." });
     }
 
-    const feedback = await generateFeedback(getAiRoleForScenario(scenario), messages);
-    res.json({ feedback });
+    const npc = getNpcById(scenario.npcId);
+    const aiRole = formatAiRole(npc);
+    const reflection = await generateReflection(aiRole, messages);
+    // The balance label is just a participant name (e.g. "Marcus"), not
+    // the fuller "Marcus (hairstylist)" used in the transcript sent to the
+    // model -- the role annotation isn't needed for a simple percent split.
+    const balance = computeConversationBalance(messages, npc.name);
+
+    res.json({ ...reflection, balance });
   } catch (err) {
     next(err);
   }

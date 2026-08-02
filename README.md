@@ -15,8 +15,9 @@ framing, throughout: *you are playing as a neurodivergent person navigating
 everyday situations. Your goal is not to act "normal" — it's to understand
 your needs, communicate them, and find a solution that works for you and
 others.* Nothing in the app — the roleplay, the explanations, or the
-feedback — ever evaluates how "typical" a response sounds. Only whether a
-need got communicated and understood.
+Reflection — ever evaluates how "typical" a response sounds, or reduces the
+conversation to a score. Only whether a need got communicated and
+understood, and what was actually exchanged.
 
 A few features make this a *practice* tool rather than just a chatbot:
 
@@ -35,11 +36,14 @@ A few features make this a *practice* tool rather than just a chatbot:
   copy-paste, just enough to get unstuck. Each scenario also offers a few
   example response directions before your first reply, if you want a
   starting point; typing your own is always fine too.
-- **"Get feedback"** — at any point, you can ask for descriptive feedback on
-  how the conversation went (e.g. "asking what the deadline should be gave
-  the manager what they needed to actually help you"). Feedback is always
-  descriptive prose — **never** a numeric score, percentage, or "rate
-  yourself" mechanic, and never a comment on how "normal" a response sounded.
+- **Reflection** — after roughly 10 lines of your dialogue (or any time you
+  ask), a 7-section reflection opens: strengths you showed, what the other
+  character picked up about you, specific connection moments, a descriptive
+  (never evaluative) label for your conversational style, a couple of
+  growth possibilities, an overall closing note, and a simple
+  participation-balance split. **Never** a numeric score, grade, or
+  pass/fail judgment anywhere in it. See [below](#reflection) for the full
+  picture.
 
 There's also an always-visible **"Exit scenario"** button. Real conversations
 don't let you pause or leave — this deliberately does, on purpose, as an
@@ -67,12 +71,13 @@ includai-scenario-practice/
 ├── server/            Express API, OpenAI integration, scenario/NPC data
 │   └── src/
 │       ├── index.js               app entry
-│       ├── routes/api.js          GET /scenarios, POST /chat, /explain, /hint, /feedback
+│       ├── routes/api.js          GET /scenarios, POST /chat, /explain, /hint, /reflection
 │       ├── engine/
-│       │   ├── openaiClient.js    thin OpenAI SDK wrapper
+│       │   ├── openaiClient.js    thin OpenAI SDK wrapper (complete + completeJson)
 │       │   ├── npcPromptBuilder.js  renders an NPC blueprint into a system prompt
 │       │   ├── sceneDirector.js   stall detection + template event selection (no LLM call)
-│       │   ├── prompts.js         explain/feedback/hint/narrator-subtext templates
+│       │   ├── prompts.js         explain/reflection/hint/narrator-subtext templates
+│       │   ├── conversationStats.js  deterministic word-count balance (no LLM call)
 │       │   └── dialogueEngine.js  orchestrates the above; the seam for Phase 3 voice
 │       └── data/
 │           ├── scenarios.json + scenarioStore.js   scenario framing, events, picker
@@ -82,7 +87,7 @@ includai-scenario-practice/
         ├── services/api.js    the only module that calls fetch()
         └── components/        picker (with difficulty selection), chat screen,
                                 message bubbles, Narrator (intro + inline notes),
-                                feedback panel
+                                Reflection panel
 ```
 
 Note: the project folder itself is still named `includai-scenario-practice/`
@@ -363,6 +368,53 @@ When an event fires, it's folded into the NPC's system prompt for that turn
 or use it as a segue, and it's also sent to the client as `event` in the
 `/api/chat` response, rendered as a `NarratorNote` right before the NPC's
 reply it set up.
+
+## Reflection
+
+After roughly 10 lines of the user's dialogue (`REFLECTION_TURN_THRESHOLD`
+in `ChatScreen.jsx` — doesn't need to be exact, just enough that there's
+something real to reflect on), the Reflection panel auto-opens once per
+session; the header's "Reflection" button re-opens it any time afterward
+(available from the first reply onward), each time reflecting the
+conversation as it stands then. It's a dismissible bottom sheet, not a hard
+interrupt — closing it returns you straight to the conversation.
+
+**Never a score.** No numeric rating, percentage grade, or pass/fail
+judgment anywhere in it — see the `REFLECTION_SYSTEM_PROMPT` critical rules
+in `prompts.js`. The purpose isn't to teach the user to "perform" social
+behavior correctly; it's to make an otherwise invisible process visible —
+what was exchanged, what was understood, what kind of connection was built.
+
+Seven sections, in order, rendered by `ReflectionPanel.jsx`:
+
+1. **Strengths You Showed** — specific positive behaviors actually
+   observed (curiosity, sharing an interest, listening, adapting, finding
+   common ground), not generic praise.
+2. **What [NPC] Learned About You** — written from the character's point
+   of view, e.g. "Marcus now knows you're deep in AP Lit this year and
+   prefer a low-key weekend."
+3. **Connection Moments** — 1-3 specific points where engagement or trust
+   seemed to increase, referencing the actual exchange.
+4. **Your Conversation Style** — a short, descriptive (not evaluative)
+   label like "The Explorer" or "The Storyteller" — invented fresh per
+   conversation if a better fit emerges, never a grade.
+5. **Growth Opportunities** — 1-2 possibilities to try next time, never
+   framed as correcting a past mistake.
+6. **Overall Echo** — a brief closing note on the rapport built and its
+   general emotional tone.
+7. **Conversation Balance** — a simple participation split (e.g. "You:
+   61% / Marcus: 39%"), shown as a small two-segment bar.
+
+Sections 1-6 come from one model call returning structured JSON (OpenAI's
+JSON mode, `completeJson` in `openaiClient.js`) rather than one long block
+of prose — this is what lets the UI render each section distinctly instead
+of trying to parse a paragraph apart. Section 7 is **not** asked of the
+model at all: it's a plain word-count ratio computed in
+`conversationStats.js`, deterministically, in code. Models are unreliable
+at exact counting, and the spec for this section explicitly asked for
+something simple — there's no reason to spend a model call, or risk an
+inaccurate one, on arithmetic a few lines of JavaScript already does
+exactly.
 
 ## Project status
 
