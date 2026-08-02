@@ -1,11 +1,5 @@
 import { useAccessibility } from "../a11y/AccessibilityContext.jsx";
 
-const DIFFICULTIES = [
-  { level: "beginner", label: "Beginner" },
-  { level: "intermediate", label: "Intermediate" },
-  { level: "advanced", label: "Advanced" },
-];
-
 export default function ScenarioCard({ scenario, onSelect }) {
   const { isFavorite, toggleFavorite } = useAccessibility();
   const favorite = isFavorite(scenario.id);
@@ -31,17 +25,14 @@ export default function ScenarioCard({ scenario, onSelect }) {
         <p className="scenario-card__preview">{scenario.preview}</p>
         <p className="scenario-card__teaching-point">{scenario.teachingPoint}</p>
 
-        <div className="scenario-card__difficulty" role="group" aria-label={`Choose a difficulty for ${scenario.title}`}>
-          {DIFFICULTIES.map(({ level, label }) => (
-            <button
-              key={level}
-              type="button"
-              className="scenario-card__difficulty-button"
-              onClick={() => onSelect(scenario, level)}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="scenario-card__difficulty">
+          <button
+            type="button"
+            className="scenario-card__difficulty-button"
+            onClick={() => onSelect(scenario, "advanced")}
+          >
+            Start scenario
+          </button>
         </div>
       </div>
     </div>

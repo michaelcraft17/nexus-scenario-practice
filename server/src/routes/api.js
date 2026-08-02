@@ -28,10 +28,12 @@ function isValidMessages(messages) {
   );
 }
 
-/** Falls back to "beginner" for anything missing/invalid, rather than 400ing --
- * difficulty shapes tone, not correctness, so it's not worth rejecting a request over. */
+/** Falls back to "advanced" for anything missing/invalid, rather than 400ing --
+ * difficulty shapes tone, not correctness, so it's not worth rejecting a request over.
+ * "advanced" is the only level the client UI offers now (beginner/intermediate were
+ * removed as picker options), so that's the sane default rather than "beginner". */
 function resolveDifficulty(value) {
-  return DIFFICULTY_LEVELS.includes(value) ? value : "beginner";
+  return DIFFICULTY_LEVELS.includes(value) ? value : "advanced";
 }
 
 /** Every route needs the scenario's display label for the character it's

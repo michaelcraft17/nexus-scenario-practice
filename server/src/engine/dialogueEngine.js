@@ -57,7 +57,7 @@ import {
  *   plus the template event that fired this turn, if any.
  */
 export async function generateReply(scenario, npc, messages, options = {}) {
-  const { difficulty = "beginner", firedEventIds = [], hasSecondaryNpc = false } = options;
+  const { difficulty = "advanced", firedEventIds = [], hasSecondaryNpc = false } = options;
 
   const stalled = detectStall(messages);
   const event = selectTemplateEvent({

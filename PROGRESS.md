@@ -1,11 +1,18 @@
 # Progress
 
 Living doc — update this across sessions this week rather than relying on
-memory of what's been done. Last updated: 2026-08-02 -- **v7, new feature**:
-a consolidated Accessibility Features system (color scheme, theme, text
-size, typeface, contrast, motion, read-aloud, favorites, data export)
-replacing the old dark/dyslexia toggles, plus a scenario-card visual polish
-pass. Full writeup below. Earlier the same day: v6, an end-of-conversation
+memory of what's been done. Last updated: 2026-08-02 -- **v8, picker/
+content change**: removed Beginner and Intermediate as picker options (the
+app now always plays at advanced difficulty; the backend's three-tier
+system still exists, just isn't exposed as a UI choice), and rewrote
+"Asking for a Change" so the teacher is mid-lecture on ethos/pathos/logos
+and the student has to interrupt the class, rather than responding to the
+teacher's own check-in during quiet study time. Full writeup below. Earlier
+the same day: v7, a consolidated Accessibility Features system (color
+scheme, theme, text size, typeface, contrast, motion, read-aloud,
+favorites, data export) replacing the old dark/dyslexia toggles, plus a
+scenario-card visual polish pass. Full writeup below. Earlier still: v6, an
+end-of-conversation
 Reflection (7 sections, never a score) that replaces the old simple-prose
 feedback panel entirely, auto-opening once the user has contributed roughly
 10 lines. Full writeup below and in the README's new "Reflection" section.
@@ -17,6 +24,79 @@ renamed IncludAI -> Nexus and the Narrator was introduced as a distinct
 layer (v4); scene-setting framing to reduce AI drift (v3); new scenario
 content + the Hint feature (v2). Originally built 2026-08-01 on Claude,
 switched to OpenAI the same day.
+
+## v8 — Removed Beginner/Intermediate as picker options; rewrote "Asking for a Change"
+
+**Difficulty simplification:** each scenario card now has one full-width
+"Start scenario" button (`ScenarioCard.jsx`) instead of three (Beginner /
+Intermediate / Advanced), always calling `onSelect(scenario, "advanced")`.
+`App.jsx`'s `activeDifficulty` default changed from `"beginner"` to
+`"advanced"` to match. The chat header's small difficulty badge was removed
+too (`ChatHeader.jsx` no longer takes a `difficulty` prop) -- with only one
+value ever possible, the badge stopped conveying anything. **This is a UI
+change, not an engine change**: the backend's three-tier
+`DIFFICULTY_LEVELS` (`routes/api.js`), `DIFFICULTY_GOALS`
+(`npcPromptBuilder.js`), and difficulty-gated template events
+(`sceneDirector.js`) are all untouched -- beginner/intermediate content
+still fully exists and works if a request explicitly sends that difficulty,
+it's just no longer reachable from the picker. Verified this doesn't
+silently break any existing scenario content: every template event across
+all 4 scenarios already listed `"advanced"` in its eligible-difficulty
+array (confirmed by reading `scenarios.json`), so switching the default to
+advanced-only doesn't strand any event as unreachable. Two defaults updated
+for consistency now that beginner is never actually selected:
+`resolveDifficulty` in `routes/api.js` and the `difficulty` destructuring
+default in `dialogueEngine.generateReply` both now fall back to
+`"advanced"` instead of `"beginner"`.
+
+**"Asking for a Change" rewrite** (`server/src/data/scenarios.json`,
+`server/src/data/npcs.json`): the scenario used to open with Ms. Alvarez
+noticing the student during quiet study time and asking "you okay?" --
+i.e., *she* initiates, the student responds. Rewritten so she's mid-lecture
+on the three classical rhetorical appeals (ethos, pathos, logos), speaking
+uninterrupted (`opener` is a mid-sentence lecture snippet, not addressed to
+the student, deliberately with no natural pause built in), and the
+student's first message *is* the interruption -- there's no invitation to
+speak built into the opener, matching the harder, more realistic version of
+the self-advocacy ask: raising your hand and cutting in on a class already
+in progress, not just answering a question you were asked directly.
+- [x] `preview`, `setting`, `narratorOpening`, `narratorAtmosphere`,
+      `teachingPoint`, and `opener` all rewritten around the lecture
+      framing. `templateEvents` re-flavored to match (marker squeaking on
+      the whiteboard, classmates taking notes, Ms. Alvarez pausing
+      mid-lesson) -- same trigger/eventType/difficulty structure as before,
+      just re-worded content.
+- [x] `responseOptions` rewritten as three interruption styles rather than
+      three answers to a direct question: back off after speaking up
+      ("Um, sorry -- never mind"), name the frustration without a specific
+      ask ("Sorry, but the lights are really bright"), and interrupt with a
+      specific, reasonable request (recommended).
+- [x] `npcs.json`'s `alvarez` blueprint updated to match: background/goals
+      now describe her as comfortable pausing a lecture briefly without
+      making it a bigger deal than the student wants, and all three
+      `scenarioReactions` triggers/reactions rewritten around *interrupting*
+      specifically (e.g. "pause the lesson, thank them for speaking up, and
+      actually accommodate it right there... then continue the lesson
+      without lingering on it or embarrassing them") rather than the old
+      one-on-one check-in framing.
+
+**Verified live**: rebuilt the client (clean build), restarted the server
+(needed manually -- `scenarioStore.js` loads `scenarios.json` via
+`readFileSync` at module load time, which `node --watch` does *not*
+track the way it tracks `import`ed modules, so JSON-only edits require a
+manual server restart to take effect; confirmed via `GET /api/scenarios`
+returning stale content until restarted, then correct content after).
+Playwright screenshots confirm the picker shows one "Start scenario" button
+per card and the new preview/teaching-point text; entering the scenario
+shows the mid-lecture opener with the three interruption-flavored response
+chips. A live `POST /api/chat` call with the recommended interruption
+("Sorry to interrupt -- could we dim some of the lights...") got a reply
+matching the updated blueprint reaction exactly -- warm, immediate
+accommodation, offering to adjust further. (That reply included one
+asterisked stage direction, `*dimming the lights slightly*` -- this is the
+known, previously-documented stage-direction-leakage risk from v5.1
+"reduced, not guaranteed eliminated," not something newly introduced by
+this content change; no action taken, already tracked as an open item.)
 
 ## v7 — Accessibility Features: consolidated prefs, favorites, read-aloud, scenario-card polish
 

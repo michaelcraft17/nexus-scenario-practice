@@ -9,7 +9,7 @@ export default function App() {
   const [difficultyGoals, setDifficultyGoals] = useState({});
   const [loadError, setLoadError] = useState(null);
   const [activeScenario, setActiveScenario] = useState(null);
-  const [activeDifficulty, setActiveDifficulty] = useState("beginner");
+  const [activeDifficulty, setActiveDifficulty] = useState("advanced");
 
   useEffect(() => {
     fetchScenarios()

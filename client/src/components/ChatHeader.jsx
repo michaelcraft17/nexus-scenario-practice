@@ -1,6 +1,6 @@
 import AccessibilityButton from "./AccessibilityButton.jsx";
 
-export default function ChatHeader({ scenario, difficulty, onExit, onReflect, reflectDisabled, onHint }) {
+export default function ChatHeader({ scenario, onExit, onReflect, reflectDisabled, onHint }) {
   return (
     <header className="chat-header">
       <div className="chat-header__row">
@@ -25,7 +25,6 @@ export default function ChatHeader({ scenario, difficulty, onExit, onReflect, re
           &#128161; Need a hint?
         </button>
         <AccessibilityButton className="chat-header__hint" />
-        {difficulty && <div className="chat-header__difficulty">{difficulty}</div>}
       </div>
     </header>
   );
