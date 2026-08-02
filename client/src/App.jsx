@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchScenarios } from "./services/api.js";
 import ScenarioPicker from "./components/ScenarioPicker.jsx";
 import ChatScreen from "./components/ChatScreen.jsx";
+import AccessibilityPanel from "./components/AccessibilityPanel.jsx";
 
 export default function App() {
   const [scenarios, setScenarios] = useState([]);
@@ -24,23 +25,24 @@ export default function App() {
     setActiveDifficulty(difficulty);
   }
 
-  if (activeScenario) {
-    return (
-      <ChatScreen
-        key={`${activeScenario.id}-${activeDifficulty}`}
-        scenario={activeScenario}
-        difficulty={activeDifficulty}
-        difficultyGoal={difficultyGoals[activeDifficulty]}
-        onExit={() => setActiveScenario(null)}
-      />
-    );
-  }
-
   return (
-    <ScenarioPicker
-      scenarios={scenarios}
-      loadError={loadError}
-      onSelect={handleSelect}
-    />
+    <>
+      {activeScenario ? (
+        <ChatScreen
+          key={`${activeScenario.id}-${activeDifficulty}`}
+          scenario={activeScenario}
+          difficulty={activeDifficulty}
+          difficultyGoal={difficultyGoals[activeDifficulty]}
+          onExit={() => setActiveScenario(null)}
+        />
+      ) : (
+        <ScenarioPicker
+          scenarios={scenarios}
+          loadError={loadError}
+          onSelect={handleSelect}
+        />
+      )}
+      <AccessibilityPanel />
+    </>
   );
 }
