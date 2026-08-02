@@ -6,9 +6,20 @@ variable pointing at the other's eventual URL. Do these in order — the
 server first, since the client needs its URL.
 
 This part requires your own Vercel/Railway account logins, so it has to be
-done by you in the browser, not by an assistant with shell access.
+done by you in the browser, not by an assistant with shell access -- unless
+you hand over a scoped project/deploy token, as happened for Railway below,
+in which case the CLI can do it non-interactively.
 
-## 1. Deploy the server on Railway
+## Status
+
+- **Server (Railway): done.** Live at
+  `https://nexus-scenario-practice-production.up.railway.app` -- root
+  directory `server`, `OPENAI_API_KEY`/`OPENAI_MODEL`/`DAILY_REQUEST_CAP`
+  set, verified with a real `/api/chat` round trip. `CORS_ORIGIN` is still
+  unset -- come back and set it once the client (below) has a URL.
+- **Client (Vercel): not started yet.**
+
+## 1. Deploy the server on Railway (done -- kept for reference/redo)
 
 1. Go to [railway.app](https://railway.app) and sign in (GitHub login is
    easiest since the repo is already on GitHub).
