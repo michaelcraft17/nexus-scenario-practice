@@ -8,13 +8,17 @@ import apiRouter from "./routes/api.js";
 import { apiRateLimiter, globalDailyCap } from "./middleware/costGuard.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-// Built by `npm run build` (see package.json -- it builds ../client into
-// this path) in a single-service deploy where this server also serves the
-// client, so there's one URL and no CORS to configure. In local dev this
-// directory doesn't exist -- the client runs on its own Vite dev server
-// instead (see client/vite.config.js's proxy) -- so everything below is
-// skipped entirely rather than erroring.
-const clientDist = join(__dirname, "../../client/dist");
+// A committed copy of `client`'s production build (see server/public/README.md
+// for why it's committed rather than built on deploy), served directly so
+// this one service is both the API and the website -- one URL, no CORS to
+// configure. Railway's "root directory: server" setting scopes the actual
+// build context to this folder alone, so a build step reaching out to
+// ../client (a sibling the container never receives) isn't an option here.
+// In local dev this directory doesn't exist unless manually built -- the
+// client normally runs on its own Vite dev server instead (see
+// client/vite.config.js's proxy) -- so everything below is skipped
+// entirely rather than erroring.
+const clientDist = join(__dirname, "../public");
 const hasClientBuild = existsSync(clientDist);
 
 const app = express();
