@@ -1,17 +1,104 @@
 # Progress
 
 Living doc — update this across sessions this week rather than relying on
-memory of what's been done. Last updated: 2026-08-02 -- **bug fix (v5.1)**:
+memory of what's been done. Last updated: 2026-08-02 -- **v6, new feature**:
+an end-of-conversation Reflection (7 sections, never a score) that replaces
+the old simple-prose feedback panel entirely, auto-opening once the user
+has contributed roughly 10 lines. Full writeup below and in the README's
+new "Reflection" section. Earlier the same day, in order: v5.1 (bug fix --
 the Narrator's stall detection from v5 wasn't actually triggering in real
-low-engagement conversations. Root-caused and fixed; see "v5.1" below.
-Earlier the same day: v5, the major architecture shift (NPC blueprints,
-template events, Narrator as social director, difficulty levels, multi-NPC
-support) -- full writeup below and in the README's "Core principle:
-pre-built social simulation" section. Before that, in order: the app was
-renamed IncludAI -> Nexus and the Narrator was introduced as a distinct
-layer (v4); scene-setting framing to reduce AI drift (v3); new scenario
-content + the Hint feature (v2). Originally built 2026-08-01 on Claude,
-switched to OpenAI the same day.
+low-engagement conversations); v5, the major architecture shift (NPC
+blueprints, template events, Narrator as social director, difficulty
+levels, multi-NPC support); the app was renamed IncludAI -> Nexus and the
+Narrator was introduced as a distinct layer (v4); scene-setting framing to
+reduce AI drift (v3); new scenario content + the Hint feature (v2).
+Originally built 2026-08-01 on Claude, switched to OpenAI the same day.
+
+## v6 — Reflection: replaces the feedback panel with a 7-section, non-graded reflection
+
+**What it is:** after roughly 10 lines of the user's dialogue
+(`REFLECTION_TURN_THRESHOLD` in `ChatScreen.jsx`), a Reflection panel
+auto-opens once per session; the header's "Reflection" button (renamed
+from "Get feedback") re-opens it any time afterward, reflecting the
+conversation as it stands at that moment. This is a full replacement of
+the old `/api/feedback` endpoint and `FeedbackPanel.jsx`, not an addition
+alongside it -- one end-of-conversation reflection surface, not two
+overlapping ones.
+
+**Seven sections, in this order** (`REFLECTION_SYSTEM_PROMPT` in
+`prompts.js`, rendered by the new `ReflectionPanel.jsx`): Strengths You
+Showed, What [NPC] Learned About You, Connection Moments, Your
+Conversation Style, Growth Opportunities, Overall Echo, Conversation
+Balance. **No numeric score, grade, or pass/fail judgment anywhere** --
+explicit critical rules in the prompt, same as the old feedback prompt had,
+carried forward and strengthened.
+
+**Architectural choice: structured JSON for 6 sections, deterministic math
+for the 7th.**
+- [x] `server/src/engine/openaiClient.js` gained `completeJson()` --
+      requests OpenAI's JSON mode (`response_format: {type:
+      "json_object"}`) and parses the result. Sections 1-6 (strengths,
+      NPC's perspective, connection moments, style label + description,
+      growth opportunities, overall echo) come back as one structured
+      object from a single model call, rather than one block of prose the
+      UI would have to guess how to split apart.
+- [x] `server/src/engine/conversationStats.js` (new) --
+      `computeConversationBalance(messages, npcName)` computes the
+      "Conversation Balance" section (e.g. "You: 61% / Marcus: 39%") as a
+      plain word-count ratio in code, **not asked of the model at all**.
+      The spec explicitly asked for something simple here ("word/turn
+      count ratio is fine, doesn't need to be sophisticated"), and models
+      are unreliable at exact counting -- there's no reason to spend a
+      model call, or risk an inaccurate one, on arithmetic a few lines of
+      JavaScript already does exactly. Same design philosophy as
+      `sceneDirector.js`'s stall detection: free, deterministic, no LLM
+      call for what doesn't need one.
+- [x] `dialogueEngine.generateReflection(aiRole, messages)` calls
+      `completeJson`; `routes/api.js`'s new `POST /api/reflection` merges
+      the model's 6 JSON fields with the computed `balance` into one
+      response.
+- [x] Reused the existing `NON_CONFORMITY_FRAMING` constant in the
+      reflection prompt (same as explain/hint/narrator-subtext) -- this
+      surface is exactly the kind of place a "how normal did that sound"
+      evaluation could sneak in, so it gets the same explicit guard as
+      everywhere else.
+
+**Client side:**
+- [x] `ChatScreen.jsx`: `userTurnCount` derived from `messages`; a
+      ref-guarded `useEffect` auto-calls `handleReflect()` exactly once
+      when the count first reaches the threshold (re-opening later via the
+      button doesn't re-fire the auto-trigger, and re-fetches fresh each
+      time rather than showing a stale cached reflection).
+      `REFLECTION_TURN_THRESHOLD = 10`, called out in a comment as
+      adjustable, not meant to be exact.
+- [x] `ReflectionPanel.jsx` (new, replaces `FeedbackPanel.jsx`) renders
+      the 7 sections as distinct blocks -- bullet lists for the array
+      fields (strengths, connection moments, growth opportunities),
+      prose for the paragraph fields (NPC perspective, overall echo), a
+      bold style-label + one-line description, and a small two-segment
+      percentage bar for the balance split. Defensive against partially
+      missing fields (`?? []` on array fields) since JSON-mode guarantees
+      valid JSON syntax but not that the model populated every key.
+      Same non-blocking bottom-sheet pattern as the old feedback panel --
+      auto-opening doesn't hard-interrupt the conversation, it's one tap
+      to close and keep going.
+- [x] `ChatHeader.jsx`: `onGetFeedback`/`feedbackDisabled` props renamed
+      to `onReflect`/`reflectDisabled`; button label "Get feedback" ->
+      "Reflection". Kept the existing "available once there's ≥1 user
+      turn" gating for manual access, on top of the new auto-trigger.
+
+**Verified live** against a realistic ~10-turn salon conversation (shared
+an interest in AP Lit, discussed The Great Gatsby): all 7 sections came
+back well-formed and specific to what was actually said (e.g. connection
+moments correctly referenced the Gatsby/Nick exchange, not generic
+praise), the style label was a sensibly invented "The Reflective Reader"
+rather than reaching for a rote description from the request's given
+examples ("explorer"/"storyteller"/"supporter"), no score or grade
+anywhere in the output, and the balance math computed correctly (61/39
+split from six mixed-length turns per side). Also verified: the old
+`/api/feedback` route is cleanly gone (plain Express 404, not a crash),
+and 404/400 error handling on the new `/api/reflection` route matches the
+existing pattern.
 
 ## v5.1 — Bug fix: stall detection wasn't actually firing
 
@@ -366,12 +453,14 @@ prose), and drift prevention (the model has nowhere to improvise *from*).
 
 - **Prompt caching**: skipped for Phase 1 -- not worth the complexity for the
   timeline given how short the scenario prompts are. Revisit if the
-  explain/feedback templates grow (e.g. with few-shot examples) or if
+  explain/reflection templates grow (e.g. with few-shot examples) or if
   per-turn latency/cost becomes a problem.
-- **Streaming**: `/api/chat`, `/api/explain`, and `/api/feedback` are all
+- **Streaming**: `/api/chat`, `/api/explain`, and `/api/reflection` are all
   non-streaming request/response for now (simplest to build and debug this
   week). If typing-indicator latency feels bad in testing, consider streaming
-  `/api/chat` specifically.
+  `/api/chat` specifically. `/api/reflection` in particular returns a large
+  JSON object in one shot with no progressive rendering -- if the ~10-turn
+  auto-trigger feels slow, this is the one to revisit first.
 - **Model**: defaults to `gpt-4o` via `OPENAI_MODEL`. If iterating quickly
   during testing gets expensive or slow, swap to `gpt-4o-mini` in
   `server/.env` — no code changes needed. If OpenAI ships a newer default
@@ -499,6 +588,32 @@ prose), and drift prevention (the model has nowhere to improvise *from*).
   prompt. Token cost per call should be lower on average now (bulleted
   blueprint vs. paragraph systemPrompt), but that hasn't been measured,
   only assumed from the design.
+- **Auto-open vs. notify-only (interpretation call, v6)**: the spec said
+  "show a Reflection screen" after ~10 lines, which I took literally --
+  the panel auto-opens rather than just showing a subtle "ready" indicator
+  the user taps to view. This is a real interruption of the conversation
+  flow, even though the panel is a dismissible bottom sheet (one tap to
+  close and keep going, chat state untouched underneath) rather than a
+  hard block. If auto-opening feels too disruptive in play-testing, the
+  softer alternative -- a small banner/badge inviting the user to open it,
+  never forcing the panel -- is a small change scoped entirely to the
+  `useEffect` in `ChatScreen.jsx`; nothing in the backend would need to
+  change.
+- **Threshold counts only real user turns, not words**: `userTurnCount` is
+  a count of `role: "user"` messages, not a word/character count. A
+  conversation of ten one-word replies "counts" the same as ten
+  paragraph-length ones for triggering purposes, even though the spec's
+  own "roughly 10 lines of dialogue" phrasing arguably leans toward turn
+  count anyway. Not adjusted, since turn count is simpler and the spec
+  explicitly said the exact threshold doesn't matter.
+- **Reflection re-fetches fresh on every open, no caching**: clicking
+  "Reflection" again later in a long conversation re-runs the full model
+  call rather than showing the previously-fetched result. This is simplest
+  and means the reflection is always current, but it does mean repeatedly
+  opening it mid-conversation costs a full reflection-generation call each
+  time (6-field JSON response, not a single-sentence one) -- worth a
+  lightweight "last fetched N turns ago, refresh?" affordance if that
+  turns out to matter in practice, not built now.
 
 ## Resuming a session
 

@@ -11,7 +11,7 @@ export function getById(id) {
 }
 
 /** Short display label used both for the client (speaker names) and for
- * transcript rendering in explain/hint/feedback/narrator-subtext prompts. */
+ * transcript rendering in explain/hint/reflection/narrator-subtext prompts. */
 export function formatAiRole(npc) {
   return `${npc.name} (${npc.relationalRole})`;
 }

@@ -2,12 +2,12 @@ import { useRef, useState, useEffect } from "react";
 import {
   sendChatMessage,
   explainMessage as apiExplainMessage,
-  getFeedback,
+  getReflection,
   getHint,
 } from "../services/api.js";
 import ChatHeader from "./ChatHeader.jsx";
 import MessageBubble from "./MessageBubble.jsx";
-import FeedbackPanel from "./FeedbackPanel.jsx";
+import ReflectionPanel from "./ReflectionPanel.jsx";
 import ResponseOptions from "./ResponseOptions.jsx";
 import NarratorIntro from "./NarratorIntro.jsx";
 import NarratorNote from "./NarratorNote.jsx";
@@ -16,6 +16,12 @@ let nextId = 1;
 function makeId() {
   return `m${nextId++}`;
 }
+
+// Roughly 10 lines of user dialogue before the Reflection auto-opens --
+// doesn't need to be exact, just enough that there's something real to
+// reflect on. The manual "Reflection" button in the header works at any
+// point regardless of this threshold.
+const REFLECTION_TURN_THRESHOLD = 10;
 
 /** Real roleplay turns only -- excludes the Narrator's proactive asides,
  * which never go back to the API (their role isn't "user"/"assistant", so
@@ -36,7 +42,7 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
   const [inputValue, setInputValue] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState(null);
-  const [feedback, setFeedback] = useState({ open: false, status: "idle", text: "" });
+  const [reflection, setReflection] = useState({ open: false, status: "idle", data: null, errorMessage: "" });
   const [hint, setHint] = useState({ open: false, status: "idle", text: "" });
   // Template event ids the Narrator has already used this session, so the
   // same beat doesn't repeat turn after turn while others are available.
@@ -44,10 +50,24 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
 
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
+  const autoReflectedRef = useRef(false);
+
+  const userTurnCount = messages.filter((m) => m.role === "user").length;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, sending]);
+
+  // Auto-open the Reflection once the conversation has enough real content
+  // to reflect on. Guarded by a ref so it only ever fires once per session
+  // -- after that, the header's "Reflection" button re-opens it on request,
+  // each time reflecting the conversation as it stands then.
+  useEffect(() => {
+    if (!autoReflectedRef.current && userTurnCount >= REFLECTION_TURN_THRESHOLD) {
+      autoReflectedRef.current = true;
+      handleReflect();
+    }
+  }, [userTurnCount]);
 
   async function handleSend(e) {
     e.preventDefault();
@@ -105,13 +125,18 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
     return explanation;
   }
 
-  async function handleGetFeedback() {
-    setFeedback({ open: true, status: "loading", text: "" });
+  async function handleReflect() {
+    setReflection({ open: true, status: "loading", data: null, errorMessage: "" });
     try {
-      const { feedback: text } = await getFeedback(scenario.id, toApiShape(messages.filter(isDialogueTurn)));
-      setFeedback({ open: true, status: "done", text });
+      const data = await getReflection(scenario.id, toApiShape(messages.filter(isDialogueTurn)));
+      setReflection({ open: true, status: "done", data, errorMessage: "" });
     } catch (err) {
-      setFeedback({ open: true, status: "error", text: err.message || "Couldn't get feedback right now." });
+      setReflection({
+        open: true,
+        status: "error",
+        data: null,
+        errorMessage: err.message || "Couldn't put together a reflection right now.",
+      });
     }
   }
 
@@ -135,8 +160,9 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
     inputRef.current?.focus();
   }
 
-  const canGetFeedback = messages.some((m) => m.role === "user");
-  const showResponseOptions = !messages.some((m) => m.role === "user") && !sending;
+  const canReflect = userTurnCount > 0;
+  const showResponseOptions = userTurnCount === 0 && !sending;
+  const npcName = scenario.aiRole.split(" (")[0];
 
   return (
     <div className="chat-screen">
@@ -144,8 +170,8 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
         scenario={scenario}
         difficulty={difficulty}
         onExit={onExit}
-        onGetFeedback={handleGetFeedback}
-        feedbackDisabled={!canGetFeedback}
+        onReflect={handleReflect}
+        reflectDisabled={!canReflect}
         onHint={handleHint}
       />
 
@@ -221,11 +247,13 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
         </button>
       </form>
 
-      <FeedbackPanel
-        open={feedback.open}
-        status={feedback.status}
-        feedback={feedback.text}
-        onClose={() => setFeedback((f) => ({ ...f, open: false }))}
+      <ReflectionPanel
+        open={reflection.open}
+        status={reflection.status}
+        data={reflection.data}
+        errorMessage={reflection.errorMessage}
+        npcName={npcName}
+        onClose={() => setReflection((r) => ({ ...r, open: false }))}
       />
     </div>
   );

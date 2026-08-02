@@ -1,4 +1,4 @@
-export default function ChatHeader({ scenario, difficulty, onExit, onGetFeedback, feedbackDisabled, onHint }) {
+export default function ChatHeader({ scenario, difficulty, onExit, onReflect, reflectDisabled, onHint }) {
   return (
     <header className="chat-header">
       <div className="chat-header__row">
@@ -12,10 +12,10 @@ export default function ChatHeader({ scenario, difficulty, onExit, onGetFeedback
         <div className="chat-header__title">{scenario.title}</div>
         <button
           className="chat-header__feedback"
-          onClick={onGetFeedback}
-          disabled={feedbackDisabled}
+          onClick={onReflect}
+          disabled={reflectDisabled}
         >
-          Get feedback
+          Reflection
         </button>
       </div>
       <div className="chat-header__row chat-header__row--secondary">

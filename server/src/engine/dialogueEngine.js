@@ -1,4 +1,4 @@
-import { complete } from "./openaiClient.js";
+import { complete, completeJson } from "./openaiClient.js";
 import {
   renderNpcBlueprint,
   buildSceneAnchor,
@@ -8,7 +8,7 @@ import {
 import { detectStall, selectTemplateEvent } from "./sceneDirector.js";
 import {
   buildExplainRequest,
-  buildFeedbackRequest,
+  buildReflectionRequest,
   buildHintRequest,
   buildNarratorSubtextRequest,
 } from "./prompts.js";
@@ -102,19 +102,24 @@ export async function explainMessage(aiRole, contextMessages, targetMessage) {
 }
 
 /**
- * Give descriptive, non-numeric feedback on the full conversation.
+ * Generate the end-of-conversation Reflection: a warm, observational,
+ * non-graded look at what was exchanged -- strengths shown, what the NPC
+ * picked up about the user, connection moments, a descriptive (not
+ * evaluative) conversation-style label, growth possibilities, and an
+ * overall closing note. Returned as structured JSON (not prose) so the UI
+ * can render each section distinctly.
  * @param {string} aiRole - Display label for the character in the scene.
  * @param {{role: "user"|"assistant", content: string}[]} messages - Full
  *   transcript, including the scenario's opener as the first entry.
- * @returns {Promise<string>} The feedback text.
+ * @returns {Promise<{strengths: string[], npcPerspective: string, connectionMoments: string[], styleLabel: string, styleDescription: string, growthOpportunities: string[], overallEcho: string}>}
  */
-export async function generateFeedback(aiRole, messages) {
-  const { system, messages: requestMessages } = buildFeedbackRequest({
+export async function generateReflection(aiRole, messages) {
+  const { system, messages: requestMessages } = buildReflectionRequest({
     aiRole,
     messages,
   });
 
-  return complete({ system, messages: requestMessages, maxTokens: 512 });
+  return completeJson({ system, messages: requestMessages, maxTokens: 700 });
 }
 
 /**

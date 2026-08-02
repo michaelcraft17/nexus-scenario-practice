@@ -68,14 +68,24 @@ export function explainMessage(scenarioId, contextMessages, targetMessage) {
 }
 
 /**
- * Get descriptive (never numeric) feedback on the full conversation.
+ * Get the end-of-conversation Reflection -- a warm, observational,
+ * non-graded look at what was exchanged (never a numeric score).
  * @param {string} scenarioId
  * @param {{role: "user"|"assistant", content: string}[]} messages - Full
  *   transcript, including the scenario's opener.
- * @returns {Promise<{feedback: string}>}
+ * @returns {Promise<{
+ *   strengths: string[],
+ *   npcPerspective: string,
+ *   connectionMoments: string[],
+ *   styleLabel: string,
+ *   styleDescription: string,
+ *   growthOpportunities: string[],
+ *   overallEcho: string,
+ *   balance: {userLabel: string, npcLabel: string, userPercent: number, npcPercent: number}
+ * }>}
  */
-export function getFeedback(scenarioId, messages) {
-  return request("/feedback", {
+export function getReflection(scenarioId, messages) {
+  return request("/reflection", {
     method: "POST",
     body: JSON.stringify({ scenarioId, messages }),
   });

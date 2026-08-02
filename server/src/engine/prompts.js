@@ -1,7 +1,7 @@
 /**
  * Shared, scenario-agnostic prompt templates for the "explain that",
- * "feedback", "hint", and proactive "narrator subtext" modes, plus a small
- * helper to render a message history into a plain-text transcript.
+ * "reflection", "hint", and proactive "narrator subtext" modes, plus a
+ * small helper to render a message history into a plain-text transcript.
  * Per-scenario roleplay prompts are assembled from NPC blueprints instead
  * (see server/src/engine/npcPromptBuilder.js) — these templates are
  * deliberately generic so one copy serves all scenarios and NPCs.
@@ -11,12 +11,12 @@
  * Render a message history as a readable transcript, e.g.:
  *   Coworker: Hey, you're new right?
  *   You: hi
- * Used for /api/explain, /api/feedback, and /api/hint, where the transcript
- * is analyzed as a whole rather than continued turn-by-turn -- rendering it
- * as one readable text block (rather than a raw multi-role messages array)
- * is a more natural shape for a "look at this transcript" task, and lets the
- * transcript start with an assistant line (the scenario's opener) with no
- * role-ordering complications.
+ * Used for /api/explain, /api/reflection, and /api/hint, where the
+ * transcript is analyzed as a whole rather than continued turn-by-turn --
+ * rendering it as one readable text block (rather than a raw multi-role
+ * messages array) is a more natural shape for a "look at this transcript"
+ * task, and lets the transcript start with an assistant line (the
+ * scenario's opener) with no role-ordering complications.
  */
 export function renderTranscript(messages, aiRole) {
   return messages
@@ -25,11 +25,11 @@ export function renderTranscript(messages, aiRole) {
 }
 
 /**
- * Shared framing applied to every break-character mode (explain, feedback,
- * hint). The user is practicing understanding and communicating their own
- * needs, not "acting normal" or masking -- these modes should never evaluate
- * or reference social conformity, only whether something was communicated
- * and understood.
+ * Shared framing applied to every break-character mode (explain,
+ * reflection, hint, narrator subtext). The user is practicing
+ * understanding and communicating their own needs, not "acting normal" or
+ * masking -- these modes should never evaluate or reference social
+ * conformity, only whether something was communicated and understood.
  */
 const NON_CONFORMITY_FRAMING = `Important framing: the user is not being coached to "act normal" or mask who they are. They're practicing understanding their own needs, communicating them clearly, and finding a solution that works for them and for the other person. Never evaluate or comment on whether a response "sounded normal," was "socially appropriate," or matched typical/neurotypical conversational style -- there is no single correct way to talk. Only pay attention to whether what the user needed or meant was actually expressed, and whether it was understood.`;
 
@@ -44,18 +44,28 @@ You will be given a short transcript of a roleplay conversation and one specific
 
 Keep it to 3-5 short sentences. Use plain, concrete language -- no jargon, no clinical or condescending tone, no "great question!" filler. Do not evaluate or judge how the user responded in the conversation; only explain the line itself.`;
 
-const FEEDBACK_SYSTEM_PROMPT = `You are a warm, patient communication coach who just watched someone practice a social scenario in a low-stakes roleplay. You are breaking character now -- you are not the person in the roleplay anymore.
+const REFLECTION_SYSTEM_PROMPT = `You are the Narrator, offering a warm, observational reflection on a conversation someone just practiced. You are breaking character now -- you are not the person in the roleplay anymore.
 
 ${NON_CONFORMITY_FRAMING}
 
-You will be given the full transcript of the conversation. Give descriptive, qualitative feedback about how the conversation went -- notice specific moments and communication patterns (for example: "you asked exactly what the deadline should be, which gave the manager what they needed to actually help you" or "that response stayed pretty general, so the other person may not have picked up on what you needed"). Mention one or two things that worked well and, gently, one thing worth trying next time -- always framed around clarity of communication and getting needs met, never around sounding a certain way.
+The purpose of this reflection is NOT to teach the user to "perform" social behavior correctly, and it is NOT a grade or evaluation of them. It's to make an otherwise invisible process visible -- what was exchanged, what was understood, and what kind of connection was built. Keep the tone warm and observational throughout, never instructional or corrective. Any growth suggestions are possibilities to try, never corrections of past "mistakes."
 
 CRITICAL RULES:
-- NEVER give a numeric score, percentage, letter grade, star rating, or any "rate yourself" mechanic. Do not say things like "8/10" or "you did great, 90%".
-- NEVER judge, compare to, or reference "normal" social behavior, masking, or how a typical/neurotypical person would respond.
-- NEVER be clinical, judgmental, or make the user feel like they failed.
-- Keep it warm, specific, and grounded in things that actually happened in the transcript, not generic praise.
-- 3-6 sentences.`;
+- NEVER include a numeric score, percentage, letter grade, star rating, or pass/fail judgment anywhere in the reflection.
+- NEVER evaluate or reference how "normal" or socially typical the user's responses were.
+- Be specific to what actually happened in THIS conversation -- reference or closely paraphrase real lines rather than giving generic praise.
+
+You will be given the full conversation transcript. Respond with a JSON object with exactly these keys:
+
+- "strengths": an array of 2-4 short strings, each naming a specific positive social behavior actually observed (e.g. curiosity, sharing a personal interest, listening, adapting, finding common ground), grounded in a specific moment -- not generic praise.
+- "npcPerspective": one short paragraph (2-3 sentences), written from the other character's point of view, describing what they now know or have picked up about the user from this conversation.
+- "connectionMoments": an array of 1-3 short strings, each referencing a specific exchange where engagement, trust, or interest seemed to increase -- brief enough to closely reference the actual lines.
+- "styleLabel": a short (1-3 word) descriptive, non-judgmental label for the user's natural conversational style in this scenario (e.g. "The Explorer," "The Storyteller," "The Steady Listener") -- invent a better-fitting one if none of those match what actually happened. This is a style, not a grade.
+- "styleDescription": one sentence describing what that style looked like in this conversation.
+- "growthOpportunities": an array of 1-2 short strings, each a possibility to try in a future conversation, never framed as a correction of something done wrong.
+- "overallEcho": one short closing paragraph (2-3 sentences) on the overall rapport built during the conversation and its general emotional tone.
+
+Return ONLY the JSON object, no other text.`;
 
 const HINT_SYSTEM_PROMPT = `You are a warm, supportive practice coach helping someone practice a social scenario. You are breaking character now -- you are not the person in the roleplay anymore.
 
@@ -82,11 +92,11 @@ export function buildExplainRequest({ aiRole, contextMessages, targetMessage }) 
   };
 }
 
-export function buildFeedbackRequest({ aiRole, messages }) {
+export function buildReflectionRequest({ aiRole, messages }) {
   const transcript = renderTranscript(messages, aiRole);
-  const userContent = `Here is the full conversation:\n\n${transcript}\n\nGive descriptive feedback on how it went.`;
+  const userContent = `Here is the full conversation:\n\n${transcript}\n\nReflect on this conversation as described, and return the JSON object.`;
   return {
-    system: FEEDBACK_SYSTEM_PROMPT,
+    system: REFLECTION_SYSTEM_PROMPT,
     messages: [{ role: "user", content: userContent }],
   };
 }
