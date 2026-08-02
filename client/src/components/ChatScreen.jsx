@@ -9,11 +9,19 @@ import ChatHeader from "./ChatHeader.jsx";
 import MessageBubble from "./MessageBubble.jsx";
 import FeedbackPanel from "./FeedbackPanel.jsx";
 import ResponseOptions from "./ResponseOptions.jsx";
-import SceneIntro from "./SceneIntro.jsx";
+import NarratorIntro from "./NarratorIntro.jsx";
+import NarratorNote from "./NarratorNote.jsx";
 
 let nextId = 1;
 function makeId() {
   return `m${nextId++}`;
+}
+
+/** Real roleplay turns only -- excludes the Narrator's proactive asides,
+ * which never go back to the API (their role isn't "user"/"assistant", so
+ * the backend's message validation would reject them anyway). */
+function isDialogueTurn(m) {
+  return m.role === "user" || m.role === "assistant";
 }
 
 /** Strip UI-only fields down to the {role, content} shape the API expects. */
@@ -53,9 +61,18 @@ export default function ChatScreen({ scenario, onExit }) {
     try {
       // Exclude the opener -- it was never a real API turn, so the history
       // sent to /api/chat always starts with role "user" as required.
-      const historyForApi = toApiShape(updated.filter((m) => !m.isOpener));
-      const { message: reply } = await sendChatMessage(scenario.id, historyForApi);
-      setMessages((prev) => [...prev, { id: makeId(), role: "assistant", content: reply }]);
+      const historyForApi = toApiShape(updated.filter((m) => !m.isOpener && isDialogueTurn(m)));
+      const { message: reply, narratorNote } = await sendChatMessage(scenario.id, historyForApi);
+      setMessages((prev) => {
+        const next = [...prev, { id: makeId(), role: "assistant", content: reply }];
+        // The Narrator's proactive aside, when offered, follows the reply
+        // it's commenting on. It's a separate message-list entry (not part
+        // of the roleplay history) so it can never leak back into /api/chat.
+        if (narratorNote) {
+          next.push({ id: makeId(), role: "narrator", content: narratorNote });
+        }
+        return next;
+      });
     } catch (err) {
       setSendError(err.message || "Something went wrong. Try sending again.");
     } finally {
@@ -65,7 +82,7 @@ export default function ChatScreen({ scenario, onExit }) {
 
   async function handleExplain(message) {
     const index = messages.findIndex((m) => m.id === message.id);
-    const contextMessages = toApiShape(messages.slice(0, index + 1));
+    const contextMessages = toApiShape(messages.slice(0, index + 1).filter(isDialogueTurn));
     const { explanation } = await apiExplainMessage(scenario.id, contextMessages, message.content);
     return explanation;
   }
@@ -73,7 +90,7 @@ export default function ChatScreen({ scenario, onExit }) {
   async function handleGetFeedback() {
     setFeedback({ open: true, status: "loading", text: "" });
     try {
-      const { feedback: text } = await getFeedback(scenario.id, toApiShape(messages));
+      const { feedback: text } = await getFeedback(scenario.id, toApiShape(messages.filter(isDialogueTurn)));
       setFeedback({ open: true, status: "done", text });
     } catch (err) {
       setFeedback({ open: true, status: "error", text: err.message || "Couldn't get feedback right now." });
@@ -88,7 +105,7 @@ export default function ChatScreen({ scenario, onExit }) {
       const draft = inputValue.trim()
         ? [...messages, { role: "user", content: inputValue.trim() }]
         : messages;
-      const { hint: text } = await getHint(scenario.id, toApiShape(draft));
+      const { hint: text } = await getHint(scenario.id, toApiShape(draft.filter(isDialogueTurn)));
       setHint({ open: true, status: "done", text });
     } catch (err) {
       setHint({ open: true, status: "error", text: err.message || "Couldn't get a hint right now." });
@@ -121,17 +138,21 @@ export default function ChatScreen({ scenario, onExit }) {
           <div className="chat-screen__scene-text">{scenario.setting}</div>
         </div>
 
-        <SceneIntro text={scenario.sceneSetting} />
+        <NarratorIntro opening={scenario.narratorOpening} atmosphere={scenario.narratorAtmosphere} />
 
         <div className="chat-screen__messages">
-          {messages.map((message) => (
-            <MessageBubble
-              key={message.id}
-              message={message}
-              aiRole={scenario.aiRole}
-              onExplain={handleExplain}
-            />
-          ))}
+          {messages.map((message) =>
+            message.role === "narrator" ? (
+              <NarratorNote key={message.id} text={message.content} />
+            ) : (
+              <MessageBubble
+                key={message.id}
+                message={message}
+                aiRole={scenario.aiRole}
+                onExplain={handleExplain}
+              />
+            )
+          )}
           {sending && (
             <div className="bubble-row bubble-row--assistant">
               <div className="bubble bubble--typing">...</div>

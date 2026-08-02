@@ -5,6 +5,7 @@ import {
   explainMessage,
   generateFeedback,
   generateHint,
+  generateNarratorSubtext,
 } from "../engine/dialogueEngine.js";
 
 const router = Router();
@@ -44,7 +45,19 @@ router.post("/chat", async (req, res, next) => {
     }
 
     const message = await generateReply(scenario, messages);
-    res.json({ message });
+
+    // The Narrator's proactive subtext is a nice-to-have, not the critical
+    // path -- if it fails for any reason, the chat reply still succeeds and
+    // narratorNote is simply omitted, rather than failing the whole turn.
+    let narratorNote = null;
+    try {
+      const contextWithReply = [...messages, { role: "assistant", content: message }];
+      narratorNote = await generateNarratorSubtext(scenario, contextWithReply);
+    } catch (narratorErr) {
+      console.error("Narrator subtext failed (non-fatal):", narratorErr);
+    }
+
+    res.json({ message, narratorNote });
   } catch (err) {
     next(err);
   }

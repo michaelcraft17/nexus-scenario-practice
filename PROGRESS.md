@@ -1,28 +1,59 @@
 # Progress
 
 Living doc — update this across sessions this week rather than relying on
-memory of what's been done. Last updated: 2026-08-02 (scene-setting framing
-to reduce AI drift; see below). Earlier the same day: new scenario content +
+memory of what's been done. Last updated: 2026-08-02 (renamed the app to
+Nexus; added the Narrator as a distinct architectural layer, replacing the
+earlier scene-setting paragraph -- see below). Earlier the same day: scene-
+setting framing to reduce AI drift, then before that, new scenario content +
 Hint feature. Originally built 2026-08-01, then switched from Claude to
 OpenAI the same day.
 
 ## What's built (Phase 1 — text prototype)
 
-- [x] **Scene-setting framing (v3)**: two new fields per scenario in
-      `scenarios.json` --
-      `preview` (1-2 sentence hook shown on the picker card, so the user
-      knows what they're walking into before clicking -- `ScenarioCard.jsx`)
-      and `sceneSetting` (2-4 sentence scene-direction paragraph, not
-      dialogue, shown once right before the AI's opening line via the new
-      `SceneIntro.jsx` component -- establishes who the user is playing, who
-      the AI is playing, and the immediate situation). `sceneSetting` does
-      double duty: the *same* text is also prepended to the system prompt in
-      `generateReply` (`dialogueEngine.js`) on every single `/api/chat` call.
-      Since the API is stateless and the full system prompt is resent every
-      turn, this makes it a genuine persistent anchor against drift, not a
-      one-time instruction -- the model gets re-grounded in who it's playing
-      and the situation on every reply, however long or unscripted the
-      conversation gets, without constraining how the user's side can go.
+- [x] **Renamed IncludAI -> Nexus (v4)**: the app's own name/branding
+      changed everywhere self-referential -- `index.html` title and Apple
+      web-app meta tags, the picker screen's `<h1>`, the server startup log,
+      both `package.json` `name` fields (`nexus-server`/`nexus-client`), and
+      README. Left unchanged, deliberately: the hackathon's own name ("the
+      IncludAI Neurodiversity Hackathon") is an external fact, not our
+      branding, so that reference stays as-is; the project's on-disk folder
+      name (`includai-scenario-practice/`) also wasn't renamed, to avoid
+      unrelated path churn -- just the product name/UI text changed.
+- [x] **The Narrator (v4)** -- a new architectural layer, distinct from the
+      in-scene AI character, with three jobs (see the README's "The
+      Narrator" section for the full writeup):
+      1. **Opening** -- `scenario.narratorOpening`, a goal/mission-style
+         framing (situation + a general, non-diagnostic nod to why this is
+         worth practicing + the practice goal), replacing the flatter old
+         `sceneSetting` field.
+      2. **Atmosphere** -- `scenario.narratorAtmosphere`, sensory/social
+         environment description (noise, crowding, multiple things
+         happening at once) shown alongside the opening.
+      3. **Subtext** -- proactive, not just on-request: after every
+         `/api/chat` turn, a new `generateNarratorSubtext` call
+         (`dialogueEngine.js`, prompt in `prompts.js`) decides whether the
+         exchange that just happened has a hidden social dynamic worth
+         quietly surfacing, and says nothing (`NONE`, never shown) most of
+         the time. When it does have something, `routes/api.js` returns it
+         as `narratorNote` alongside the reply in the *same* `/api/chat`
+         response (one round trip, not two), and the client renders it as
+         an interspersed `NarratorNote` after the exchange it's about.
+      Visually distinct from character dialogue throughout: a shared
+      `.narrator-box` CSS class (serif italic type, left-accent border) used
+      by the opening/atmosphere block (`NarratorIntro.jsx`), inline subtext
+      (`NarratorNote.jsx`), and restyled to also cover "Explain that"'s
+      output (`bubble__explanation`) -- since that's the same voice, just
+      on-demand instead of proactive, this ties them together visually.
+      Both `narratorOpening` and `narratorAtmosphere` are also prepended to
+      the roleplay system prompt on *every* `/api/chat` call (the API is
+      stateless, so the full system prompt is resent every turn) -- the
+      same persistent-anchor mechanism the old `sceneSetting` used, now
+      carrying the Narrator's actual opening content instead. Explicit
+      design goal, folded into both the anchor and the subtext prompt: this
+      is not teaching a rigid social script or coaching the user to mask --
+      it's meant to support exploring different communication strategies
+      and building confidence, never pushing toward one "correct" way to
+      act.
 - [x] Scenario content, v2: all 4 scenarios replaced in
       `server/src/data/scenarios.json` with content based on real first-person
       accounts from the autistic community -- The Missing Details, The
@@ -45,15 +76,17 @@ OpenAI the same day.
 - [x] Express server skeleton (`server/src/index.js`) — CORS, JSON body
       parsing, central error handler that never leaks stack traces or the API
       key to the client.
-- [x] Dialogue engine (`server/src/engine/`) — `dialogueEngine.js` has four
+- [x] Dialogue engine (`server/src/engine/`) — `dialogueEngine.js` has five
       pure-ish functions (`generateReply`, `explainMessage`, `generateHint`,
-      `generateFeedback`) that take plain data and return plain text, with no
-      HTTP/Express references. This is the intended seam for Phase 3 voice.
-- [x] Shared prompt templates for "explain that", "hint", and "feedback"
-      modes (`server/src/engine/prompts.js`) — scenario-agnostic, so one copy
-      serves all 4 scenarios. `EXPLAIN_SYSTEM_PROMPT` was generalized beyond
-      sarcasm/irony detection to cover vague, indirect, or unstated
-      expectations too, since only 1 of the 4 new scenarios is sarcasm-heavy.
+      `generateFeedback`, `generateNarratorSubtext`) that take plain data and
+      return plain text, with no HTTP/Express references. This is the
+      intended seam for Phase 3 voice.
+- [x] Shared prompt templates for "explain that", "hint", "feedback", and
+      "narrator subtext" modes (`server/src/engine/prompts.js`) —
+      scenario-agnostic, so one copy serves all 4 scenarios.
+      `EXPLAIN_SYSTEM_PROMPT` was generalized beyond sarcasm/irony detection
+      to cover vague, indirect, or unstated expectations too, since only 1 of
+      the 4 scenarios is sarcasm-heavy.
 - [x] **New feature: "Need a hint?"** — always-visible button in the chat
       header. Calls `POST /api/hint` with the conversation so far (plus
       whatever's currently typed but not sent); returns 1-2 short example
@@ -82,10 +115,11 @@ OpenAI the same day.
       `preview` covered the same orienting purpose better prose-wise;
       `setting` still exists in the data and is used as the small caption in
       the chat screen's colored scene band.)
-- [x] Chat screen — colored scene band (short `setting` caption), then a new
-      `SceneIntro` narration block (`sceneSetting`, see above), then the
-      static opener rendered with no API call, then turn-by-turn chat.
-      "Explain that" under every AI bubble (including the opener),
+- [x] Chat screen — colored scene band (short `setting` caption), then the
+      `NarratorIntro` block (opening + atmosphere, see above), then the
+      static opener rendered with no API call, then turn-by-turn chat with
+      `NarratorNote` asides interspersed wherever the Narrator has something
+      to say. "Explain that" under every AI bubble (including the opener),
       always-visible "Exit scenario" button, "Need a hint?" button, "Get
       feedback" button opening a descriptive (never numeric) feedback panel.
       Header is two rows (Exit + title + Feedback on top, Hint below) to
@@ -161,12 +195,43 @@ OpenAI the same day.
   (an always-available support action) and because a per-message hint
   didn't fit the feature's purpose (helping with the *next*, unwritten
   reply). Easy to move if this isn't what was pictured.
-- **Drift anchor scope**: `sceneSetting` is currently only prepended to the
-  roleplay system prompt (`generateReply`) -- not passed into explain/hint/
-  feedback, which already get the actual transcript as context and don't
-  generate new in-character dialogue, so they didn't seem to need it. If
-  explain/hint responses ever seem to lose track of the situation on a long
-  transcript, that'd be the first place to add it.
+- **Drift anchor scope**: `narratorOpening`/`narratorAtmosphere` are
+  currently only prepended to the roleplay system prompt (`generateReply`)
+  -- not passed into explain/hint/feedback, which already get the actual
+  transcript as context and don't generate new in-character dialogue, so
+  they didn't seem to need it. If explain/hint responses ever seem to lose
+  track of the situation on a long transcript, that'd be the first place to
+  add it.
+- **Narrator subtext cost/latency**: `generateNarratorSubtext` runs as a
+  second model call on *every* `/api/chat` turn (folded into the same HTTP
+  response so it's not a second round trip, but it is a second call to
+  OpenAI, made sequentially after the reply). This roughly doubles latency
+  and per-turn cost on every message, whether or not the Narrator ends up
+  having anything to say. Acceptable for a hackathon prototype; if it feels
+  slow in testing, options include running it in parallel with... well,
+  there's nothing to parallelize it with since it needs the reply text
+  first, so the real levers are: skip it probabilistically (e.g. only
+  evaluate on every 2nd-3rd turn), make it opt-in via a header/query param
+  the client controls, or accept the latency as part of the experience.
+- **Narrator/coach voice unification (not done)**: "Explain that" now
+  *looks* like the Narrator (shared `.narrator-box` styling) but its system
+  prompt still uses the older "communication coach" persona wording, not
+  literally "You are the Narrator." Hint and Feedback are untouched --
+  still their own coach persona, not styled or worded as the Narrator at
+  all. Left this way deliberately to avoid renaming UI/behavior the user
+  already knows from earlier sessions without being asked to. Worth a
+  product decision: should all four break-the-fourth-wall surfaces
+  (Explain, Hint, Feedback, Narrator subtext) formally become one
+  consistent "Narrator" identity, or should Narrator stay scoped to what
+  was actually asked for (opening/atmosphere/proactive subtext)?
+- **"Mission/quest" framing (interpretation call)**: the spec asked for
+  opening framing "like a mission/quest, not just a setting description."
+  Implemented as goal-oriented prose (situation + general past-difficulty
+  nod + stated practice goal, e.g. "Your goal is to practice...") rather
+  than literal game-y language ("Quest:", XP, objectives lists) -- felt
+  tonally more appropriate for an accessibility tool, and still satisfies
+  the structural ask (situation, why-it-matters, goal). Easy to push more
+  literally gamified if that's actually what was wanted.
 
 ## Resuming a session
 

@@ -1,9 +1,10 @@
 /**
  * Shared, scenario-agnostic prompt templates for the "explain that",
- * "feedback", and "hint" modes, plus a small helper to render a message
- * history into a plain-text transcript. Per-scenario roleplay prompts live
- * in scenarios.json itself (scenario.systemPrompt) — these templates are
- * deliberately generic so one copy serves all scenarios.
+ * "feedback", "hint", and proactive "narrator subtext" modes, plus a small
+ * helper to render a message history into a plain-text transcript.
+ * Per-scenario roleplay prompts live in scenarios.json itself
+ * (scenario.systemPrompt) — these templates are deliberately generic so one
+ * copy serves all scenarios.
  */
 
 /**
@@ -62,6 +63,16 @@ ${NON_CONFORMITY_FRAMING} There also isn't one "correct" way to respond right no
 
 The user is currently stuck and isn't sure how to reply next. You'll be given the conversation so far. Offer 1-2 short example directions for how they could respond -- not a full script to copy-paste word for word, just enough to unblock them. Phrase these as possibilities ("You could...", "One option is...", "You might try..."), not instructions or the single right answer. Keep it brief (2-4 sentences total), warm, and non-judgmental. Don't evaluate anything they've already said -- just offer forward-looking options.`;
 
+const NARRATOR_SUBTEXT_SYSTEM_PROMPT = `You are the Narrator -- a quiet, supportive voice that has been present in this scene since it opened (you set up the situation before the roleplay began). You are not the character the user is talking to, and you don't fully step outside the story the way a coach breaking character would -- you're narration that occasionally offers a brief aside about what's really going on beneath an exchange.
+
+${NON_CONFORMITY_FRAMING} You are not teaching one "correct" script to follow -- you're helping the user notice social dynamics they can choose to respond to however works for them, so they can explore different approaches and build confidence over repeated tries.
+
+You'll be given the conversation so far, ending with the most recent exchange. Decide: is there a hidden social dynamic in that most recent exchange worth quietly surfacing -- something about why the other character said what they said that isn't obvious from the words alone? This should be occasional and natural, not constant commentary -- most exchanges don't need a note, and it's completely fine to say nothing.
+
+If there IS something worth surfacing: write ONE brief sentence (rarely two), in third person, narrating what's going on beneath the exchange -- e.g. "The barber is asking for more detail because 'shorter' means different things to different people -- they're trying to understand your preference, not challenging you." Do not evaluate or judge the user's response. Do not suggest what they should have said instead.
+
+If there is NOT something worth surfacing right now, respond with exactly this and nothing else: NONE`;
+
 export function buildExplainRequest({ aiRole, contextMessages, targetMessage }) {
   const transcript = renderTranscript(contextMessages, aiRole);
   const userContent = `Here is the conversation so far:\n\n${transcript}\n\nThe line to explain is this one from ${aiRole}:\n"${targetMessage}"`;
@@ -85,6 +96,15 @@ export function buildHintRequest({ aiRole, contextMessages }) {
   const userContent = `Here is the conversation so far:\n\n${transcript}\n\nThe user isn't sure how to reply next. Offer 1-2 example directions to help them get unstuck.`;
   return {
     system: HINT_SYSTEM_PROMPT,
+    messages: [{ role: "user", content: userContent }],
+  };
+}
+
+export function buildNarratorSubtextRequest({ aiRole, contextMessages }) {
+  const transcript = renderTranscript(contextMessages, aiRole);
+  const userContent = `Here is the conversation so far, ending with the most recent exchange:\n\n${transcript}\n\nIs there a hidden social dynamic in that most recent exchange worth surfacing? Respond with one brief sentence, or exactly "NONE".`;
+  return {
+    system: NARRATOR_SUBTEXT_SYSTEM_PROMPT,
     messages: [{ role: "user", content: userContent }],
   };
 }
