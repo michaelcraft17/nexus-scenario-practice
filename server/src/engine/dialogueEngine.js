@@ -13,17 +13,29 @@ import { buildExplainRequest, buildFeedbackRequest, buildHintRequest } from "./p
 
 /**
  * Continue the in-character roleplay.
- * @param {object} scenario - Full scenario object (including systemPrompt).
+ *
+ * Every call resends the full system prompt from scratch (the API is
+ * stateless -- there's no server-side session), so prepending the scene
+ * anchor here means it's re-included on every single turn automatically.
+ * That's what makes it a real fallback against drift: even deep into an
+ * open-ended, unscripted conversation, the model is re-grounded in who it's
+ * playing and the situation every time it generates a reply, without that
+ * grounding ever overriding or scripting how the user's side can go.
+ *
+ * @param {object} scenario - Full scenario object (including systemPrompt
+ *   and sceneSetting).
  * @param {{role: "user"|"assistant", content: string}[]} messages - Turn
  *   history so far, NOT including the scenario's static opener line (it's
  *   never sent as a real turn -- see the continuity addendum below).
  * @returns {Promise<string>} The AI's in-character reply.
  */
 export async function generateReply(scenario, messages) {
-  const continuityAddendum = `\n\nContext: The user has already read your opening line: "${scenario.opener}". Continue the roleplay in character from there -- do not repeat or re-send your opening line. Keep replies natural and conversational (1-3 sentences), like real spoken dialogue. Never mention that you are an AI or that this is a practice exercise. React to the actual content and intent of what the user says, not to whether their phrasing sounds "typical" or polished -- a blunt, plain, or unusually worded message should be responded to based on what it communicates, the same way you'd react to anyone who said that to you.`;
+  const sceneAnchor = `SCENE (stay grounded in this if the conversation starts to drift -- this is who you are and the situation you're in, no matter how the conversation goes): ${scenario.sceneSetting}\n\n`;
+
+  const continuityAddendum = `\n\nContext: The user has already read the scene-setting above and your opening line: "${scenario.opener}". Continue the roleplay in character from there -- do not repeat or re-send your opening line or re-describe the scene. Keep replies natural and conversational (1-3 sentences), like real spoken dialogue. Never mention that you are an AI or that this is a practice exercise. React to the actual content and intent of what the user says, not to whether their phrasing sounds "typical" or polished -- a blunt, plain, or unusually worded message should be responded to based on what it communicates, the same way you'd react to anyone who said that to you.`;
 
   return complete({
-    system: scenario.systemPrompt + continuityAddendum,
+    system: sceneAnchor + scenario.systemPrompt + continuityAddendum,
     messages,
   });
 }

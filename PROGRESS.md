@@ -1,12 +1,28 @@
 # Progress
 
 Living doc — update this across sessions this week rather than relying on
-memory of what's been done. Last updated: 2026-08-02 (new scenario content +
-Hint feature; see below). Originally built 2026-08-01, then switched from
-Claude to OpenAI the same day.
+memory of what's been done. Last updated: 2026-08-02 (scene-setting framing
+to reduce AI drift; see below). Earlier the same day: new scenario content +
+Hint feature. Originally built 2026-08-01, then switched from Claude to
+OpenAI the same day.
 
 ## What's built (Phase 1 — text prototype)
 
+- [x] **Scene-setting framing (v3)**: two new fields per scenario in
+      `scenarios.json` --
+      `preview` (1-2 sentence hook shown on the picker card, so the user
+      knows what they're walking into before clicking -- `ScenarioCard.jsx`)
+      and `sceneSetting` (2-4 sentence scene-direction paragraph, not
+      dialogue, shown once right before the AI's opening line via the new
+      `SceneIntro.jsx` component -- establishes who the user is playing, who
+      the AI is playing, and the immediate situation). `sceneSetting` does
+      double duty: the *same* text is also prepended to the system prompt in
+      `generateReply` (`dialogueEngine.js`) on every single `/api/chat` call.
+      Since the API is stateless and the full system prompt is resent every
+      turn, this makes it a genuine persistent anchor against drift, not a
+      one-time instruction -- the model gets re-grounded in who it's playing
+      and the situation on every reply, however long or unscripted the
+      conversation gets, without constraining how the user's side can go.
 - [x] Scenario content, v2: all 4 scenarios replaced in
       `server/src/data/scenarios.json` with content based on real first-person
       accounts from the autistic community -- The Missing Details, The
@@ -61,12 +77,18 @@ Claude to OpenAI the same day.
       the only place that calls `fetch()`, matching the same decoupling
       intent as the backend engine.
 - [x] Scenario picker screen — fetches from the backend, color-block
-      placeholder reserving image space, title, setting, teaching point.
-- [x] Chat screen — static opener rendered with no API call, turn-by-turn
-      chat, "Explain that" under every AI bubble (including the opener),
+      placeholder reserving image space, title, `preview` hook, teaching
+      point. (The old terse `setting` line was dropped from the card once
+      `preview` covered the same orienting purpose better prose-wise;
+      `setting` still exists in the data and is used as the small caption in
+      the chat screen's colored scene band.)
+- [x] Chat screen — colored scene band (short `setting` caption), then a new
+      `SceneIntro` narration block (`sceneSetting`, see above), then the
+      static opener rendered with no API call, then turn-by-turn chat.
+      "Explain that" under every AI bubble (including the opener),
       always-visible "Exit scenario" button, "Need a hint?" button, "Get
       feedback" button opening a descriptive (never numeric) feedback panel.
-      Header is now two rows (Exit + title + Feedback on top, Hint below) to
+      Header is two rows (Exit + title + Feedback on top, Hint below) to
       fit the extra button without crowding on narrow screens.
 - [x] Mobile-first CSS — `100dvh` layout, safe-area insets for the iPhone
       home indicator, ≥44px tap targets, `apple-mobile-web-app-*` meta tags
@@ -139,6 +161,12 @@ Claude to OpenAI the same day.
   (an always-available support action) and because a per-message hint
   didn't fit the feature's purpose (helping with the *next*, unwritten
   reply). Easy to move if this isn't what was pictured.
+- **Drift anchor scope**: `sceneSetting` is currently only prepended to the
+  roleplay system prompt (`generateReply`) -- not passed into explain/hint/
+  feedback, which already get the actual transcript as context and don't
+  generate new in-character dialogue, so they didn't seem to need it. If
+  explain/hint responses ever seem to lose track of the situation on a long
+  transcript, that'd be the first place to add it.
 
 ## Resuming a session
 
