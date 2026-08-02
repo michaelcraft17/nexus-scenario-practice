@@ -5,7 +5,7 @@ export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
     <div className="picker">
       <header className="picker__header">
         <h1>Nexus</h1>
-        <p>Practice everyday conversations in a low-stakes, judgment-free space. Pick a scenario to start.</p>
+        <p>Practice everyday conversations in a low-stakes, judgment-free space. Pick a scenario and a difficulty to start.</p>
         <p className="picker__framing">
           You're playing as a neurodivergent person navigating everyday
           situations. The goal isn't to act "normal" -- it's to understand

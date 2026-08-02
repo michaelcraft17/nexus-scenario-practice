@@ -1,4 +1,4 @@
-export default function ChatHeader({ scenario, onExit, onGetFeedback, feedbackDisabled, onHint }) {
+export default function ChatHeader({ scenario, difficulty, onExit, onGetFeedback, feedbackDisabled, onHint }) {
   return (
     <header className="chat-header">
       <div className="chat-header__row">
@@ -22,6 +22,7 @@ export default function ChatHeader({ scenario, onExit, onGetFeedback, feedbackDi
         <button className="chat-header__hint" onClick={onHint}>
           &#128161; Need a hint?
         </button>
+        {difficulty && <div className="chat-header__difficulty">{difficulty}</div>}
       </div>
     </header>
   );

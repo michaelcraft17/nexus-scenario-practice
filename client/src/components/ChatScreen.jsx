@@ -29,7 +29,7 @@ function toApiShape(messages) {
   return messages.map(({ role, content }) => ({ role, content }));
 }
 
-export default function ChatScreen({ scenario, onExit }) {
+export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExit }) {
   const [messages, setMessages] = useState(() => [
     { id: makeId(), role: "assistant", content: scenario.opener, isOpener: true },
   ]);
@@ -38,6 +38,9 @@ export default function ChatScreen({ scenario, onExit }) {
   const [sendError, setSendError] = useState(null);
   const [feedback, setFeedback] = useState({ open: false, status: "idle", text: "" });
   const [hint, setHint] = useState({ open: false, status: "idle", text: "" });
+  // Template event ids the Narrator has already used this session, so the
+  // same beat doesn't repeat turn after turn while others are available.
+  const [firedEventIds, setFiredEventIds] = useState([]);
 
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
@@ -62,17 +65,32 @@ export default function ChatScreen({ scenario, onExit }) {
       // Exclude the opener -- it was never a real API turn, so the history
       // sent to /api/chat always starts with role "user" as required.
       const historyForApi = toApiShape(updated.filter((m) => !m.isOpener && isDialogueTurn(m)));
-      const { message: reply, narratorNote } = await sendChatMessage(scenario.id, historyForApi);
+      const { message: reply, event, narratorNote } = await sendChatMessage(scenario.id, historyForApi, {
+        difficulty,
+        firedEventIds,
+      });
       setMessages((prev) => {
-        const next = [...prev, { id: makeId(), role: "assistant", content: reply }];
+        const next = [...prev];
+        // A scene event (atmosphere shift, or another NPC chiming in) is
+        // narrated *before* the reply it set up -- it's a pre-built beat
+        // from the scenario's event library, not something the model
+        // invented, and it gives the NPC's line a natural segue.
+        if (event) {
+          next.push({ id: makeId(), role: "narrator", content: event.text });
+        }
+        next.push({ id: makeId(), role: "assistant", content: reply });
         // The Narrator's proactive aside, when offered, follows the reply
-        // it's commenting on. It's a separate message-list entry (not part
-        // of the roleplay history) so it can never leak back into /api/chat.
+        // it's commenting on. Neither this nor the event above ever leaks
+        // back into /api/chat -- narrator-role entries are filtered out of
+        // every payload the app sends.
         if (narratorNote) {
           next.push({ id: makeId(), role: "narrator", content: narratorNote });
         }
         return next;
       });
+      if (event) {
+        setFiredEventIds((prev) => [...prev, event.id]);
+      }
     } catch (err) {
       setSendError(err.message || "Something went wrong. Try sending again.");
     } finally {
@@ -124,6 +142,7 @@ export default function ChatScreen({ scenario, onExit }) {
     <div className="chat-screen">
       <ChatHeader
         scenario={scenario}
+        difficulty={difficulty}
         onExit={onExit}
         onGetFeedback={handleGetFeedback}
         feedbackDisabled={!canGetFeedback}
@@ -138,7 +157,11 @@ export default function ChatScreen({ scenario, onExit }) {
           <div className="chat-screen__scene-text">{scenario.setting}</div>
         </div>
 
-        <NarratorIntro opening={scenario.narratorOpening} atmosphere={scenario.narratorAtmosphere} />
+        <NarratorIntro
+          opening={scenario.narratorOpening}
+          atmosphere={scenario.narratorAtmosphere}
+          difficultyGoal={difficultyGoal}
+        />
 
         <div className="chat-screen__messages">
           {messages.map((message) =>

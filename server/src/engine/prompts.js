@@ -2,9 +2,9 @@
  * Shared, scenario-agnostic prompt templates for the "explain that",
  * "feedback", "hint", and proactive "narrator subtext" modes, plus a small
  * helper to render a message history into a plain-text transcript.
- * Per-scenario roleplay prompts live in scenarios.json itself
- * (scenario.systemPrompt) — these templates are deliberately generic so one
- * copy serves all scenarios.
+ * Per-scenario roleplay prompts are assembled from NPC blueprints instead
+ * (see server/src/engine/npcPromptBuilder.js) — these templates are
+ * deliberately generic so one copy serves all scenarios and NPCs.
  */
 
 /**
