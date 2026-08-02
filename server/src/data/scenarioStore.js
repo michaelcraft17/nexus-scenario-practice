@@ -20,6 +20,11 @@ const scenarios = JSON.parse(
  * "recommended," which would spoil the practice if shown up front.
  * `aiRole` is derived from the linked NPC's blueprint rather than stored
  * redundantly on the scenario, so there's one source of truth for it.
+ * `missions` is excluded too, for the same reason as `templateEvents` --
+ * only the first stage is exposed (as `mission`, below), and with
+ * `advanceWhen` stripped, so later stages and their trigger conditions
+ * aren't spoiled up front. Stage 2+ only ever arrives dynamically through
+ * `/api/chat`'s `mission` field once the Narrator judges it's been reached.
  */
 export function getAllPublic() {
   const publicScenarios = scenarios.map(
@@ -35,6 +40,7 @@ export function getAllPublic() {
       teachingPoint,
       color,
       responseOptions,
+      missions,
     }) => ({
       id,
       title,
@@ -50,10 +56,30 @@ export function getAllPublic() {
         id: optionId,
         text,
       })),
+      mission: getInitialMission(missions),
     })
   );
 
   return { scenarios: publicScenarios, difficultyGoals: getAllDifficultyGoals() };
+}
+
+/** The mission panel's starting state -- stage 1, every objective unchecked,
+ * `advanceWhen` stripped (it's the hidden trigger condition, never sent to
+ * the client). Returns null for any scenario without authored missions.
+ * `isFinalStage` tells the client whether this is the last authored stage
+ * (never true for stage 1 today, since every scenario has 2 stages, but
+ * computed generically rather than hardcoded) -- the client uses it, paired
+ * with every objective being complete, to know when to auto-trigger the
+ * Reflection (see routes/api.js's own `isFinalStage` on the same shape). */
+function getInitialMission(missions) {
+  const stage = missions?.[0];
+  if (!stage) return null;
+  return {
+    stageId: stage.id,
+    missionText: stage.missionText,
+    objectives: stage.objectives.map(({ id, text }) => ({ id, text, completed: false })),
+    isFinalStage: missions.length === 1,
+  };
 }
 
 /** Full scenario object, including npcId/secondaryNpcId/templateEvents, for

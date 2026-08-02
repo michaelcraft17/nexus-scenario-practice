@@ -6,7 +6,7 @@ import {
   explainMessage,
   generateReflection,
   generateHint,
-  generateNarratorSubtext,
+  generateNarratorUpdate,
 } from "../engine/dialogueEngine.js";
 import { computeConversationBalance } from "../engine/conversationStats.js";
 
@@ -43,13 +43,62 @@ function getAiRoleForScenario(scenario) {
   return formatAiRole(getNpcById(scenario.npcId));
 }
 
+/** Resolve the client-reported mission stage against this scenario's
+ * authored stage list, falling back to the first stage for anything
+ * missing/unrecognized (same defensive-default pattern as resolveDifficulty). */
+function resolveStageIndex(missions, stageId) {
+  const index = missions.findIndex((s) => s.id === stageId);
+  return index === -1 ? 0 : index;
+}
+
+/** Merge the model's mission-tracking judgment with the client's known state
+ * into the mission shape sent back to the client. Two guards against a
+ * single flaky model call corrupting session state (the server is
+ * stateless, so this recomputes fresh every turn rather than trusting an
+ * incremental diff):
+ * - Stage only ever moves forward: the resolved stage is whichever of the
+ *   client's and the model's reported stage is *later* in the authored
+ *   order, never earlier.
+ * - Objectives only ever get checked, never unchecked: the resolved
+ *   completed set is the union of what the client already knew and what
+ *   the model reports now, filtered to the resolved stage's own objective
+ *   ids (a stray id from a stage transition doesn't leak across stages). */
+function resolveMission(missions, clientStageId, clientCompletedIds, update) {
+  const clientIndex = resolveStageIndex(missions, clientStageId);
+  const modelIndex = resolveStageIndex(missions, update.activeStageId);
+  const resolvedIndex = Math.max(clientIndex, modelIndex);
+  const resolvedStage = missions[resolvedIndex];
+
+  const validIds = new Set(resolvedStage.objectives.map((o) => o.id));
+  const completed = new Set(
+    [...(Array.isArray(clientCompletedIds) ? clientCompletedIds : []), ...update.completedObjectiveIds].filter((id) =>
+      validIds.has(id)
+    )
+  );
+
+  return {
+    stageId: resolvedStage.id,
+    missionText: resolvedStage.missionText,
+    objectives: resolvedStage.objectives.map(({ id, text }) => ({
+      id,
+      text,
+      completed: completed.has(id),
+    })),
+    // The client uses this, paired with every objective being complete, to
+    // know when the whole mission (not just the current stage) is done --
+    // that's what auto-triggers the Reflection now (see ChatScreen.jsx).
+    isFinalStage: resolvedIndex === missions.length - 1,
+  };
+}
+
 router.get("/scenarios", (req, res) => {
   res.json(getAllPublic());
 });
 
 router.post("/chat", async (req, res, next) => {
   try {
-    const { scenarioId, messages, difficulty, firedEventIds } = req.body ?? {};
+    const { scenarioId, messages, difficulty, firedEventIds, activeMissionStageId, completedObjectiveIds } =
+      req.body ?? {};
 
     const scenario = getById(scenarioId);
     if (!scenario) {
@@ -70,21 +119,32 @@ router.post("/chat", async (req, res, next) => {
       hasSecondaryNpc: Boolean(scenario.secondaryNpcId),
     });
 
-    // The Narrator's proactive subtext is a nice-to-have, not the critical
-    // path -- if it fails for any reason, the chat reply still succeeds and
-    // narratorNote is simply omitted, rather than failing the whole turn.
+    // The Narrator's proactive update (subtext + mission tracking) is a
+    // nice-to-have, not the critical path -- if it fails for any reason,
+    // the chat reply still succeeds and narratorNote/mission are simply
+    // omitted, rather than failing the whole turn.
     let narratorNote = null;
+    let mission = null;
     try {
       const contextWithReply = [...messages, { role: "assistant", content: message }];
-      narratorNote = await generateNarratorSubtext(getAiRoleForScenario(scenario), contextWithReply);
+      const clientStageId = scenario.missions[resolveStageIndex(scenario.missions, activeMissionStageId)].id;
+      const update = await generateNarratorUpdate(
+        getAiRoleForScenario(scenario),
+        contextWithReply,
+        scenario.missions,
+        clientStageId
+      );
+      narratorNote = update.subtext;
+      mission = resolveMission(scenario.missions, clientStageId, completedObjectiveIds, update);
     } catch (narratorErr) {
-      console.error("Narrator subtext failed (non-fatal):", narratorErr);
+      console.error("Narrator update failed (non-fatal):", narratorErr);
     }
 
     res.json({
       message,
       event: event ? { id: event.id, type: event.eventType, text: event.text } : null,
       narratorNote,
+      mission,
     });
   } catch (err) {
     next(err);

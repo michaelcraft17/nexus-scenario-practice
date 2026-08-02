@@ -6,7 +6,7 @@
   --space-4: 16px;
   --space-5: 24px;
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-narrator: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+  --font-narrator: "EB Garamond", Georgia, "Iowan Old Style", "Palatino Linotype", serif;
   --border-width: 1px;
 }
 
@@ -94,14 +94,37 @@
 }
 
 /* ---------- Typeface ----------
-   No external font loaded (keeps the app dependency-free/deploy-anywhere)
-   -- approximates dyslexia-friendly reading with a rounder, more distinct
-   system font plus the spacing adjustments (letter/word/line spacing)
-   that the evidence favors at least as much as the specific typeface. */
+   OpenDyslexic is the actual purpose-built dyslexia-friendly typeface
+   (weighted bottoms and varied letter shapes meant to reduce letter
+   confusion/flipping), loaded from Fontsource's jsDelivr CDN -- a
+   deliberate exception to "no external font load," same call already made
+   for EB Garamond (see index.html). Falls back to the previous
+   system-sans approximation (still a reasonable accessible choice on its
+   own) if the font request fails, e.g. offline. The letter/word/line
+   spacing adjustments below apply regardless of which font loads -- the
+   evidence favors that spacing at least as much as the specific typeface. */
+
+@font-face {
+  font-family: "OpenDyslexic";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("https://cdn.jsdelivr.net/fontsource/fonts/opendyslexic@5.3.0/latin-400-normal.woff2") format("woff2"),
+    url("https://cdn.jsdelivr.net/fontsource/fonts/opendyslexic@5.3.0/latin-400-normal.woff") format("woff");
+}
+
+@font-face {
+  font-family: "OpenDyslexic";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("https://cdn.jsdelivr.net/fontsource/fonts/opendyslexic@5.3.0/latin-700-normal.woff2") format("woff2"),
+    url("https://cdn.jsdelivr.net/fontsource/fonts/opendyslexic@5.3.0/latin-700-normal.woff") format("woff");
+}
 
 [data-typeface="dyslexia"] {
-  --font-sans: Verdana, Tahoma, "Trebuchet MS", sans-serif;
-  --font-narrator: Verdana, Tahoma, "Trebuchet MS", sans-serif;
+  --font-sans: "OpenDyslexic", Verdana, Tahoma, "Trebuchet MS", sans-serif;
+  --font-narrator: "OpenDyslexic", Verdana, Tahoma, "Trebuchet MS", sans-serif;
 }
 
 [data-typeface="dyslexia"] body {
@@ -212,6 +235,9 @@ input {
 .scenario-card__image {
   width: 100%;
   aspect-ratio: 16 / 9;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .scenario-card__body {
@@ -295,7 +321,63 @@ input {
   display: flex;
   flex-direction: column;
   height: 100dvh;
+  /* No background-color here on purpose -- .chat-screen isn't a stacking
+     context (no position/z-index/transform), so its own background would
+     paint in normal flow (painting step 3) *after* (on top of) the fixed,
+     negative-z-index .chat-screen__background below (painting step 2),
+     covering it completely despite the z-index. The background image div
+     carries its own solid fallback color instead. */
+}
+
+/* The scenario's own watercolor art, fixed behind the whole chat screen --
+   z-index: -1 (rather than a small positive value) guarantees it paints
+   behind every other element in the root stacking context regardless of
+   DOM order/positioning quirks, no matter how the header/scroll/input
+   happen to establish their own stacking contexts. Every text-bearing
+   surface on this screen (message bubbles, the Narrator bubble, the
+   mission badge, the header, the input bar) already has its own opaque
+   background color, so the art only ever shows through in the gaps between
+   them -- ambient, not something legibility depends on. The ::after scrim
+   tints it down with the current theme's own --color-bg so it reads as a
+   soft watermark consistent with the active color scheme, not a loud photo
+   background. */
+.chat-screen__background {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-color: var(--color-bg);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.chat-screen__background::after {
+  content: "";
+  position: absolute;
+  inset: 0;
   background: var(--color-bg);
+  opacity: 0.15;
+}
+
+/* The source art is a pale, cream-toned watercolor -- fine as-is against a
+   light theme's own pale background, but shown at full brightness against
+   a dark theme it would read as a jarring bright patch behind the dark UI.
+   Darkening the image itself (rather than just piling on more of the same
+   light scrim) keeps its actual colors/shapes visible, just dimmed to sit
+   naturally behind dark bubbles. */
+[data-theme="dark"] .chat-screen__background {
+  filter: brightness(0.4) saturate(0.9);
+}
+
+[data-theme="dark"] .chat-screen__background::after {
+  opacity: 0.35;
+}
+
+/* High contrast mode exists specifically to remove exactly this kind of
+   decorative low-contrast background -- same priority-of-a11y-override
+   pattern as the dyslexia typeface/motion-reduce overrides elsewhere. */
+[data-contrast="high"] .chat-screen__background {
+  display: none;
 }
 
 .chat-header {
@@ -304,19 +386,14 @@ input {
   position: sticky;
   top: 0;
   z-index: 10;
-  padding-top: max(var(--space-3), env(safe-area-inset-top));
+  padding-top: max(var(--space-1), env(safe-area-inset-top));
 }
 
 .chat-header__row {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-3) var(--space-3);
-}
-
-.chat-header__row--secondary {
-  padding-top: 0;
-  justify-content: space-between;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2) var(--space-2);
 }
 
 .chat-header__exit {
@@ -324,10 +401,9 @@ input {
   color: var(--color-primary-contrast);
   border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: 999px;
-  padding: var(--space-2) var(--space-3);
-  min-height: 44px;
-  font-weight: 600;
-  font-size: 0.9rem;
+  min-width: 40px;
+  min-height: 40px;
+  font-size: 1.1rem;
   flex-shrink: 0;
 }
 
@@ -335,47 +411,127 @@ input {
   flex: 1;
   text-align: center;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 var(--space-1);
+}
+
+.chat-header__icon {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: var(--color-primary-contrast);
+  border-radius: 999px;
+  padding: 0 var(--space-2);
+  min-width: 40px;
+  min-height: 40px;
+  font-weight: 600;
+  font-size: 0.72rem;
+  flex-shrink: 0;
+}
+
+/* A small quest-tracker-style badge, not a full-width bar -- lives as the
+   first child of .chat-screen__messages (inside the scrollable region, see
+   ChatScreen.jsx), so `position: sticky` pins it to the top of that
+   scrollport as the user scrolls, without ever overlapping the header
+   above (which is a separate, non-scrolling sibling). `margin-left: auto`
+   on a max-content-width block pushes it to the right without taking a
+   full row out of the layout. Styled like the Narrator's other voice
+   elements (tint background, accent left edge) rather than the header's
+   solid primary color, so it reads as part of the chat, not an extension
+   of the header. */
+.mission-badge {
+  position: sticky;
+  top: var(--space-2);
+  z-index: 5;
+  margin: 0 0 0 auto;
+  width: max-content;
+  max-width: 62%;
+}
+
+.mission-badge__toggle {
+  display: block;
+  width: 100%;
+  background: var(--color-tint);
+  color: var(--color-text);
+  border: var(--border-width) solid var(--color-border);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius);
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.mission-badge__label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.mission-badge__progress {
+  margin-left: auto;
+  font-size: 0.68rem;
+}
+
+.mission-badge__next {
+  margin-top: 2px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.chat-header__feedback {
-  background: var(--color-accent);
-  color: var(--color-primary);
-  border: none;
-  border-radius: 999px;
-  padding: var(--space-2) var(--space-3);
-  min-height: 44px;
-  font-weight: 600;
+.mission-badge__details {
+  margin-top: var(--space-1);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.mission-badge__text {
+  margin: 0 0 var(--space-2);
   font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.mission-badge__objectives {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.mission-badge__objective {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--color-text);
+}
+
+.mission-badge__checkbox {
   flex-shrink: 0;
+  font-size: 1rem;
+  line-height: 1.4;
 }
 
-.chat-header__feedback:disabled {
-  opacity: 0.5;
-}
-
-.chat-header__hint {
-  background: none;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  color: var(--color-primary-contrast);
-  border-radius: 999px;
-  padding: var(--space-1) var(--space-3);
-  min-height: 36px;
-  font-weight: 600;
-  font-size: 0.8rem;
-}
-
-.chat-header__difficulty {
-  color: var(--color-primary-contrast);
-  opacity: 0.75;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: capitalize;
-  letter-spacing: 0.03em;
-  flex-shrink: 0;
+.mission-badge__objective--done {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
 }
 
 .hint-bar {
@@ -412,32 +568,49 @@ input {
   flex-shrink: 0;
 }
 
+/* A single horizontally-scrolling row (like a chat app's quick-reply
+   chips), not a stacked column of full-width buttons -- one compact row of
+   height no matter how many options there are. */
 .response-options {
-  margin: 0 var(--space-3) var(--space-2);
+  margin: 0 0 var(--space-2);
+  padding-left: var(--space-3);
 }
 
 .response-options__label {
-  font-size: 0.78rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
   color: var(--color-text-muted);
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-1);
 }
 
 .response-options__chips {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: var(--space-2);
+  overflow-x: auto;
+  padding-right: var(--space-3);
+  padding-bottom: var(--space-1);
 }
 
 .response-options__chip {
+  flex: 0 0 auto;
   text-align: left;
   background: var(--color-surface);
   border: var(--border-width) solid var(--color-border);
   color: var(--color-text);
-  border-radius: var(--radius);
+  border-radius: 999px;
   padding: var(--space-2) var(--space-3);
-  font-size: 0.88rem;
-  line-height: 1.4;
-  min-height: 44px;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  min-height: 40px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .response-options__chip:active {
@@ -447,20 +620,6 @@ input {
 .chat-screen__scroll {
   flex: 1;
   overflow-y: auto;
-}
-
-.chat-screen__scene {
-  padding: var(--space-4);
-  color: rgba(0, 0, 0, 0.65);
-}
-
-.chat-screen__scene-text {
-  font-size: 0.85rem;
-  font-weight: 600;
-  background: rgba(255, 255, 255, 0.55);
-  display: inline-block;
-  padding: var(--space-1) var(--space-2);
-  border-radius: 999px;
 }
 
 /* ---------- Narrator (distinct voice from in-scene character dialogue) ---------- */
@@ -483,18 +642,6 @@ input {
   margin-top: var(--space-2);
 }
 
-.narrator-box--intro {
-  margin: 0 var(--space-3) var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  text-align: center;
-  border-left: none;
-  border-top: 3px solid var(--color-primary);
-}
-
-.narrator-box--intro p {
-  font-size: 0.88rem;
-}
-
 .narrator-box--note {
   align-self: center;
   max-width: 90%;
@@ -503,6 +650,20 @@ input {
 
 .narrator-box--note p {
   font-size: 0.85rem;
+}
+
+.narrator-box--mission {
+  border-left-color: var(--color-accent);
+}
+
+.narrator-box__mission-label {
+  margin: 0 0 var(--space-1) !important;
+  font-style: normal !important;
+  font-weight: 700;
+  color: var(--color-accent) !important;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .chat-screen__messages {
@@ -554,6 +715,30 @@ input {
 
 .bubble--typing {
   color: var(--color-text-muted);
+}
+
+/* The Narrator's opening message -- same bubble-row/speaker layout as an
+   NPC line, but tint background + accent left edge + italic EB Garamond
+   (via --font-narrator) instead of the plain surface/border NPC bubbles
+   use, so it's still clearly narration rather than something the
+   character said. accentColor (the scenario's own color, see
+   ChatScreen.jsx) overrides the left-edge color inline, per scenario. */
+.bubble--narrator {
+  background: var(--color-tint);
+  border: none;
+  border-left: 3px solid var(--color-accent);
+}
+
+.bubble--narrator p {
+  margin: 0;
+  font-family: var(--font-narrator);
+  font-style: italic;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+
+.bubble--narrator p + p {
+  margin-top: var(--space-2);
 }
 
 .bubble__speaker {
@@ -658,21 +843,40 @@ input {
   margin: 0 auto;
   background: var(--color-surface);
   border-radius: var(--radius) var(--radius) 0 0;
-  padding: var(--space-4);
-  padding-bottom: max(var(--space-4), env(safe-area-inset-bottom));
   max-height: 82vh;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .reflection-panel__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--space-3);
-  position: sticky;
-  top: 0;
-  background: var(--color-surface);
-  padding-bottom: var(--space-2);
+  padding: var(--space-4) var(--space-4) var(--space-2);
+  flex-shrink: 0;
+}
+
+.reflection-panel__body {
+  overflow-y: auto;
+  padding: var(--space-2) var(--space-4) var(--space-4);
+}
+
+.reflection-panel__footer {
+  flex-shrink: 0;
+  padding: var(--space-3) var(--space-4);
+  padding-bottom: max(var(--space-3), env(safe-area-inset-bottom));
+  border-top: var(--border-width) solid var(--color-border);
+}
+
+.reflection-panel__finish {
+  width: 100%;
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+  border: none;
+  border-radius: 999px;
+  min-height: 44px;
+  font-weight: 600;
+  font-size: 0.95rem;
 }
 
 .reflection-panel__header h2 {

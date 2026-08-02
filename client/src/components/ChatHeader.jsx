@@ -1,6 +1,13 @@
 import AccessibilityButton from "./AccessibilityButton.jsx";
 
-export default function ChatHeader({ scenario, onExit, onReflect, reflectDisabled, onHint }) {
+/**
+ * A single compact row -- exit, title, and two icon-sized actions (hint,
+ * accessibility). No manual Reflection trigger anymore -- the Reflection
+ * auto-opens once the whole mission is complete instead (see ChatScreen.jsx).
+ * Icon-only buttons keep their full-text meaning in `aria-label`/`title` for
+ * anyone not able to rely on the icon alone.
+ */
+export default function ChatHeader({ scenario, onExit, onHint }) {
   return (
     <header className="chat-header">
       <div className="chat-header__row">
@@ -9,22 +16,13 @@ export default function ChatHeader({ scenario, onExit, onReflect, reflectDisable
           onClick={onExit}
           aria-label="Exit scenario and return to the scenario picker"
         >
-          &larr; Exit scenario
+          <span aria-hidden="true">&larr;</span>
         </button>
         <div className="chat-header__title">{scenario.title}</div>
-        <button
-          className="chat-header__feedback"
-          onClick={onReflect}
-          disabled={reflectDisabled}
-        >
-          Reflection
+        <button className="chat-header__icon" onClick={onHint} aria-label="Need a hint?" title="Need a hint?">
+          Hint
         </button>
-      </div>
-      <div className="chat-header__row chat-header__row--secondary">
-        <button className="chat-header__hint" onClick={onHint}>
-          &#128161; Need a hint?
-        </button>
-        <AccessibilityButton className="chat-header__hint" />
+        <AccessibilityButton className="chat-header__icon" iconOnly />
       </div>
     </header>
   );

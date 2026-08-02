@@ -25,7 +25,9 @@ async function request(path, options) {
 
 /**
  * GET the list of scenarios (public fields only -- no NPC blueprints or
- * template events) plus the shared difficulty-level descriptions.
+ * template events) plus the shared difficulty-level descriptions. Each
+ * scenario's `mission` field is its stage-1 mission (title + objectives,
+ * all unchecked) -- later stages only ever arrive via sendChatMessage.
  * @returns {Promise<{scenarios: object[], difficultyGoals: {beginner: string, intermediate: string, advanced: string}}>}
  */
 export function fetchScenarios() {
@@ -43,12 +45,34 @@ export function fetchScenarios() {
  * @param {string[]} [options.firedEventIds] - Template event ids already
  *   used this session, so the Narrator doesn't repeat a beat while others
  *   are still available.
- * @returns {Promise<{message: string, event: {id: string, type: string, text: string}|null, narratorNote: string|null}>}
+ * @param {string} [options.activeMissionStageId] - The mission stage id the
+ *   client currently believes is active; the server never regresses below
+ *   this, even if a given model call misjudges it.
+ * @param {string[]} [options.completedObjectiveIds] - Objective ids the
+ *   client already knows are checked off for the current stage; the server
+ *   only ever adds to this set, never removes from it.
+ * @returns {Promise<{
+ *   message: string,
+ *   event: {id: string, type: string, text: string}|null,
+ *   narratorNote: string|null,
+ *   mission: {stageId: string, missionText: string, objectives: {id: string, text: string, completed: boolean}[], isFinalStage: boolean}|null
+ * }>}
  */
-export function sendChatMessage(scenarioId, messages, { difficulty, firedEventIds } = {}) {
+export function sendChatMessage(
+  scenarioId,
+  messages,
+  { difficulty, firedEventIds, activeMissionStageId, completedObjectiveIds } = {}
+) {
   return request("/chat", {
     method: "POST",
-    body: JSON.stringify({ scenarioId, messages, difficulty, firedEventIds }),
+    body: JSON.stringify({
+      scenarioId,
+      messages,
+      difficulty,
+      firedEventIds,
+      activeMissionStageId,
+      completedObjectiveIds,
+    }),
   });
 }
 

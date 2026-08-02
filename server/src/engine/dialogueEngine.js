@@ -10,7 +10,7 @@ import {
   buildExplainRequest,
   buildReflectionRequest,
   buildHintRequest,
-  buildNarratorSubtextRequest,
+  buildNarratorUpdateRequest,
 } from "./prompts.js";
 
 /**
@@ -142,30 +142,34 @@ export async function generateHint(aiRole, contextMessages) {
 }
 
 /**
- * The Narrator's proactive third job: after a notable exchange, quietly
- * surface the hidden social dynamic behind it -- why the other character
- * responded the way they did -- without judgment and without prescribing
- * what the user "should" have said. Unlike explainMessage (on-demand, one
- * specific line, coach voice breaking character), this runs automatically
- * after every roleplay turn and the model itself decides whether anything
- * is actually worth surfacing; most turns won't have a note.
+ * The Narrator's proactive third job (subtext) plus mission tracking, folded
+ * into one call so mission progress doesn't cost a third model request per
+ * turn. Subtext: quietly surface the hidden social dynamic behind the most
+ * recent exchange -- why the other character responded the way they did --
+ * without judgment and without prescribing what the user "should" have said.
+ * Mission tracking: given the scenario's authored mission stages (structured
+ * data, same "never invent a new stage" principle as NPC blueprints/template
+ * events), decide which of the current stage's objectives are satisfied and
+ * whether it's time to advance to the next stage.
  * @param {string} aiRole - Display label for the character in the scene.
  * @param {{role: "user"|"assistant", content: string}[]} contextMessages -
  *   Conversation so far, including the reply that was just generated.
- * @returns {Promise<string|null>} The subtext note, or null if nothing was
- *   judged worth surfacing for this exchange.
+ * @param {object[]} missions - The scenario's full ordered mission-stage list.
+ * @param {string} currentStageId - The mission stage the client believes is active.
+ * @returns {Promise<{subtext: string|null, activeStageId: string, completedObjectiveIds: string[]}>}
  */
-export async function generateNarratorSubtext(aiRole, contextMessages) {
-  const { system, messages } = buildNarratorSubtextRequest({
+export async function generateNarratorUpdate(aiRole, contextMessages, missions, currentStageId) {
+  const { system, messages } = buildNarratorUpdateRequest({
     aiRole,
     contextMessages,
+    missions,
+    currentStageId,
   });
 
-  const result = await complete({ system, messages, maxTokens: 120 });
-  const trimmed = result.trim();
-
-  if (!trimmed || /^none\.?$/i.test(trimmed)) {
-    return null;
-  }
-  return trimmed;
+  const result = await completeJson({ system, messages, maxTokens: 300 });
+  return {
+    subtext: typeof result.subtext === "string" && result.subtext.trim() ? result.subtext.trim() : null,
+    activeStageId: typeof result.activeStageId === "string" ? result.activeStageId : currentStageId,
+    completedObjectiveIds: Array.isArray(result.completedObjectiveIds) ? result.completedObjectiveIds : [],
+  };
 }

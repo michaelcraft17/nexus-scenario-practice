@@ -56,6 +56,28 @@
         "text": "Priya's attention drifts to her screen for a moment, giving the conversation a natural pause.",
         "difficulty": ["beginner", "intermediate", "advanced"]
       }
+    ],
+    "missions": [
+      {
+        "id": "stage-1",
+        "missionText": "Priya just handed you a task without much detail, and you're not sure exactly what she wants. Figure out what you actually need to know, and ask for it before you guess wrong.",
+        "objectives": [
+          { "id": "no-over-apologize", "text": "Respond without over-apologizing or getting defensive" },
+          { "id": "ask-clarifying-question", "text": "Ask a clarifying question" },
+          { "id": "get-concrete-detail", "text": "Get a concrete detail you can use" }
+        ],
+        "advanceWhen": "The user asks a real clarifying question (about format, content, or deadline) and Priya gives a concrete answer in return."
+      },
+      {
+        "id": "stage-2",
+        "missionText": "Priya's given you what you asked for. Make sure you actually have what you need, and leave the exchange on solid footing.",
+        "objectives": [
+          { "id": "ask-clarifying-question", "text": "Ask a clarifying question" },
+          { "id": "get-concrete-detail", "text": "Get a concrete detail you can use" },
+          { "id": "confirm-understanding", "text": "Confirm you understand what she needs" }
+        ],
+        "advanceWhen": null
+      }
     ]
   },
   {
@@ -107,6 +129,28 @@
         "eventType": "atmosphere",
         "text": "Dana glances toward the next customer in line for a moment, unbothered, still in no rush.",
         "difficulty": ["beginner", "intermediate", "advanced"]
+      }
+    ],
+    "missions": [
+      {
+        "id": "stage-1",
+        "missionText": "Dana's chatting about the weather while she finishes ringing you up. You don't need anything clever -- just enough to close out the exchange comfortably.",
+        "objectives": [
+          { "id": "give-a-response", "text": "Give any response, even a short one" },
+          { "id": "notice-short-is-enough", "text": "Notice a \"perfect\" answer isn't needed" },
+          { "id": "comfortable-note", "text": "Leave the checkout on a comfortable note" }
+        ],
+        "advanceWhen": "The user gives at least one real response (not silence) and the exchange is naturally wrapping up -- Dana saying goodbye, ringing up the next customer, or the user signaling they're leaving."
+      },
+      {
+        "id": "stage-2",
+        "missionText": "You made it through the small talk without it needing to be more than it was. See the checkout out to a natural close.",
+        "objectives": [
+          { "id": "give-a-response", "text": "Give any response, even a short one" },
+          { "id": "notice-short-is-enough", "text": "Notice a \"perfect\" answer isn't needed" },
+          { "id": "end-warmly", "text": "End the interaction warmly, on your own terms" }
+        ],
+        "advanceWhen": null
       }
     ]
   },
@@ -184,6 +228,28 @@
         "text": "For a beat, the only sound is the snip of scissors -- Marcus is focused on getting the cut right.",
         "difficulty": ["beginner", "intermediate", "advanced"]
       }
+    ],
+    "missions": [
+      {
+        "id": "stage-1",
+        "missionText": "The salon is loud, and it's already a lot -- clippers, other conversations, hair dryers. Notice what you need before it becomes too much, and let Marcus know.",
+        "objectives": [
+          { "id": "small-talk", "text": "Get through the opening small talk about the cut" },
+          { "id": "notice-overload", "text": "Notice when it starts to feel like too much" },
+          { "id": "speak-up", "text": "Say something to Marcus about what you need" }
+        ],
+        "advanceWhen": "The user clearly communicates a specific need or discomfort related to the noise/environment (not just tolerating it silently), and Marcus responds to it."
+      },
+      {
+        "id": "stage-2",
+        "missionText": "Marcus knows what's going on now. See if the adjustment actually helps, and let him know either way.",
+        "objectives": [
+          { "id": "notice-overload", "text": "Notice when it starts to feel like too much" },
+          { "id": "speak-up", "text": "Say something to Marcus about what you need" },
+          { "id": "check-in", "text": "Check in on whether it's actually better now" }
+        ],
+        "advanceWhen": null
+      }
     ]
   },
   {
@@ -242,6 +308,28 @@
         "eventType": "atmosphere",
         "text": "For a moment, the only sound is Ms. Alvarez's marker squeaking against the whiteboard as she keeps writing.",
         "difficulty": ["beginner", "intermediate", "advanced"]
+      }
+    ],
+    "missions": [
+      {
+        "id": "stage-1",
+        "missionText": "Ms. Alvarez is mid-lecture and the lights are too bright to focus. Interrupting class feels like a big deal, but you need something to change.",
+        "objectives": [
+          { "id": "get-attention", "text": "Get her attention without waiting for a pause that won't come" },
+          { "id": "name-the-problem", "text": "Name specifically what's bothering you" },
+          { "id": "ask-for-something", "text": "Ask for something she can act on" }
+        ],
+        "advanceWhen": "The user interrupts and names a specific, actionable request (not just discomfort in general), and Ms. Alvarez responds to it."
+      },
+      {
+        "id": "stage-2",
+        "missionText": "Ms. Alvarez adjusted things for you. Make sure the rest of class actually works now that you've spoken up.",
+        "objectives": [
+          { "id": "name-the-problem", "text": "Name specifically what's bothering you" },
+          { "id": "ask-for-something", "text": "Ask for something she can act on" },
+          { "id": "settle-back-in", "text": "Settle back into the lesson without it feeling like a bigger deal than it needed to be" }
+        ],
+        "advanceWhen": null
       }
     ]
   }

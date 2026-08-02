@@ -12,17 +12,12 @@ import ReflectionPanel from "./ReflectionPanel.jsx";
 import ResponseOptions from "./ResponseOptions.jsx";
 import NarratorIntro from "./NarratorIntro.jsx";
 import NarratorNote from "./NarratorNote.jsx";
+import MissionBar from "./MissionBar.jsx";
 
 let nextId = 1;
 function makeId() {
   return `m${nextId++}`;
 }
-
-// Roughly 10 lines of user dialogue before the Reflection auto-opens --
-// doesn't need to be exact, just enough that there's something real to
-// reflect on. The manual "Reflection" button in the header works at any
-// point regardless of this threshold.
-const REFLECTION_TURN_THRESHOLD = 10;
 
 /** Real roleplay turns only -- excludes the Narrator's proactive asides,
  * which never go back to the API (their role isn't "user"/"assistant", so
@@ -49,6 +44,10 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
   // Template event ids the Narrator has already used this session, so the
   // same beat doesn't repeat turn after turn while others are available.
   const [firedEventIds, setFiredEventIds] = useState([]);
+  // The mission panel's current state -- stage 1 to start, recomputed fresh
+  // by the server every turn (see routes/api.js resolveMission) rather than
+  // diffed incrementally client-side.
+  const [mission, setMission] = useState(scenario.mission ?? null);
 
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
@@ -71,6 +70,10 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
   useEffect(() => {
     return registerReadableContent(() => {
       const parts = [scenario.setting, scenario.narratorOpening, scenario.narratorAtmosphere];
+      if (mission) {
+        parts.push(`Current mission: ${mission.missionText}`);
+        parts.push(...mission.objectives.map((o) => `${o.completed ? "Completed" : "Not yet done"}: ${o.text}`));
+      }
       for (const m of messages) {
         if (m.role === "narrator") {
           parts.push(m.content);
@@ -82,18 +85,20 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
       }
       return parts.filter(Boolean).join(" ");
     });
-  }, [messages, scenario, registerReadableContent, npcName]);
+  }, [messages, scenario, registerReadableContent, npcName, mission]);
 
-  // Auto-open the Reflection once the conversation has enough real content
-  // to reflect on. Guarded by a ref so it only ever fires once per session
-  // -- after that, the header's "Reflection" button re-opens it on request,
-  // each time reflecting the conversation as it stands then.
+  // Auto-open the Reflection once the whole mission is done -- the final
+  // authored stage, every objective on it checked off -- rather than on a
+  // fixed turn count or a manual button (there is no manual trigger
+  // anymore; finishing the mission is the only way to see it). Guarded by
+  // a ref so it only ever fires once per session.
+  const missionComplete = Boolean(mission?.isFinalStage && mission.objectives.every((o) => o.completed));
   useEffect(() => {
-    if (!autoReflectedRef.current && userTurnCount >= REFLECTION_TURN_THRESHOLD) {
+    if (!autoReflectedRef.current && missionComplete) {
       autoReflectedRef.current = true;
       handleReflect();
     }
-  }, [userTurnCount]);
+  }, [missionComplete]);
 
   async function handleSend(e) {
     e.preventDefault();
@@ -111,10 +116,20 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
       // Exclude the opener -- it was never a real API turn, so the history
       // sent to /api/chat always starts with role "user" as required.
       const historyForApi = toApiShape(updated.filter((m) => !m.isOpener && isDialogueTurn(m)));
-      const { message: reply, event, narratorNote } = await sendChatMessage(scenario.id, historyForApi, {
-        difficulty,
-        firedEventIds,
-      });
+      const { message: reply, event, narratorNote, mission: updatedMission } = await sendChatMessage(
+        scenario.id,
+        historyForApi,
+        {
+          difficulty,
+          firedEventIds,
+          activeMissionStageId: mission?.stageId,
+          completedObjectiveIds: mission?.objectives.filter((o) => o.completed).map((o) => o.id),
+        }
+      );
+      // A new mission stage is its own "Mission Updated" moment in the chat
+      // feed, on top of the persistent MissionBar refreshing -- surfaced
+      // before the reply, same ordering reasoning as a scene event below.
+      const missionAdvanced = updatedMission && updatedMission.stageId !== mission?.stageId;
       setMessages((prev) => {
         const next = [...prev];
         // A scene event (atmosphere shift, or another NPC chiming in) is
@@ -123,6 +138,9 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
         // invented, and it gives the NPC's line a natural segue.
         if (event) {
           next.push({ id: makeId(), role: "narrator", content: event.text });
+        }
+        if (missionAdvanced) {
+          next.push({ id: makeId(), role: "narrator", content: updatedMission.missionText, variant: "mission" });
         }
         next.push({ id: makeId(), role: "assistant", content: reply });
         // The Narrator's proactive aside, when offered, follows the reply
@@ -136,6 +154,12 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
       });
       if (event) {
         setFiredEventIds((prev) => [...prev, event.id]);
+      }
+      // The mission-tracking call is a non-fatal nice-to-have server-side --
+      // on failure it comes back null, so keep whatever mission state is
+      // already showing rather than clearing the panel.
+      if (updatedMission) {
+        setMission(updatedMission);
       }
     } catch (err) {
       setSendError(err.message || "Something went wrong. Try sending again.");
@@ -186,37 +210,33 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
     inputRef.current?.focus();
   }
 
-  const canReflect = userTurnCount > 0;
   const showResponseOptions = userTurnCount === 0 && !sending;
 
   return (
     <div className="chat-screen">
-      <ChatHeader
-        scenario={scenario}
-        onExit={onExit}
-        onReflect={handleReflect}
-        reflectDisabled={!canReflect}
-        onHint={handleHint}
+      <div
+        className="chat-screen__background"
+        style={{ backgroundImage: `url(/images/scenarios/${scenario.id}.jpg)` }}
+        aria-hidden="true"
       />
 
+      <ChatHeader scenario={scenario} onExit={onExit} onHint={handleHint} />
+
       <div className="chat-screen__scroll" ref={scrollRef}>
-        <div
-          className="chat-screen__scene"
-          style={{ backgroundColor: scenario.color }}
-        >
-          <div className="chat-screen__scene-text">{scenario.setting}</div>
-        </div>
-
-        <NarratorIntro
-          opening={scenario.narratorOpening}
-          atmosphere={scenario.narratorAtmosphere}
-          difficultyGoal={difficultyGoal}
-        />
-
         <div className="chat-screen__messages">
+          <MissionBar mission={mission} />
+
+          <NarratorIntro
+            setting={scenario.setting}
+            opening={scenario.narratorOpening}
+            atmosphere={scenario.narratorAtmosphere}
+            difficultyGoal={difficultyGoal}
+            accentColor={scenario.color}
+          />
+
           {messages.map((message) =>
             message.role === "narrator" ? (
-              <NarratorNote key={message.id} text={message.content} />
+              <NarratorNote key={message.id} text={message.content} variant={message.variant} />
             ) : (
               <MessageBubble
                 key={message.id}
@@ -238,7 +258,7 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
         <div className={`hint-bar ${hint.status === "error" ? "hint-bar--error" : ""}`}>
           <div className="hint-bar__body">
             {hint.status === "loading" && <span>Thinking of a few directions...</span>}
-            {hint.status !== "loading" && <span>&#128161; {hint.text}</span>}
+            {hint.status !== "loading" && <span>{hint.text}</span>}
           </div>
           <button
             className="hint-bar__close"
@@ -278,6 +298,7 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
         errorMessage={reflection.errorMessage}
         npcName={npcName}
         onClose={() => setReflection((r) => ({ ...r, open: false }))}
+        onFinish={onExit}
       />
     </div>
   );

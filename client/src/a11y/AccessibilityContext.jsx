@@ -14,8 +14,13 @@ const DEFAULT_PREFS = {
 
 // CSS `zoom` scales everything uniformly (layout included, not just font
 // size) -- the right tool here since the app uses hardcoded px throughout
-// rather than a relative type scale.
-const TEXT_ZOOM = { small: 0.9, default: 1, large: 1.15, largest: 1.3 };
+// rather than a relative type scale. Every value shifted up a tier from the
+// original small/default/large/largest = 0.9/1/1.15/1.3 -- per direct
+// feedback that the baseline text felt too small everywhere, not just for
+// users who'd go looking for the "Large" option -- while keeping the same
+// relative spacing between tiers, so "Small" is still the smallest option
+// and "Largest" is still the largest, just all raised together.
+const TEXT_ZOOM = { small: 1, default: 1.15, large: 1.3, largest: 1.45 };
 
 export const COLOR_SCHEME_OPTIONS = [
   { value: "calm-earthy", label: "Calm & earthy" },
