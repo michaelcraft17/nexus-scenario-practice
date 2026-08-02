@@ -1,21 +1,28 @@
-export default function ChatHeader({ scenario, onExit, onGetFeedback, feedbackDisabled }) {
+export default function ChatHeader({ scenario, onExit, onGetFeedback, feedbackDisabled, onHint }) {
   return (
     <header className="chat-header">
-      <button
-        className="chat-header__exit"
-        onClick={onExit}
-        aria-label="Exit scenario and return to the scenario picker"
-      >
-        &larr; Exit scenario
-      </button>
-      <div className="chat-header__title">{scenario.title}</div>
-      <button
-        className="chat-header__feedback"
-        onClick={onGetFeedback}
-        disabled={feedbackDisabled}
-      >
-        Get feedback
-      </button>
+      <div className="chat-header__row">
+        <button
+          className="chat-header__exit"
+          onClick={onExit}
+          aria-label="Exit scenario and return to the scenario picker"
+        >
+          &larr; Exit scenario
+        </button>
+        <div className="chat-header__title">{scenario.title}</div>
+        <button
+          className="chat-header__feedback"
+          onClick={onGetFeedback}
+          disabled={feedbackDisabled}
+        >
+          Get feedback
+        </button>
+      </div>
+      <div className="chat-header__row chat-header__row--secondary">
+        <button className="chat-header__hint" onClick={onHint}>
+          &#128161; Need a hint?
+        </button>
+      </div>
     </header>
   );
 }

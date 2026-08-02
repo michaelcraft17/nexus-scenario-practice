@@ -1,29 +1,62 @@
 # Progress
 
 Living doc — update this across sessions this week rather than relying on
-memory of what's been done. Last updated: 2026-08-01 (Phase 1 initial build,
-then switched from Claude to OpenAI the same day -- see below).
+memory of what's been done. Last updated: 2026-08-02 (new scenario content +
+Hint feature; see below). Originally built 2026-08-01, then switched from
+Claude to OpenAI the same day.
 
 ## What's built (Phase 1 — text prototype)
 
-- [x] Scenario content: all 4 scenarios written in `server/src/data/scenarios.json`
-      (New Coworker Small Talk, Manager Uses Sarcasm, Declining a Group Invite,
-      Misunderstanding Recovery), each with a roleplay `systemPrompt`.
+- [x] Scenario content, v2: all 4 scenarios replaced in
+      `server/src/data/scenarios.json` with content based on real first-person
+      accounts from the autistic community -- The Missing Details, The
+      Unexpected Conversation, Too Much Happening at Once, Asking for a
+      Change. Each has a roleplay `systemPrompt` with explicit branches for
+      how the AI character should react to different response styles (e.g.
+      self-blaming vs. blaming vs. asking a clarifying question), plus a
+      `responseOptions` array of a few example replies (not exhaustive).
+- [x] Non-conformity framing: the app never coaches the user to "act normal"
+      or evaluates responses on social conformity -- only on whether a need
+      was communicated and understood. Applied in three places: user-facing
+      copy (README, and worth adding to the picker screen -- see Open
+      decisions), a shared `NON_CONFORMITY_FRAMING` string reused across the
+      explain/feedback/hint system prompts (`server/src/engine/prompts.js`),
+      a short clause in the roleplay continuity addendum
+      (`dialogueEngine.js generateReply`) telling the AI character to react
+      to content/intent, not to phrasing that sounds "typical," and an intro
+      paragraph on the scenario picker screen (`ScenarioPicker.jsx`) so
+      users see the framing before they ever start a scenario.
 - [x] Express server skeleton (`server/src/index.js`) — CORS, JSON body
       parsing, central error handler that never leaks stack traces or the API
       key to the client.
-- [x] Dialogue engine (`server/src/engine/`) — `dialogueEngine.js` has three
-      pure-ish functions (`generateReply`, `explainMessage`,
+- [x] Dialogue engine (`server/src/engine/`) — `dialogueEngine.js` has four
+      pure-ish functions (`generateReply`, `explainMessage`, `generateHint`,
       `generateFeedback`) that take plain data and return plain text, with no
       HTTP/Express references. This is the intended seam for Phase 3 voice.
-- [x] Shared prompt templates for "explain that" and "feedback" modes
-      (`server/src/engine/prompts.js`) — scenario-agnostic, so one copy
-      serves all 4 scenarios.
+- [x] Shared prompt templates for "explain that", "hint", and "feedback"
+      modes (`server/src/engine/prompts.js`) — scenario-agnostic, so one copy
+      serves all 4 scenarios. `EXPLAIN_SYSTEM_PROMPT` was generalized beyond
+      sarcasm/irony detection to cover vague, indirect, or unstated
+      expectations too, since only 1 of the 4 new scenarios is sarcasm-heavy.
+- [x] **New feature: "Need a hint?"** — always-visible button in the chat
+      header. Calls `POST /api/hint` with the conversation so far (plus
+      whatever's currently typed but not sent); returns 1-2 short example
+      directions, explicitly not a copy-paste script. Shown in a dismissible
+      bar above the input, never added to the message history sent back to
+      `/api/chat` (same "can't corrupt the roleplay" pattern as "Explain
+      that").
+- [x] **New: response-option chips** — before the user's first reply in a
+      scenario, `ResponseOptions` shows the scenario's example responses as
+      tappable chips (no "recommended" labels shown -- that would spoil the
+      practice). Tapping one fills the input for the user to send or edit;
+      free text always works too, chips disappear after the first reply.
 - [x] API routes: `GET /api/scenarios`, `POST /api/chat`, `POST
-      /api/explain`, `POST /api/feedback`, all in `server/src/routes/api.js`,
-      with input validation (400s) and unknown-scenario handling (404s).
+      /api/explain`, `POST /api/hint`, `POST /api/feedback`, all in
+      `server/src/routes/api.js`, with input validation (400s) and
+      unknown-scenario handling (404s).
 - [x] `scenarioStore.js` — strips `systemPrompt` before scenario data reaches
-      the client.
+      the client, and strips each response option's internal `note` field
+      (which one is "recommended" and why) for the same spoiler reason.
 - [x] React client scaffold (Vite) with a single `services/api.js` module —
       the only place that calls `fetch()`, matching the same decoupling
       intent as the backend engine.
@@ -31,8 +64,10 @@ then switched from Claude to OpenAI the same day -- see below).
       placeholder reserving image space, title, setting, teaching point.
 - [x] Chat screen — static opener rendered with no API call, turn-by-turn
       chat, "Explain that" under every AI bubble (including the opener),
-      always-visible "Exit scenario" button, "Get feedback" button opening a
-      descriptive (never numeric) feedback panel.
+      always-visible "Exit scenario" button, "Need a hint?" button, "Get
+      feedback" button opening a descriptive (never numeric) feedback panel.
+      Header is now two rows (Exit + title + Feedback on top, Hint below) to
+      fit the extra button without crowding on narrow screens.
 - [x] Mobile-first CSS — `100dvh` layout, safe-area insets for the iPhone
       home indicator, ≥44px tap targets, `apple-mobile-web-app-*` meta tags
       for a better "Add to Home Screen" experience.
@@ -88,6 +123,22 @@ then switched from Claude to OpenAI the same day -- see below).
   auto-triggered on "Exit scenario" per the original spec — exiting should
   stay a fast, no-friction accessibility action, not gated behind a feedback
   screen.
+- **Response-option chips scope (interpretation call)**: the spec described
+  A/B/C example responses as "options to offer" for each scenario's key
+  decision moment. Implemented as tappable chips shown only before the
+  user's *first* reply (the one moment common to all 4 scenarios), not
+  re-offered at other points in the conversation -- e.g. scenario 3's
+  sensory-overload need could realistically come up a few turns in, not
+  just at the opener. If that's wanted, it'd mean either the roleplay model
+  itself surfacing an "offer some options?" moment, or a second dedicated
+  button -- worth a product decision, not just an engineering one.
+- **Hint button placement (interpretation call)**: spec said "alongside
+  Explain that and Exit scenario," which live in different places (per
+  message vs. header). Placed Hint in the header as an always-visible
+  second row, both because it's functionally closest to Exit scenario
+  (an always-available support action) and because a per-message hint
+  didn't fit the feature's purpose (helping with the *next*, unwritten
+  reply). Easy to move if this isn't what was pictured.
 
 ## Resuming a session
 

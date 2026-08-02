@@ -4,6 +4,7 @@ import {
   generateReply,
   explainMessage,
   generateFeedback,
+  generateHint,
 } from "../engine/dialogueEngine.js";
 
 const router = Router();
@@ -67,6 +68,26 @@ router.post("/explain", async (req, res, next) => {
 
     const explanation = await explainMessage(scenario, contextMessages, targetMessage);
     res.json({ explanation });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/hint", async (req, res, next) => {
+  try {
+    const { scenarioId, contextMessages } = req.body ?? {};
+
+    const scenario = getById(scenarioId);
+    if (!scenario) {
+      return res.status(404).json({ error: "Unknown scenario." });
+    }
+
+    if (!isValidMessages(contextMessages)) {
+      return res.status(400).json({ error: "contextMessages must be a non-empty array of {role, content}." });
+    }
+
+    const hint = await generateHint(scenario, contextMessages);
+    res.json({ hint });
   } catch (err) {
     next(err);
   }

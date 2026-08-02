@@ -10,11 +10,13 @@ const scenarios = JSON.parse(
 /**
  * Public scenario fields safe to send to the client. `systemPrompt` is
  * deliberately excluded -- it's the prompt-engineering "content" of the app
- * and should never leave the server.
+ * and should never leave the server. `responseOptions[].note` is also
+ * excluded -- it names which option is "recommended," which would spoil the
+ * practice if shown before the user picks one.
  */
 export function getAllPublic() {
   return scenarios.map(
-    ({ id, title, setting, aiRole, opener, teachingPoint, color }) => ({
+    ({ id, title, setting, aiRole, opener, teachingPoint, color, responseOptions }) => ({
       id,
       title,
       setting,
@@ -22,6 +24,10 @@ export function getAllPublic() {
       opener,
       teachingPoint,
       color,
+      responseOptions: (responseOptions ?? []).map(({ id: optionId, text }) => ({
+        id: optionId,
+        text,
+      })),
     })
   );
 }

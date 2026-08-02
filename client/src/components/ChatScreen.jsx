@@ -1,8 +1,14 @@
 import { useRef, useState, useEffect } from "react";
-import { sendChatMessage, explainMessage as apiExplainMessage, getFeedback } from "../services/api.js";
+import {
+  sendChatMessage,
+  explainMessage as apiExplainMessage,
+  getFeedback,
+  getHint,
+} from "../services/api.js";
 import ChatHeader from "./ChatHeader.jsx";
 import MessageBubble from "./MessageBubble.jsx";
 import FeedbackPanel from "./FeedbackPanel.jsx";
+import ResponseOptions from "./ResponseOptions.jsx";
 
 let nextId = 1;
 function makeId() {
@@ -22,8 +28,10 @@ export default function ChatScreen({ scenario, onExit }) {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState(null);
   const [feedback, setFeedback] = useState({ open: false, status: "idle", text: "" });
+  const [hint, setHint] = useState({ open: false, status: "idle", text: "" });
 
   const scrollRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -71,7 +79,28 @@ export default function ChatScreen({ scenario, onExit }) {
     }
   }
 
+  async function handleHint() {
+    setHint({ open: true, status: "loading", text: "" });
+    try {
+      // Includes whatever the user has already typed but not sent, so a
+      // hint requested mid-draft still reflects where they're stuck.
+      const draft = inputValue.trim()
+        ? [...messages, { role: "user", content: inputValue.trim() }]
+        : messages;
+      const { hint: text } = await getHint(scenario.id, toApiShape(draft));
+      setHint({ open: true, status: "done", text });
+    } catch (err) {
+      setHint({ open: true, status: "error", text: err.message || "Couldn't get a hint right now." });
+    }
+  }
+
+  function handlePickResponseOption(text) {
+    setInputValue(text);
+    inputRef.current?.focus();
+  }
+
   const canGetFeedback = messages.some((m) => m.role === "user");
+  const showResponseOptions = !messages.some((m) => m.role === "user") && !sending;
 
   return (
     <div className="chat-screen">
@@ -80,6 +109,7 @@ export default function ChatScreen({ scenario, onExit }) {
         onExit={onExit}
         onGetFeedback={handleGetFeedback}
         feedbackDisabled={!canGetFeedback}
+        onHint={handleHint}
       />
 
       <div className="chat-screen__scroll" ref={scrollRef}>
@@ -107,10 +137,31 @@ export default function ChatScreen({ scenario, onExit }) {
         </div>
       </div>
 
+      {hint.open && (
+        <div className={`hint-bar ${hint.status === "error" ? "hint-bar--error" : ""}`}>
+          <div className="hint-bar__body">
+            {hint.status === "loading" && <span>Thinking of a few directions...</span>}
+            {hint.status !== "loading" && <span>&#128161; {hint.text}</span>}
+          </div>
+          <button
+            className="hint-bar__close"
+            onClick={() => setHint((h) => ({ ...h, open: false }))}
+            aria-label="Dismiss hint"
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
       {sendError && <div className="chat-screen__error">{sendError}</div>}
+
+      {showResponseOptions && (
+        <ResponseOptions options={scenario.responseOptions} onPick={handlePickResponseOption} />
+      )}
 
       <form className="chat-screen__input" onSubmit={handleSend}>
         <input
+          ref={inputRef}
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
