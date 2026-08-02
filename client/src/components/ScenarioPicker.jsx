@@ -6,6 +6,12 @@ export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
       <header className="picker__header">
         <h1>IncludAI</h1>
         <p>Practice everyday conversations in a low-stakes, judgment-free space. Pick a scenario to start.</p>
+        <p className="picker__framing">
+          You're playing as a neurodivergent person navigating everyday
+          situations. The goal isn't to act "normal" -- it's to understand
+          your needs, communicate them, and find what works for you and
+          others.
+        </p>
       </header>
 
       {loadError && (

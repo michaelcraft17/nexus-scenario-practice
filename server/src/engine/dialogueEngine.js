@@ -1,5 +1,5 @@
 import { complete } from "./openaiClient.js";
-import { buildExplainRequest, buildFeedbackRequest } from "./prompts.js";
+import { buildExplainRequest, buildFeedbackRequest, buildHintRequest } from "./prompts.js";
 
 /**
  * The dialogue engine is the seam between "what should be said" and "how it
@@ -20,7 +20,7 @@ import { buildExplainRequest, buildFeedbackRequest } from "./prompts.js";
  * @returns {Promise<string>} The AI's in-character reply.
  */
 export async function generateReply(scenario, messages) {
-  const continuityAddendum = `\n\nContext: The user has already read your opening line: "${scenario.opener}". Continue the roleplay in character from there -- do not repeat or re-send your opening line. Keep replies natural and conversational (1-3 sentences), like real spoken dialogue. Never mention that you are an AI or that this is a practice exercise.`;
+  const continuityAddendum = `\n\nContext: The user has already read your opening line: "${scenario.opener}". Continue the roleplay in character from there -- do not repeat or re-send your opening line. Keep replies natural and conversational (1-3 sentences), like real spoken dialogue. Never mention that you are an AI or that this is a practice exercise. React to the actual content and intent of what the user says, not to whether their phrasing sounds "typical" or polished -- a blunt, plain, or unusually worded message should be responded to based on what it communicates, the same way you'd react to anyone who said that to you.`;
 
   return complete({
     system: scenario.systemPrompt + continuityAddendum,
@@ -62,4 +62,23 @@ export async function generateFeedback(scenario, messages) {
   });
 
   return complete({ system, messages: requestMessages, maxTokens: 512 });
+}
+
+/**
+ * Break character and offer 1-2 gentle, non-scripted directions the user
+ * could take their next reply -- for when they're stuck and don't know how
+ * to continue, not a "correct answer" to copy-paste.
+ * @param {object} scenario - Full scenario object.
+ * @param {{role: "user"|"assistant", content: string}[]} contextMessages -
+ *   Conversation so far. May include the scenario's opener as the first
+ *   (assistant) entry.
+ * @returns {Promise<string>} The hint text.
+ */
+export async function generateHint(scenario, contextMessages) {
+  const { system, messages } = buildHintRequest({
+    aiRole: scenario.aiRole,
+    contextMessages,
+  });
+
+  return complete({ system, messages, maxTokens: 256 });
 }

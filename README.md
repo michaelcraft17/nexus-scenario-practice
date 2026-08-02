@@ -4,22 +4,35 @@ Built for the IncludAI Neurodiversity Hackathon (Track 2: AI for Connection &
 Wellbeing).
 
 IncludAI is a social scenario practice app for neurodivergent users. It's a
-text-based roleplay: you pick an everyday scenario (small talk with a new
-coworker, a manager being sarcastic, declining a group invite, repairing a
-misunderstanding with a friend), an AI plays the other person, and you
-practice replying — in a low-stakes, judgment-free space, with no time
-pressure and no real-world consequences.
+text-based roleplay: you pick an everyday scenario (a manager who gives a
+vague task, a cashier making unprompted small talk, an overstimulating hair
+salon, a teacher noticing you're distracted), an AI plays the other person,
+and you practice replying — in a low-stakes, judgment-free space, with no
+time pressure and no real-world consequences.
 
-Two features make this a *practice* tool rather than just a chatbot:
+**Philosophy:** you're not being coached to "act normal" or mask. The app's
+framing, throughout: *you are playing as a neurodivergent person navigating
+everyday situations. Your goal is not to act "normal" — it's to understand
+your needs, communicate them, and find a solution that works for you and
+others.* Nothing in the app — the roleplay, the explanations, or the
+feedback — ever evaluates how "typical" a response sounds. Only whether a
+need got communicated and understood.
+
+Three features make this a *practice* tool rather than just a chatbot:
 
 - **"Explain that"** — under any AI message, you can ask it to break
-  character and plainly explain whether it was being sarcastic or literal,
-  what it actually meant, and what cues hinted at that.
+  character and plainly explain what the line meant, what the other person
+  likely expected or needed, and what cues hinted at that.
+- **"Need a hint?"** — if you're stuck and don't know how to reply, this
+  offers 1-2 gentle example directions to consider — not a script to
+  copy-paste, just enough to get unstuck. Each scenario also offers a few
+  example response directions before your first reply, if you want a
+  starting point; typing your own is always fine too.
 - **"Get feedback"** — at any point, you can ask for descriptive feedback on
-  how the conversation went (e.g. "you paused before asking if they were
-  being sarcastic, which is a great instinct"). Feedback is always
+  how the conversation went (e.g. "asking what the deadline should be gave
+  the manager what they needed to actually help you"). Feedback is always
   descriptive prose — **never** a numeric score, percentage, or "rate
-  yourself" mechanic.
+  yourself" mechanic, and never a comment on how "normal" a response sounded.
 
 There's also an always-visible **"Exit scenario"** button. Real conversations
 don't let you pause or leave — this deliberately does, on purpose, as an
@@ -47,7 +60,7 @@ includai-scenario-practice/
 ├── server/            Express API, OpenAI integration, scenario data
 │   └── src/
 │       ├── index.js           app entry
-│       ├── routes/api.js      GET /scenarios, POST /chat, /explain, /feedback
+│       ├── routes/api.js      GET /scenarios, POST /chat, /explain, /hint, /feedback
 │       ├── engine/            dialogue logic, decoupled from HTTP (see below)
 │       └── data/               scenarios.json + loader
 └── client/            React SPA (Vite)
@@ -130,12 +143,25 @@ Then set `VITE_API_BASE_URL` on the client build to the deployed server URL.
 
 ## Scenario content
 
-All 4 scenarios live in one place: `server/src/data/scenarios.json`. Each
-scenario has a `systemPrompt` describing how the AI should play that
-character — feel free to revise these throughout the week without touching
-any app code. `systemPrompt` is intentionally never sent to the browser (see
-`server/src/data/scenarioStore.js`) — the client only ever sees the public
-fields it needs to render the picker and chat UI.
+All 4 scenarios live in one place: `server/src/data/scenarios.json`:
+
+1. **The Missing Details** — a manager assigns a vague task; practice asking
+   clarifying questions instead of over-apologizing or getting defensive.
+2. **The Unexpected Conversation** — a cashier makes small talk after
+   checkout; practice noticing that short, low-effort replies are enough.
+3. **Too Much Happening at Once** — a loud, busy hair salon; practice
+   naming a sensory need before it becomes overload.
+4. **Asking for a Change** — a teacher notices you're distracted in an
+   uncomfortably bright classroom; practice self-advocacy for a reasonable
+   adjustment.
+
+Each scenario has a `systemPrompt` describing how the AI should play that
+character, and a `responseOptions` array of a few example replies (not
+exhaustive — free text always works too). `systemPrompt` and each option's
+internal `note` (which one is "recommended" and why) are intentionally never
+sent to the browser (see `server/src/data/scenarioStore.js`) — showing the
+"answer" up front would defeat the point of practicing. Feel free to revise
+scenario content throughout the week without touching any app code.
 
 ## Project status
 

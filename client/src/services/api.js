@@ -71,3 +71,18 @@ export function getFeedback(scenarioId, messages) {
     body: JSON.stringify({ scenarioId, messages }),
   });
 }
+
+/**
+ * Get 1-2 gentle example directions for what to say next -- for when the
+ * user is stuck, not a script to copy-paste.
+ * @param {string} scenarioId
+ * @param {{role: "user"|"assistant", content: string}[]} contextMessages -
+ *   Conversation so far.
+ * @returns {Promise<{hint: string}>}
+ */
+export function getHint(scenarioId, contextMessages) {
+  return request("/hint", {
+    method: "POST",
+    body: JSON.stringify({ scenarioId, contextMessages }),
+  });
+}
