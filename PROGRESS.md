@@ -1,7 +1,19 @@
 # Progress
 
 Living doc — update this across sessions this week rather than relying on
-memory of what's been done. Last updated: 2026-08-02 -- **v15, finish the
+memory of what's been done. Last updated: 2026-08-02 -- **v16, shipped to
+GitHub + deployed live**: pushed to a new public repo
+(github.com/michaelcraft17/nexus-scenario-practice), added a per-IP + daily
+request cap ahead of public traffic, and deployed to Railway -- **live at
+nexus-scenario-practice-production.up.railway.app**. Originally planned as
+client-on-Vercel + server-on-Railway, but pivoted to a single Railway
+service after Vercel hit an account-verification wall and after discovering
+a real Railway constraint (a monorepo service's build container only
+contains its own root-directory subtree, not sibling folders -- a build
+step reaching into `../client` fails outright). Full writeup below,
+including how that pivot actually got un-stuck, since it's a real "monorepo
++ this builder" gotcha worth remembering if it comes up again. Earlier the
+same day: v15, finish the
 scenario on mission completion + bigger baseline text**: the Reflection
 panel (which now only ever opens once the mission is fully done) has a new
 "Return to scenarios" button that exits the scenario along with closing the
@@ -77,6 +89,105 @@ renamed IncludAI -> Nexus and the Narrator was introduced as a distinct
 layer (v4); scene-setting framing to reduce AI drift (v3); new scenario
 content + the Hint feature (v2). Originally built 2026-08-01 on Claude,
 switched to OpenAI the same day.
+
+## v16 — Shipped to GitHub, deployed live on Railway
+
+**What it is:** this repo went from "local git, no remote" to a public
+GitHub repo and a live, publicly-reachable deployment in one session, for
+gathering outside feedback. See `DEPLOY.md` for the current setup and
+redeploy steps -- this section is the story of how it got there and the
+real gotcha hit along the way, which `DEPLOY.md` only summarizes.
+
+**GitHub**: created `github.com/michaelcraft17/nexus-scenario-practice`
+(public, per explicit confirmation -- discoverability mattered since the
+whole point is outside feedback) via `gh repo create --source=. --push`.
+Confirmed no secrets in the diff before pushing (`.env` was never tracked,
+grepped the staged diff for the API key pattern) -- same care as any other
+push, just worth calling out once given what's at stake if it goes wrong.
+
+**Cost safeguard before going public** (`server/src/middleware/costGuard.js`,
+new): a per-IP rate limit (60 req/15min, `express-rate-limit`) plus a
+from-scratch global daily request cap (in-memory counter, resets at UTC
+midnight, `DAILY_REQUEST_CAP` env var, defaults to 500) -- the rate limit
+alone doesn't protect against abuse spread across many different IPs (a
+widely-shared link, or distributed bot traffic), which is the actual risk
+once a link is public rather than just used by one person locally. Both are
+in-memory, which is fine for a single-instance deploy and explicitly
+documented as the thing to revisit (Redis-backed) if this ever needs to
+scale horizontally. Added `app.set("trust proxy", 1)` so the rate limiter
+sees real caller IPs rather than Railway's proxy IP for everyone.
+
+**Deployment, and the pivot that happened mid-way:**
+- [x] Railway (server): the user handed over a Railway **project token**
+  (scoped to one project, not their whole account) to let this happen
+  non-interactively via the `railway` CLI rather than the dashboard.
+  Confirmed the token's actual scope empirically rather than assuming --
+  `railway whoami`/`railway list` (account-wide) both fail Unauthorized,
+  while `railway status`/`variable set`/`redeploy`/`domain` (this-project-
+  only, with explicit `--project`/`--service`/`--environment` flags) all
+  work. `railway link` also fails Unauthorized with this token, which
+  matters: it rules out `railway config` (the `.railway/railway.ts`
+  config-as-code workflow), since that requires a linked project. Set
+  `OPENAI_API_KEY` via `--stdin` piped from the local `.env` file specifically
+  so the raw key value never appeared as a literal argument in any command
+  this assistant typed; confirmed via `variable list` that Railway's own
+  display truncates secret values in its table view.
+- [x] **Vercel (client): abandoned partway through** -- the user's account
+  hit a "requires further verification" wall. Rather than trying a third
+  platform blind, offered three options (Cloudflare Pages, Netlify, or
+  merging the client into the already-working Railway service) and let the
+  user choose -- they picked the merge, trading a bit more setup effort now
+  for zero new-account risk, reusing infrastructure already proven to work.
+- [x] **First merge attempt failed, and the failure taught a real
+  monorepo-deployment lesson.** Assumed (incorrectly) that Railway's "root
+  directory: server" setting works like `cd`-ing into that folder after a
+  full repo clone -- i.e. that a build script in `server/package.json`
+  could still reach `../client`. Added a `build` script doing exactly that
+  and pushed; the deploy failed with `sh: 1: cd: can't cd to ../client`.
+  **The actual behavior**: "root directory" scopes the build *context*
+  itself to that subtree -- sibling folders are never copied into the
+  container at all, not just outside the working directory. Confirmed via
+  `railway logs <deployment-id> --build`, which is also worth remembering
+  as a technique: passing the specific failed deployment's ID (from
+  `railway deployment list`) got real build output, where the default
+  (most-recent-*successful*) silently showed a different, unrelated
+  deployment's logs instead.
+- [x] **Actual fix**: pre-build the client locally (`vite build`) and
+  commit the output into `server/public/` (new, with its own README.md
+  explaining why and exactly how to rebuild/recommit after future `client/`
+  changes) rather than trying to build it inside Railway's scoped
+  container. `server/src/index.js` now serves `server/public` via
+  `express.static` plus a catch-all `index.html` fallback (this app has no
+  client-side router, so the fallback exists purely for hard-refresh/
+  shared-link robustness, not real route matching) when that folder exists
+  -- and does nothing at all in local dev, where it doesn't. Removed the
+  now-broken `build` script from `server/package.json` entirely (nothing
+  for Railway to run anymore; the static files are just already there).
+  `client/package-lock.json` also got a drive-by fix here (still said
+  `"name": "includai-client"` from before the v4 rename to `nexus-client`
+  -- never regenerated until this session's `npm install` run).
+- [x] **Middleware ordering fix, caught during review, not by a failure**:
+  initially placed the static-file/SPA-fallback handlers *after* the
+  central error handler. Functionally harmless for normal requests (Express
+  only invokes an error handler when something calls `next(err)`, so
+  non-error requests just skip past it to reach the handlers after), but
+  wrong for the one thing that actually matters about handler order here --
+  an error thrown *by* the static/fallback handlers themselves would never
+  reach the error handler if it's registered before them. Reordered so the
+  error handler is genuinely last.
+
+**Verified live**, each step confirmed before moving to the next rather
+than assumed: local production-mode test (`npm run build` -- back when that
+was still the plan -- then `npm start`, confirmed `/`, `/health`,
+`/api/scenarios`, and a real asset path all returned 200) before ever
+touching Railway; after the first (failed) Railway deploy, root-caused via
+build logs rather than guessing; after the fix, confirmed success in
+`railway deployment list`; then a full Playwright pass against the actual
+public URL (not localhost) -- picker loads, scenario art loads
+(`background-image` resolves), a real multi-turn chat reply comes back, zero
+console errors. `DEPLOY.md` rewritten to match what's actually deployed
+(the Vercel section is gone, not just marked outdated) rather than left
+half-accurate.
 
 ## v15 — Finish the scenario on mission completion + bigger baseline text
 
