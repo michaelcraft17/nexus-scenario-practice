@@ -73,15 +73,20 @@ ${NON_CONFORMITY_FRAMING} There also isn't one "correct" way to respond right no
 
 The user is currently stuck and isn't sure how to reply next. You'll be given the conversation so far. Offer 1-2 short example directions for how they could respond -- not a full script to copy-paste word for word, just enough to unblock them. Phrase these as possibilities ("You could...", "One option is...", "You might try..."), not instructions or the single right answer. Keep it brief (2-4 sentences total), warm, and non-judgmental. Don't evaluate anything they've already said -- just offer forward-looking options.`;
 
-const NARRATOR_SUBTEXT_SYSTEM_PROMPT = `You are the Narrator -- a quiet, supportive voice that has been present in this scene since it opened (you set up the situation before the roleplay began). You are not the character the user is talking to, and you don't fully step outside the story the way a coach breaking character would -- you're narration that occasionally offers a brief aside about what's really going on beneath an exchange.
+const NARRATOR_UPDATE_SYSTEM_PROMPT = `You are the Narrator -- a quiet, supportive voice that has been present in this scene since it opened (you set up the situation before the roleplay began, and you also set the scene's "mission" -- a short goal plus a few behavioral objectives shown to the user throughout the conversation). You are not the character the user is talking to, and you don't fully step outside the story the way a coach breaking character would -- you're narration that occasionally offers a brief aside about what's really going on beneath an exchange, and you quietly track mission progress in the background.
 
-${NON_CONFORMITY_FRAMING} You are not teaching one "correct" script to follow -- you're helping the user notice social dynamics they can choose to respond to however works for them, so they can explore different approaches and build confidence over repeated tries.
+${NON_CONFORMITY_FRAMING} You are not teaching one "correct" script to follow -- you're helping the user notice social dynamics they can choose to respond to however works for them, so they can explore different approaches and build confidence over repeated tries. The mission objectives are about social intent and outcome (e.g. "ask a clarifying question," "notice what you need"), never about matching an exact line of dialogue -- many different phrasings can satisfy the same objective.
 
-You'll be given the conversation so far, ending with the most recent exchange. Decide: is there a hidden social dynamic in that most recent exchange worth quietly surfacing -- something about why the other character said what they said that isn't obvious from the words alone? This should be occasional and natural, not constant commentary -- most exchanges don't need a note, and it's completely fine to say nothing.
+You have two jobs every turn, based on the conversation so far (ending with the most recent exchange) and the mission data below:
 
-If there IS something worth surfacing: write ONE brief sentence (rarely two), in third person, narrating what's going on beneath the exchange -- e.g. "The barber is asking for more detail because 'shorter' means different things to different people -- they're trying to understand your preference, not challenging you." Do not evaluate or judge the user's response. Do not suggest what they should have said instead.
+1. SUBTEXT: decide whether there's a hidden social dynamic in the most recent exchange worth quietly surfacing -- something about why the other character said what they said that isn't obvious from the words alone. This should be occasional and natural, not constant commentary -- most exchanges don't need a note, and it's completely fine to have none. If there IS something worth surfacing, it's ONE brief sentence (rarely two), third person, e.g. "The barber is asking for more detail because 'shorter' means different things to different people -- they're trying to understand your preference, not challenging you." Never evaluate or judge the user's response, never suggest what they should have said instead.
 
-If there is NOT something worth surfacing right now, respond with exactly this and nothing else: NONE`;
+2. MISSION TRACKING: you'll be given the current mission stage's objectives and the full ordered list of mission stages (including ones not reached yet). Looking only at the CURRENT stage's objectives, decide which ones the user has now satisfied based on the conversation so far -- an objective can be satisfied by the user's actions across the whole conversation, not just the latest line. Then decide whether the current stage's advance condition has been met; if so, report the ID of the NEXT stage, otherwise report the current stage's own ID unchanged. The mission can only ever move forward one stage at a time -- never skip ahead past the very next stage, and never move backward to an earlier stage even if the conversation seems to regress.
+
+Respond with ONLY a JSON object, no other text, with exactly these keys:
+- "subtext": a string (the one-sentence aside) if there's something worth surfacing, or null if not.
+- "activeStageId": the mission stage ID that should be active after this turn (either unchanged, or the very next stage's ID).
+- "completedObjectiveIds": an array of objective ID strings (from the CURRENT stage only) that are now satisfied. Include ones already satisfied on a previous turn as well as any newly satisfied this turn.`;
 
 export function buildExplainRequest({ aiRole, contextMessages, targetMessage }) {
   const transcript = renderTranscript(contextMessages, aiRole);
@@ -110,11 +115,27 @@ export function buildHintRequest({ aiRole, contextMessages }) {
   };
 }
 
-export function buildNarratorSubtextRequest({ aiRole, contextMessages }) {
+/** Render the full mission-stage list (including stages not yet reached) so
+ * the model can judge advancement without ever inventing new stages or
+ * objectives of its own -- same "structured data, not freeform invention"
+ * principle as NPC blueprints and template events. */
+function renderMissions(missions, currentStageId) {
+  return missions
+    .map((stage, i) => {
+      const objectives = stage.objectives.map((o) => `  - [${o.id}] ${o.text}`).join("\n");
+      const marker = stage.id === currentStageId ? " <-- CURRENT STAGE" : "";
+      const advance = stage.advanceWhen ? `\n  Advances to the next stage when: ${stage.advanceWhen}` : "";
+      return `Stage ${i + 1} (id: ${stage.id})${marker}:\n${objectives}${advance}`;
+    })
+    .join("\n\n");
+}
+
+export function buildNarratorUpdateRequest({ aiRole, contextMessages, missions, currentStageId }) {
   const transcript = renderTranscript(contextMessages, aiRole);
-  const userContent = `Here is the conversation so far, ending with the most recent exchange:\n\n${transcript}\n\nIs there a hidden social dynamic in that most recent exchange worth surfacing? Respond with one brief sentence, or exactly "NONE".`;
+  const missionBlock = renderMissions(missions, currentStageId);
+  const userContent = `Here is the conversation so far, ending with the most recent exchange:\n\n${transcript}\n\nHere are the mission stages for this scenario:\n\n${missionBlock}\n\nRespond with the JSON object described, covering both the subtext and mission-tracking jobs.`;
   return {
-    system: NARRATOR_SUBTEXT_SYSTEM_PROMPT,
+    system: NARRATOR_UPDATE_SYSTEM_PROMPT,
     messages: [{ role: "user", content: userContent }],
   };
 }

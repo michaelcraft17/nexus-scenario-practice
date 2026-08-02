@@ -1,8 +1,61 @@
 # Progress
 
 Living doc — update this across sessions this week rather than relying on
-memory of what's been done. Last updated: 2026-08-02 -- **v8, picker/
-content change**: removed Beginner and Intermediate as picker options (the
+memory of what's been done. Last updated: 2026-08-02 -- **v15, finish the
+scenario on mission completion + bigger baseline text**: the Reflection
+panel (which now only ever opens once the mission is fully done) has a new
+"Return to scenarios" button that exits the scenario along with closing the
+panel; the "×" still just dismisses the panel if someone wants to linger.
+Also raised the default text-size zoom a full tier (per direct feedback
+that the baseline felt too small everywhere) while keeping the existing
+Small/Default/Large/Largest control's relative spacing intact. Also
+surfaced (not fixed -- flagged for awareness) a real quality tradeoff from
+the v14 model switch: gpt-5.6-luna judged one mission objective less
+reliably than gpt-4o did on identical test phrasing. Full writeup below.
+Earlier the same day: v14, switched to
+gpt-5.6-luna**: `OPENAI_MODEL` now defaults to `gpt-5.6-luna` (OpenAI's
+cheapest current chat-capable model, released July 2026 -- after this
+assistant's own knowledge cutoff, so it had to be verified via web search
+before use, not assumed) instead of `gpt-4o`, for cost. Doing so surfaced a
+real bug affecting every model call in the app, not just this one:
+`openaiClient.js` was sending the legacy `max_tokens` parameter, which
+newer model families reject outright ("Unsupported parameter") -- fixed by
+switching to `max_completion_tokens` everywhere, confirmed safe on `gpt-4o`
+too (not a Luna-only fix). Full writeup below. Earlier the same day: v13,
+scenario art
+as the chat background too**: the same watercolor image already used on
+each scenario's picker card now also sits fixed behind the whole chat
+screen (dimmed/tinted per theme, hidden in high contrast). Hit and fixed a
+real CSS stacking-order bug along the way -- full writeup below, worth
+reading if background layers get touched again. Earlier the same day: v12,
+mission-gated
+reflection, real dyslexia font, scenario art**: the Reflection now
+auto-triggers when the whole mission (final stage, every objective) is
+complete, replacing both the old turn-count auto-trigger and the manual
+header button (removed entirely); swapped the dyslexia typeface's
+system-font approximation for the actual OpenDyslexic webfont; and replaced
+each scenario picker card's flat color block with a real watercolor
+illustration of that scenario's setting. Full writeup below. Earlier the
+same day: v11, narrator
+message + emoji/badge follow-up fixes**: removed the emoji from the header's
+Hint/Accessibility buttons and the hint text (plain text labels instead);
+moved the mission badge so it's pinned within the scrollable chat region
+only, never overlapping the header, with tint styling instead of the
+header's solid primary color so it visually reads as part of the chat, not
+an extension of the header; and turned the Narrator's opening framing (scene
+setting + goal + atmosphere + difficulty goal) into an actual message bubble
+from "Narrator" in the conversation flow, in EB Garamond, rather than a
+separate info panel. Full writeup below. Earlier the same day: v10, compact
+chat layout: shrank the chat header to one row, turned the mission panel
+from a full-width bar into a small floating top-right badge (quest-tracker
+style), and made the response-option suggestions a single horizontal
+scrolling row instead of a stacked column -- all to free up vertical space
+for the conversation itself. Full writeup below. Earlier still: v9,
+Mission-Based Objectives: added a persistent "mission" panel alongside the
+conversation -- a goal framed like a mission, plus a few behavior-focused
+objectives that check off and reveal a second stage as the conversation
+progresses. Full writeup below. Earlier still: v8, picker/
+content change: removed Beginner and Intermediate as picker options (the
 app now always plays at advanced difficulty; the backend's three-tier
 system still exists, just isn't exposed as a UI choice), and rewrote
 "Asking for a Change" so the teacher is mid-lecture on ethos/pathos/logos
@@ -24,6 +77,467 @@ renamed IncludAI -> Nexus and the Narrator was introduced as a distinct
 layer (v4); scene-setting framing to reduce AI drift (v3); new scenario
 content + the Hint feature (v2). Originally built 2026-08-01 on Claude,
 switched to OpenAI the same day.
+
+## v15 — Finish the scenario on mission completion + bigger baseline text
+
+**Finishing the scenario** (`ReflectionPanel.jsx`, `ChatScreen.jsx`,
+`index.css`): the Reflection now only ever opens once the mission is fully
+complete (v12), so its dismissal is the natural moment to also end the
+scenario -- added a new `onFinish` prop and a "Return to scenarios" button
+in a sticky footer (always reachable without scrolling past all 7
+sections, restructured `.reflection-panel` into header/body/footer flex
+children so the body scrolls independently rather than the whole panel).
+Wired to the same `onExit` the header's Exit button already used. Kept the
+header's small "×" as a separate, lower-commitment dismiss (`onClose`) --
+closes the panel only, lets someone keep chatting a bit longer if they want
+to, without forcing an exit the moment they've read the reflection.
+- [x] **Verified live** via Playwright: drove a full "Missing Details"
+      conversation to mission completion, confirmed the Reflection opened
+      automatically with the new button present, clicked "Return to
+      scenarios," and confirmed the picker screen (`.scenario-card`) was
+      back on screen afterward. Zero console errors.
+
+**Bigger baseline text size** (`AccessibilityContext.jsx`): per direct
+feedback that text felt too small throughout, not just for users who'd
+seek out the existing "Large" option. `TEXT_ZOOM`'s four values
+(small/default/large/largest) all shifted up one tier -- `0.9/1/1.15/1.3`
+-> `1/1.15/1.3/1.45` -- rather than touching root `font-size` directly.
+Deliberately reused the existing `zoom`-based mechanism (see the comment
+already in that file) instead of introducing a second, independent lever:
+`zoom` scales layout and spacing together with text, which matters here
+because this app's spacing (`--space-*`, button `min-height`s, etc.) is all
+hardcoded px, not a relative type scale -- a plain root-`font-size` bump
+would grow text without growing the tightly-fitted header/mission-badge/chip
+containers around it, risking overflow or clipping in exactly the compact
+UI elements v10/v11 spent real effort tightening. Verified the new default
+resolves to `1.15` (was `1`) via Playwright on a fresh session (no saved
+`a11y_prefs`); existing users with a previously-saved `textSize: "default"`
+preference get the new, bigger `1.15` automatically too, since only the
+*value* behind "default" changed, not which named tier is selected.
+
+**Observed, not fixed: gpt-5.6-luna's mission-tracking judgment seems less
+reliable than gpt-4o's was.** While verifying the above, the exact same
+scripted two-message "Missing Details" exchange that had reliably completed
+all 3 stage-2 objectives against `gpt-4o` in v12's testing left
+`confirm-understanding` unchecked against `gpt-5.6-luna` -- needed an
+explicit third message ("I understand the task now...") to actually tip it
+over. This is a plausible, expected consequence of v14's switch to a much
+cheaper/smaller model for a task (judging whether a nuanced behavioral
+objective was satisfied) that leans more on model capability than plain
+dialogue generation does. Not treated as a bug to fix in `sceneDirector.js`/
+the mission-tracking prompt -- flagging it as a real tradeoff of the model
+choice to watch in further play-testing. If mission stages feel like they
+"stick" too often in practice, the fix would be prompt tuning in
+`prompts.js`'s `NARRATOR_UPDATE_SYSTEM_PROMPT` (or reconsidering the model
+for just that call) rather than anything structural.
+
+## v14 — Switched to gpt-5.6-luna (+ a real max_tokens/max_completion_tokens bug)
+
+**Model switch** (`server/.env`): `OPENAI_MODEL=gpt-5.6-luna`, replacing
+`gpt-4o`. The user asked for a model by a name ("GPT-5.6 Luna") that didn't
+match anything in this assistant's training data -- rather than assume it
+was a mistake or guess at a real-sounding substitute, confirmed via
+`WebSearch`/`WebFetch` against OpenAI's own developer docs that it's a real
+model (released July 2026, after this assistant's January 2026 knowledge
+cutoff): the cheapest tier ($0.20/$1.20 per million input/output tokens) in
+a three-tier GPT-5.6 family (Sol/Terra/Luna), reachable via the same Chat
+Completions API this app already uses. Checked whether an even cheaper
+"nano"-tier model existed first -- third-party pricing aggregators
+disagreed with each other on naming/pricing for older tiers, and OpenAI's
+own current-models docs page didn't list them at all, so stuck with Luna as
+the cheapest option confirmed directly from OpenAI rather than trust
+unverifiable secondhand pricing pages.
+
+**Real bug found switching to it, affecting every model call in the app,
+not just this one:** the first live `/api/chat` call after the switch
+failed outright with `Unsupported parameter: 'max_tokens' is not supported
+with this model. Use 'max_completion_tokens' instead.` `openaiClient.js`'s
+`complete()` and `completeJson()` -- the two functions every single engine
+call in this app goes through -- were both sending the legacy `max_tokens`
+parameter. Fixed by switching both to `max_completion_tokens`. Verified via
+web search that this isn't a Luna-only quirk to special-case: `max_tokens`
+is deprecated but still auto-converted to `max_completion_tokens`
+internally for older models like `gpt-4o`, so `max_completion_tokens` is
+the one name that's safe regardless of whatever `OPENAI_MODEL` ends up set
+to in the future.
+
+**Verified live**: `curl` against `/api/chat` (roleplay reply + JSON-mode
+mission tracking together), `/api/hint`, and `/api/reflection` (JSON mode)
+all returned real, well-formed responses after the fix -- covering both
+`complete()` and `completeJson()`, and both plain-text and JSON-mode
+response paths, not just the one route that surfaced the bug.
+
+## v13 — Scenario art as the chat background too (+ a real stacking-order bug)
+
+**What it is:** direct follow-up to v12's scenario art -- reuse the same
+per-scenario watercolor image as a fixed background behind the whole chat
+screen (`ChatScreen.jsx`, `index.css`), not just the picker card thumbnail.
+
+**Real bug hit and fixed: an opaque sibling was covering the fixed
+background despite a negative z-index.** First attempt: a
+`.chat-screen__background` div (`position: fixed`, `z-index: -1`,
+`background-image` set inline per scenario id, same path pattern as
+`ScenarioCard.jsx`) as the first child of `.chat-screen`, with `.chat-screen`
+keeping its existing `background: var(--color-bg)`. Rendered as
+*completely invisible* -- confirmed via Playwright that the element was
+correctly sized, positioned, and had the right image URL, so the CSS
+attributes were all correct; the actual cause was `.chat-screen` itself not
+being a stacking context (no `position`/`z-index`/`transform` on it), which
+means its own `background-color` paints in the *root* stacking context's
+normal-flow step, a step that comes **after** negative-z-index descendants
+paint -- so `.chat-screen`'s own opaque cream/dark background was painting
+*on top of* the fixed, negative-z-index image every time, regardless of the
+z-index value, because z-index only orders elements *within the same
+stacking context* and the negative-z-index escape hatch doesn't help
+against an opaque sibling that isn't part of that ordering at all. Fixed by
+removing the `background-color` from `.chat-screen` entirely (nothing left
+to cover the image) and moving the fallback color onto
+`.chat-screen__background` itself (`background-color: var(--color-bg)`,
+under the image, so a failed image request still shows the theme's flat
+color rather than transparent-through-to-white). Confirmed with a
+before/after Playwright screenshot comparison -- worth remembering if any
+future fixed/absolute decorative layer gets added anywhere else in this
+app: a non-positioned ancestor's own background can silently defeat a
+negative z-index child no matter how correct the child's own CSS is.
+- [x] Also confirmed empirically (by temporarily testing at scrim
+      opacity 0) that legibility was never actually at risk from this
+      layer -- every text-bearing surface on the chat screen (bubbles, the
+      Narrator bubble, the mission badge, the header, the input bar)
+      already has its own fully opaque background color from earlier
+      versions, so the art can only ever show through in the gaps between
+      them, which is exactly the ambient effect wanted.
+- [x] **Per-theme tuning**: light theme gets a light `--color-bg` scrim
+      (`opacity: 0.15`) over the image, since the source art is already a
+      pale cream watercolor consistent with the light palette. Dark theme
+      darkens the image itself (`filter: brightness(0.4) saturate(0.9)`)
+      rather than just adding more of the same scrim -- showing a pale
+      watercolor at full brightness behind a dark UI read as a jarring
+      bright patch in testing; darkening the source image keeps its actual
+      colors/shapes recognizable, just dimmed to sit naturally in a dark
+      scene, plus a slightly stronger scrim (`opacity: 0.35`) on top.
+- [x] `[data-contrast="high"] .chat-screen__background { display: none; }`
+      -- same "a11y override wins" priority as the dyslexia typeface and
+      motion-reduce rules elsewhere; high contrast mode exists specifically
+      to remove exactly this kind of decorative background, so it's
+      unconditionally hidden there, confirmed via computed `display: none`.
+
+**Verified live** via Playwright screenshots in light, dark, and
+dark+high-contrast: the art is clearly visible in the exposed gutters in
+both light and dark (confirmed the fix actually worked, not just
+theoretically), correctly dimmed rather than blown out in dark mode, and
+fully absent (flat `--color-bg`, thicker high-contrast borders intact) in
+high contrast. Zero console/page errors throughout.
+
+## v12 — Mission-gated Reflection, real dyslexia font, scenario art
+
+**Reflection now gated on mission completion, not turn count or a button**
+(`ChatScreen.jsx`, `ChatHeader.jsx`, `scenarioStore.js`, `routes/api.js`):
+- [x] Both `getInitialMission` (`scenarioStore.js`) and `resolveMission`
+      (`routes/api.js`) now include `isFinalStage` on the mission object --
+      `true` only when the resolved stage is the last one in the scenario's
+      authored `missions` array. Computed generically from `missions.length`
+      rather than hardcoded to "stage 2," so it stays correct if a scenario
+      ever gets a third stage.
+- [x] `ChatScreen.jsx`: removed `REFLECTION_TURN_THRESHOLD` and the
+      turn-count-based auto-trigger entirely. New trigger: `mission?.isFinalStage
+      && mission.objectives.every(o => o.completed)`, same one-time ref guard
+      as before. There is now exactly one way to see the Reflection --
+      finishing the mission -- not two overlapping ones.
+- [x] `ChatHeader.jsx`: the "Reflection" button and its `onReflect`/
+      `reflectDisabled` props are gone. `handleReflect` itself is unchanged
+      and still called internally by the new effect. Removed the
+      now-dead `.chat-header__feedback`/`:disabled` CSS.
+- [x] **Verified live**: drove a full "Missing Details" conversation through
+      both mission stages via real `/api/chat` calls (`curl`, then again
+      through the actual UI with Playwright) -- `isFinalStage` flipped to
+      `true` on reaching stage 2, all 3 objectives showed `completed: true`
+      after the confirming reply, the mission badge read "3/3," and the
+      Reflection panel opened on its own with real, specific content (no
+      button click involved). Zero console errors.
+
+**Real OpenDyslexic font, not a system-font approximation** (`index.css`):
+the v7 dyslexia typeface option previously substituted Verdana/Tahoma/
+Trebuchet MS for a "rounder, more distinct" system font, deliberately
+avoiding an external font load. Per direct feedback that this wasn't
+actually the expected dyslexia-friendly typeface, added two `@font-face`
+rules loading the real OpenDyslexic (400 and 700 weight, woff2 with woff
+fallback) from Fontsource's jsDelivr CDN (verified both URLs resolve with
+`curl` before committing to them), and `[data-typeface="dyslexia"]` now
+puts `"OpenDyslexic"` first in both `--font-sans` and `--font-narrator`,
+keeping the old system-font stack as the fallback if the request fails
+offline. Same class of exception to "no external fonts" as EB Garamond in
+v11 -- this app now deliberately loads two web fonts, both with graceful
+system-font fallback chains. Verified via Playwright: `getComputedStyle(document.body).fontFamily`
+resolves to `OpenDyslexic, Verdana, Tahoma, "Trebuchet MS", sans-serif` with
+the option on, and a screenshot confirms the actual OpenDyslexic letterforms
+render (not a fallback font).
+
+**Scenario picker art** (`ScenarioCard.jsx`, `index.css`,
+`client/public/images/scenarios/`): replaced the flat `scenario.color`
+block (`.scenario-card__image`, previously just a `background-color`) with
+a real watercolor illustration per scenario, matching the exact setting
+described in each scenario's own text -- the office for "The Missing
+Details," the checkout counter for "The Unexpected Conversation," the salon
+for "Too Much Happening at Once," the classroom for "Asking for a Change."
+This was the exact placeholder PROGRESS.md had already earmarked for this
+("replacing color-block placeholders with real stock images... without
+changing any layout code" -- the existing `aspect-ratio: 16/9` box needed no
+changes). Source PNGs (1408x768, ~1.2-2MB each) were resized and
+re-encoded as JPEGs (`sips`, 800px wide, quality 78) down to 29-67KB each
+before copying into `client/public/images/scenarios/<scenario-id>.jpg` --
+referenced directly by scenario id in `ScenarioCard.jsx`
+(`background-image: url(/images/scenarios/${scenario.id}.jpg)`), no new
+data field needed. `scenario.color` is kept as the `background-color`
+underneath (shows briefly before the image paints, and is still used
+elsewhere as the Narrator bubble's accent-border color) and the existing
+semi-transparent-dark favorite-star button already had enough contrast
+against a busy image, not just a flat color, so it needed no changes.
+Verified all four images resolve (200, confirmed via an in-page `Image`
+load probe) and render in the correct card via Playwright screenshot.
+
+## v11 — Narrator message bubble + emoji/badge follow-up fixes
+
+**What it is:** direct follow-up feedback on v10's layout pass -- no emoji
+on the Hint/Accessibility header buttons or the hint text; the mission
+badge shouldn't visually read as part of the header; and the Narrator's
+opening framing should read as an actual incoming message from "Narrator,"
+in EB Garamond, rather than a separate framed info block.
+
+- [x] **No emoji**: `ChatHeader.jsx`'s Hint button and `AccessibilityButton`'s
+      new `iconOnly` mode now render plain text ("Hint" / "Access") instead
+      of &#128161;/♿ -- the wheelchair character specifically risks
+      rendering as a colorful emoji glyph on some devices/fonts even though
+      it's technically a plain Unicode symbol, so text was the safer choice
+      to actually guarantee "no emoji" rather than swapping one Unicode
+      character for another. Also dropped the 💡 that prefixed the hint
+      text itself in the hint bar (`ChatScreen.jsx`).
+- [x] **Mission badge no longer reads as part of the header**: the badge
+      previously used the same solid `--color-primary` background as the
+      header immediately above it, which -- even though it was technically
+      already positioned inside the scrollable chat region, not over the
+      header -- visually blended into looking like a header extension.
+      Restyled to the Narrator's tint-background-plus-accent-left-edge look
+      (`--color-tint` background, `--color-accent` left border, matching
+      `.narrator-box`) instead of solid primary, and moved to be the first
+      child of `.chat-screen__messages` (nested one level deeper than
+      before, still inside the scrollable `.chat-screen__scroll`) so its
+      resting position picks up that container's own top padding as a
+      natural gap below the header, rather than sitting flush against it.
+      Re-verified the `position: sticky` behavior still holds with the new
+      nesting (checked scroll-to-top vs scroll-to-bottom of a real
+      conversation -- badge's on-screen position stayed effectively
+      constant, sticky doesn't care how many static wrappers sit between it
+      and its nearest *scrolling* ancestor).
+- [x] **Narrator opening as a message bubble** (`NarratorIntro.jsx`,
+      `ChatScreen.jsx`, `index.css`): previously a distinct centered
+      `.narrator-box--intro` panel (now deleted, along with the
+      `.chat-screen__scene` colored band that separately showed just the
+      `setting` caption above it). Now a single `bubble-row`/`bubble`
+      element -- the same structure `MessageBubble` uses for NPC lines,
+      complete with a "Narrator" speaker label matching the
+      "MARCUS (HAIRSTYLIST)"-style label NPCs get -- containing all four
+      pieces of framing together: `setting`, `narratorOpening`,
+      `narratorAtmosphere`, and the difficulty goal, in that order, as
+      separate paragraphs. Still visually distinct from real character
+      dialogue (new `.bubble--narrator`: tint background, italic, accent
+      left edge) so it can't be confused with something the NPC said. The
+      left-edge accent color defaults to `--color-accent` but takes the
+      scenario's own `color` (previously used only for the deleted scene
+      band and the picker card) as an inline override via a new
+      `accentColor` prop, keeping that per-scenario color identity alive in
+      the new layout.
+- [x] **EB Garamond for the Narrator's voice** (`index.html`, `index.css`):
+      added a Google Fonts `<link>` (with `preconnect` hints) and changed
+      `--font-narrator`'s value from the existing Georgia-led serif stack to
+      `"EB Garamond", Georgia, ...` (same fallback chain kept after it). This
+      is a deliberate, explicitly-requested exception to the offline-only
+      font strategy the dyslexia typeface established in v7 (that override
+      of `--font-narrator` to Verdana/Tahoma under `[data-typeface="dyslexia"]`
+      is untouched and still wins, correctly, since readability there should
+      outrank this aesthetic choice) -- if the Google Fonts request fails
+      (offline use), narration falls back to the existing serif stack rather
+      than breaking. Because `--font-narrator` was already the one token
+      used by every Narrator-voice surface (subtext asides, the "Mission
+      Updated" note, "Explain that"'s panel, and now the new narrator
+      bubble), this single variable change applies EB Garamond consistently
+      everywhere the Narrator speaks, not just the opening message.
+
+**Verified live** via Playwright (420x900, light and dark): header buttons
+render as plain text (`["←", "Hint", "Access", "Reflection"]`, confirmed via
+`textContent`, no emoji characters present); the narrator bubble's speaker
+label reads "Narrator" and its computed `font-family` resolves to
+`"EB Garamond", Georgia, ...`; mission badge background color is
+demonstrably different from the header's (`rgb(239,237,245)` tint vs.
+`rgb(46,42,74)` primary) and its top edge sits below the header's bottom
+edge in every case checked; sticky pinning re-confirmed across a full
+scroll of a real multi-turn conversation after the re-nesting. Zero
+console/page errors in either theme.
+
+## v10 — Compact chat layout (header, mission badge, response options)
+
+**What it is:** a pure layout/CSS pass in response to direct feedback that
+the header took too much space and the mission bar and suggestion chips
+pushed the conversation down too far. No engine or data changes.
+
+- [x] **Header** (`ChatHeader.jsx`): collapsed from two rows to one. Exit
+      and "Need a hint?" became icon-only buttons (arrow / 💡, `aria-label`
+      carries the full meaning); `AccessibilityButton` gained an `iconOnly`
+      prop (renders ♿ instead of the "Accessibility Features" label, opt-in,
+      default `false` so the picker screen's existing usage is unaffected)
+      -- careful to keep the established "className replaces, never
+      combines with, the default style" contract on that component intact.
+      Reflection kept its short text label (accent-colored pill, most
+      important action). Removed now-dead CSS (`chat-header__row--secondary`,
+      `chat-header__hint`, `chat-header__difficulty` -- the last one was
+      already unused since v8). Header height dropped from two rows to a
+      measured 56px.
+- [x] **Mission panel -> floating badge** (`MissionBar.jsx`, `ChatScreen.jsx`,
+      `index.css`): no longer a full-width bar occupying its own row between
+      the header and the scroll area. Moved to be the *first child inside*
+      `.chat-screen__scroll` and given `position: sticky; top: var(--space-2)`
+      with `margin-left: auto` on a `width: max-content` block -- pins it to
+      the top-right of the scrollable region without needing to know the
+      header's exact height (verified: badge's `getBoundingClientRect().top`
+      identical whether scrolled to the top or the bottom of a real
+      conversation). Collapsed view now shows the single next incomplete
+      objective (quest-tracker style, per a reference screenshot the user
+      provided) instead of the full mission paragraph -- tap to expand into
+      a small anchored card with the full mission text and every objective.
+      Solid `--color-primary` background (matching the header) rather than
+      the reference image's translucent black, so it stays correct across
+      this app's light/dark/high-contrast themes rather than opting out of
+      the existing color-token system for one component.
+- [x] **Response options** (`ResponseOptions.jsx`, `index.css`): the label
+      sentence ("Not sure what to say?...") shrank to a small caption
+      ("Suggestions"), and the three chips changed from a stacked column of
+      full-width buttons to one horizontally-scrolling row of pill chips
+      (`max-width: 220px`, 2-line clamp with ellipsis for long option text)
+      -- one compact row of height regardless of how many options exist,
+      styled closer to a typical chat app's quick-reply row than a block of
+      form buttons.
+
+**Verified live** via Playwright (420x900, existing method): header
+measured 56px tall (previously two full rows); mission badge renders
+top-right, expands/collapses correctly, and its screen position stayed
+fixed across a full scroll from top to bottom of a real multi-turn
+conversation (confirming the sticky approach works without a hardcoded
+offset); response chips render in one horizontal scrollable row. Zero
+console/page errors throughout.
+
+## v9 — Mission-Based Objectives
+
+**What it is:** each scenario now frames its practice goal as a "mission"
+shown in a persistent bar docked directly below the chat header (outside
+the scrollable message region, so -- per the spec's "remains visible
+throughout" -- it never scrolls out of view). Collapsed by default (🎯 +
+mission title + an "x/y" objective-progress count), tap to expand for the
+full mission text and each objective as a ☑/☐ row. Two authored stages per
+scenario: an opening mission, then one "reveal" partway through where new
+objectives replace/extend the first set -- matching the spec's own
+Marcus/interview example structure, though that example was illustrative
+only (confirmed with the user); the actual mission content for all 4
+scenarios was authored to fit each scenario's existing narrative (sensory
+overload, small talk, self-advocacy, missing details), not a new story.
+
+**Architecture: mission tracking folded into the existing Narrator subtext
+call, not a third model call per turn.**
+- [x] **Data model** (`server/src/data/scenarios.json`): each scenario gets
+      a `missions` array of ordered stages -- `{id, missionText, objectives:
+      [{id, text}], advanceWhen}`. `advanceWhen` is a natural-language
+      condition evaluated by the model (same pattern as NPC blueprints'
+      `scenarioReactions.trigger` -- structured data, not code-parsed) and,
+      like `templateEvents`, is never sent to the client.
+      Carried-forward objectives across a scenario's two stages intentionally
+      reuse the same objective `id` (e.g. `too-much-happening`'s
+      `notice-overload`/`speak-up` appear in both stages) so a completed
+      objective simply stays checked when the stage advances, with no
+      special-case reset logic needed.
+      `scenarioStore.getAllPublic()` exposes only `missions[0]` (as a new
+      `mission` field, `advanceWhen` stripped, all objectives starting
+      unchecked) -- stage 2+ only ever arrives dynamically through
+      `/api/chat`, so nothing is spoiled before it's reached.
+- [x] **`prompts.js`/`dialogueEngine.js`**: `generateNarratorSubtext` (plain
+      text, `complete()`) became `generateNarratorUpdate` (JSON, via the
+      same `completeJson()` the Reflection already uses). One call now does
+      both of the Narrator's per-turn jobs: the existing subtext aside, plus
+      deciding which of the *current* stage's objectives are now satisfied
+      and whether its `advanceWhen` condition has been met (returning the
+      next stage's id if so). The model is given the full ordered stage list
+      (including stages not reached yet, so it always knows what's next) and
+      explicitly instructed the mission can only move forward one stage at a
+      time, never skip ahead or regress.
+- [x] **`routes/api.js` (`POST /api/chat`)**: request gains
+      `activeMissionStageId`/`completedObjectiveIds`, client-tracked session
+      state in the same spirit as the existing `firedEventIds`. Because the
+      backend is stateless, mission state is recomputed fresh every turn
+      from the full transcript rather than diffed incrementally -- so two
+      guards protect against a single flaky model call corrupting things:
+      the resolved stage is `max(clientStageIndex, modelStageIndex)` (never
+      moves backward), and `completedObjectiveIds` is the *union* of what the
+      client already knew and what the model reports now, filtered to the
+      resolved stage's own objective ids (an objective, once checked, can't
+      un-check). Response gains `mission: {stageId, missionText, objectives:
+      [{id, text, completed}]}` alongside the existing `narratorNote`/`event`,
+      wrapped in the same non-fatal try/catch as the old subtext call --
+      mission tracking is a nice-to-have, never blocks the actual reply.
+- [x] **Client** (`MissionBar.jsx`, new; `ChatScreen.jsx`; `NarratorNote.jsx`):
+      `MissionBar` renders whatever mission object it's given -- it never
+      computes completion itself. `ChatScreen` sends its known
+      `activeMissionStageId`/`completedObjectiveIds` on every `/api/chat`
+      call, and on response, compares the returned stage id to the one it
+      had: a changed stage id pushes an inline "Mission Updated" note into
+      the chat feed *and* refreshes the bar (both, per the user's choice
+      among the three options presented before implementation -- see below).
+      The inline note reuses `NarratorNote`'s existing `.narrator-box`
+      pattern via a new `variant="mission"` prop rather than a separate
+      component (small 🎯-labeled accent, `.narrator-box--mission`) --
+      same Narrator voice, distinguished from an ordinary subtext aside.
+      Read-aloud's joined content (`ChatScreen`'s `registerReadableContent`)
+      now also includes the mission title and each objective's
+      complete/not-yet-done state.
+
+**Hidden metrics -- scope decision, not built as a separate system:** the
+spec described hidden metrics (interruptions, follow-up questions, empathy,
+flow) as inputs meant to *power the existing reflection*, not a separately
+displayed feature. `generateReflection` already re-reads the full transcript
+holistically every time it's called, producing `strengths`/
+`connectionMoments`/`growthOpportunities` from that semantic read --
+threading discrete per-turn boolean flags through every stateless
+`/api/chat` round trip just to hand them to a call that already gets the
+full transcript directly would be real plumbing for no real gain. Decision:
+no new tracking mechanism was built; Reflection's existing whole-transcript
+analysis is treated as already satisfying this requirement. Flagging this
+here as an interpretation call rather than a silent omission.
+
+**Three decisions confirmed with the user before implementation** (all three
+recommended options were chosen): the spec's Marcus/interview mission
+example was illustrative of the format only, not a request to change the
+salon scenario's actual sensory-overload narrative; a mission update gets
+both an inline chat note *and* a live panel refresh, not a silent panel-only
+update; and the panel is a persistent compact bar (not a hidden drawer
+behind a button, unlike Reflection/Accessibility), since the spec called for
+it to "remain visible throughout."
+
+**Verified live**: `node --check` on every touched server file; a Python
+script confirmed `scenarios.json` parses and every scenario has exactly 2
+mission stages with the expected carried-forward objective ids. Restarted
+the server manually (required -- `scenarios.json` is loaded via
+`readFileSync`, same `--watch` gotcha as always) and hit `/api/chat`
+directly via `curl` for the salon scenario: a message naming a specific
+noise-related need advanced `stage-1` -> `stage-2` with `notice-overload`/
+`speak-up` correctly marked complete; a second request that *reported*
+`stage-2` already active against an early, stage-1-looking transcript
+confirmed the monotonic guard -- the response never regressed to `stage-1`
+and kept the previously-completed objectives checked. Playwright (headless
+Chromium, 420x900, existing method for this repo) confirmed the mission bar
+renders collapsed at 0/3 on scenario entry, expands to show all three
+unchecked objectives, and after sending a message satisfying stage 1's
+`advanceWhen`: an inline "🎯 Mission Updated" note appears in the chat feed,
+the bar refreshes to stage 2's text at 2/3 with the carried-forward
+objectives shown checked and struck through, and zero `pageerror`/console
+errors. Also re-checked in dark mode (via the Accessibility panel) --
+`--color-tint`/`--color-primary`/`--border-width` all resolved correctly
+against the mission bar's new CSS, no contrast or layout issues.
 
 ## v8 — Removed Beginner/Intermediate as picker options; rewrote "Asking for a Change"
 

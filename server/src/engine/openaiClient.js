@@ -22,7 +22,12 @@ function getClient() {
 export async function complete({ system, messages, maxTokens = 1024 }) {
   const response = await getClient().chat.completions.create({
     model: MODEL,
-    max_tokens: maxTokens,
+    // max_completion_tokens, not the legacy max_tokens -- newer model
+    // families (e.g. gpt-5.6-luna) reject max_tokens outright ("Unsupported
+    // parameter"), while max_completion_tokens works the same way on both
+    // those and older models like gpt-4o (max_tokens is auto-converted to
+    // it internally there), so this one name is safe for any OPENAI_MODEL.
+    max_completion_tokens: maxTokens,
     messages: [{ role: "system", content: system }, ...messages],
   });
 
@@ -44,7 +49,7 @@ export async function complete({ system, messages, maxTokens = 1024 }) {
 export async function completeJson({ system, messages, maxTokens = 1024 }) {
   const response = await getClient().chat.completions.create({
     model: MODEL,
-    max_tokens: maxTokens,
+    max_completion_tokens: maxTokens,
     response_format: { type: "json_object" },
     messages: [{ role: "system", content: system }, ...messages],
   });

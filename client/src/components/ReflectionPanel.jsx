@@ -4,9 +4,13 @@
  * feedback panel with 7 structured sections (see services/api.js
  * getReflection for the exact shape); "Conversation Balance" is the only
  * section computed deterministically server-side rather than judged by
- * the model.
+ * the model. Since this only ever opens once the mission is fully complete
+ * (see ChatScreen.jsx), it's also where the scenario actually ends -- the
+ * "×" just dismisses the panel if someone wants to linger in the
+ * conversation a little longer, while "Return to scenarios" is the real
+ * exit, closing the scenario along with the panel.
  */
-export default function ReflectionPanel({ open, status, data, errorMessage, npcName, onClose }) {
+export default function ReflectionPanel({ open, status, data, errorMessage, npcName, onClose, onFinish }) {
   if (!open) return null;
 
   return (
@@ -90,6 +94,12 @@ export default function ReflectionPanel({ open, status, data, errorMessage, npcN
               )}
             </>
           )}
+        </div>
+
+        <div className="reflection-panel__footer">
+          <button className="reflection-panel__finish" onClick={onFinish}>
+            Return to scenarios
+          </button>
         </div>
       </div>
     </div>

@@ -8,7 +8,10 @@ export default function ScenarioCard({ scenario, onSelect }) {
     <div className="scenario-card">
       <div
         className="scenario-card__image"
-        style={{ backgroundColor: scenario.color }}
+        style={{
+          backgroundColor: scenario.color,
+          backgroundImage: `url(/images/scenarios/${scenario.id}.jpg)`,
+        }}
         aria-hidden="true"
       />
       <button

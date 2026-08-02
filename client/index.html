@@ -9,6 +9,22 @@
     <meta name="apple-mobile-web-app-title" content="Nexus" />
     <meta name="description" content="Practice everyday social conversations in a low-stakes, judgment-free space, narrated and guided along the way." />
     <title>Nexus -- Social Scenario Practice</title>
+    <!-- EB Garamond for the Narrator's voice (--font-narrator in index.css)
+         only -- a deliberate exception to this app's otherwise offline-only
+         font strategy (see the dyslexia typeface's system-font-only choice
+         in AccessibilityContext). Falls back to the existing Georgia/serif
+         stack below if the network request fails, so narration is still
+         legible offline, just not in this specific typeface. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- OpenDyslexic (the dyslexia-friendly typeface option) loads via
+         @font-face from jsDelivr -- see index.css -- this just warms the
+         connection. -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400;1,500&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <div id="root"></div>
