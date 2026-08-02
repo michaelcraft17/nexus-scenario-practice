@@ -11,10 +11,11 @@
  *   Coworker: Hey, you're new right?
  *   You: hi
  * Used for /api/explain and /api/feedback, where the transcript is analyzed
- * as a whole rather than continued turn-by-turn, and can therefore start
- * with an assistant line (the Anthropic Messages API's "first message must
- * be role: user" rule does not apply here, since it's rendered into a single
- * user-turn text block instead of a raw multi-role messages array).
+ * as a whole rather than continued turn-by-turn -- rendering it as one
+ * readable text block (rather than a raw multi-role messages array) is a
+ * more natural shape for a "look at this transcript" task, and lets the
+ * transcript start with an assistant line (the scenario's opener) with no
+ * role-ordering complications.
  */
 export function renderTranscript(messages, aiRole) {
   return messages

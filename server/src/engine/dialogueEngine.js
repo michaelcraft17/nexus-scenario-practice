@@ -1,4 +1,4 @@
-import { complete } from "./claudeClient.js";
+import { complete } from "./openaiClient.js";
 import { buildExplainRequest, buildFeedbackRequest } from "./prompts.js";
 
 /**
@@ -15,8 +15,8 @@ import { buildExplainRequest, buildFeedbackRequest } from "./prompts.js";
  * Continue the in-character roleplay.
  * @param {object} scenario - Full scenario object (including systemPrompt).
  * @param {{role: "user"|"assistant", content: string}[]} messages - Turn
- *   history so far, NOT including the scenario's static opener line. Must
- *   start with role "user" (the Anthropic Messages API requires this).
+ *   history so far, NOT including the scenario's static opener line (it's
+ *   never sent as a real turn -- see the continuity addendum below).
  * @returns {Promise<string>} The AI's in-character reply.
  */
 export async function generateReply(scenario, messages) {

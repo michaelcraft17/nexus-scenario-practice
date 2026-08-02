@@ -28,21 +28,23 @@ accessibility feature.
 Phase 1 (this version) is text-only. Voice (via the OpenAI Realtime API) is
 planned for Phase 3 later this week; the backend's dialogue logic
 (`server/src/engine/`) is written to be reusable from a future voice layer
-without a rewrite — see [PROGRESS.md](./PROGRESS.md).
+without a rewrite — see [PROGRESS.md](./PROGRESS.md). Text chat and the
+planned voice layer both run on OpenAI, which keeps the whole stack on one
+provider.
 
 ## Architecture
 
 ```
-client (React + Vite)  <--->  server (Express)  <--->  Claude API (Anthropic)
+client (React + Vite)  <--->  server (Express)  <--->  OpenAI API
 ```
 
-The server is a thin proxy: the Anthropic API key only ever lives server-side,
+The server is a thin proxy: the OpenAI API key only ever lives server-side,
 never in frontend code. There's no database — conversation history lives in
 the browser's React state for the duration of a session.
 
 ```
 includai-scenario-practice/
-├── server/            Express API, Claude integration, scenario data
+├── server/            Express API, OpenAI integration, scenario data
 │   └── src/
 │       ├── index.js           app entry
 │       ├── routes/api.js      GET /scenarios, POST /chat, /explain, /feedback
@@ -57,7 +59,7 @@ includai-scenario-practice/
 ## Prerequisites
 
 - Node.js 18+ (tested on Node 25)
-- An Anthropic API key — get one at https://console.anthropic.com/
+- An OpenAI API key — get one at https://platform.openai.com/api-keys
 
 ## Running locally
 
@@ -69,7 +71,7 @@ You'll run two dev servers in two terminals.
 cd server
 npm install
 cp .env.example .env
-# then edit .env and paste in your ANTHROPIC_API_KEY
+# then edit .env and paste in your OPENAI_API_KEY
 npm run dev
 ```
 
@@ -105,8 +107,8 @@ standalone app icon.
 
 | Variable            | Required | Default          | Notes |
 |----------------------|----------|------------------|-------|
-| `ANTHROPIC_API_KEY`  | Yes      | —                | From console.anthropic.com |
-| `ANTHROPIC_MODEL`    | No       | `claude-opus-5`  | Swap to `claude-sonnet-5` or `claude-haiku-4-5` for cheaper/faster iteration |
+| `OPENAI_API_KEY`     | Yes      | —                | From platform.openai.com/api-keys |
+| `OPENAI_MODEL`       | No       | `gpt-4o`         | Swap to `gpt-4o-mini` for cheaper/faster iteration |
 | `PORT`               | No       | `3001`           | |
 | `CORS_ORIGIN`        | No       | (all origins)    | Only needed for a split deploy — set to the client's deployed URL |
 
