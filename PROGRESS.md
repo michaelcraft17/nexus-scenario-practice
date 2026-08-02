@@ -1,18 +1,104 @@
 # Progress
 
 Living doc — update this across sessions this week rather than relying on
-memory of what's been done. Last updated: 2026-08-02 -- **major architecture
-shift (v5), not a small tweak**: Nexus moved from live-generated NPC dialogue
-to a pre-built "social simulation" model (NPC blueprints, template events, a
-Narrator that acts as social director, difficulty levels, multi-NPC
-support). Full writeup below and in the README's new "Core principle:
-pre-built social simulation" section. Earlier the same day, in order: the
-app was renamed IncludAI -> Nexus and the Narrator was introduced as a
-distinct layer (v4); before that, scene-setting framing to reduce AI drift
-(v3); before that, new scenario content + the Hint feature (v2). Originally
-built 2026-08-01 on Claude, switched to OpenAI the same day.
+memory of what's been done. Last updated: 2026-08-02 -- **bug fix (v5.1)**:
+the Narrator's stall detection from v5 wasn't actually triggering in real
+low-engagement conversations. Root-caused and fixed; see "v5.1" below.
+Earlier the same day: v5, the major architecture shift (NPC blueprints,
+template events, Narrator as social director, difficulty levels, multi-NPC
+support) -- full writeup below and in the README's "Core principle:
+pre-built social simulation" section. Before that, in order: the app was
+renamed IncludAI -> Nexus and the Narrator was introduced as a distinct
+layer (v4); scene-setting framing to reduce AI drift (v3); new scenario
+content + the Hint feature (v2). Originally built 2026-08-01 on Claude,
+switched to OpenAI the same day.
 
-## v5 — Pre-built social simulation architecture (this session, major)
+## v5.1 — Bug fix: stall detection wasn't actually firing
+
+**Reported symptom:** in a real conversation where the user gave
+progressively disengaged replies ("na", "forsure", "yes", "..."), Marcus
+never handed off to the Narrator -- instead he produced several turns in a
+row that were reworded restatements of the same sentiment ("let me know if
+you need anything" / "let me know if you want to chat" / "enjoy relaxing"),
+which is exactly the flat, repetitive pattern stall detection was supposed
+to catch and never did.
+
+**Root cause, confirmed by tracing the reported transcript against the v5
+code:** `detectStall` required the NPC's *previous* line to also be
+low-content, alongside the user's new reply. But Marcus is chatty by
+design (his blueprint says so) -- he never produces a minimal line, so that
+half of the condition was never true, no matter how terse the user got.
+The check was structurally sound (it does run every single turn, inside
+`generateReply` on every `/api/chat` call -- confirmed this was not a
+wiring problem) but the *trigger condition* silently required a signal
+(a minimal NPC line) that this NPC's personality makes nearly impossible
+to produce.
+
+**Fix, `server/src/engine/sceneDirector.js` `detectStall`:** now also
+triggers when the user's **last two consecutive turns** are both
+low-content, independent of what the NPC said -- this is the primary
+signal now, since a talkative NPC can mask a disengaged user if only the
+NPC's line length is checked. The original condition (NPC's own last line
+also minimal) is kept as a second, independent way to trigger.
+
+**Two more bugs found while testing the fix, both fixed:**
+
+1. **Stage directions leaking through on low-key turns.** Once Marcus was
+   told he could keep a reply very short, he sometimes described an action
+   in asterisks (`*snips scissors* Alright.`) instead of just speaking. The
+   "no stage directions" rule already existed in the base continuity
+   addendum, but needed to be repeated, first, and more forcefully inside
+   the event-injection text itself (`buildEventInjection` in
+   `npcPromptBuilder.js`) -- primacy mattered here. Verified clean across
+   16 event-injected turns in testing after the fix (zero stage directions,
+   down from a reproducible failure).
+2. **The exact repeated filler phrase was baked into the NPC's own
+   blueprint.** Marcus's `scenarioReactions` literally quoted an example
+   line -- `'...just let me know if you need anything'` -- as sample
+   dialogue for a *different* trigger condition (the user directly asking
+   for quiet). That quoted phrase sits in his rendered system prompt on
+   *every* turn regardless of relevance, and the model was reaching for it
+   as safe filler once the conversation went quiet -- essentially echoing
+   its own instructions back. The exact same phrase was independently
+   present in Ms. Alvarez's blueprint too. **Fixed by removing all literal
+   quoted example dialogue from every NPC blueprint in `npcs.json`**
+   (9 reaction entries across Priya, Dana, Marcus, and Ms. Alvarez),
+   replacing each with a description of the *behavior* rather than an
+   exact line to reuse -- e.g. "offer a practical adjustment suited to what
+   they specifically asked for" instead of a quotable example sentence.
+   This is a general lesson worth remembering for any future blueprint
+   content: **don't put example dialogue in quotes inside a blueprint that
+   gets resent every turn** -- the model treats it as a template to reuse,
+   which becomes exactly the kind of repetitive, generic filler the
+   Narrator/blueprint system was built to avoid.
+3. **Added a second `"stall"`-trigger event per scenario** (8 events total,
+   up from 4) so that once the more aggressive stall detection fires
+   repeatedly in one low-engagement stretch -- which it now does, by design
+   -- the Narrator alternates between two different atmospheric beats
+   instead of showing the identical line every time. The salon scenario's
+   stall text was also rewritten to closely match the example given in the
+   bug report ("The shop quiets for a moment -- the buzz of the clippers
+   fills the space. Marcus focuses on the cut, comfortable letting the
+   silence sit.").
+
+**Verified via a live replay of a conversation matching the reported
+pattern** (`Just a trim is fine, thanks.` -> `not busy just everyday
+school` -> `AP lit` -> `not really` -> `na` -> `forsure` -> `yes` -> `...`),
+run twice against the running server:
+- Stall detection now fires starting at turn 4 (`"not really"`, the second
+  consecutive low-content user turn) in both runs -- previously it never
+  fired at all across the whole transcript.
+- Zero stage directions and zero repeated filler phrases across 16
+  event-injected turns.
+- Marcus's replies during the low-engagement stretch were short and varied
+  ("Alright, I'll keep it simple." / "Mm-hm." / "How's the length looking
+  for you so far?" / "Alright."), not the same restated line.
+- A separate control check (an engaged, enthusiastic reply) confirmed the
+  fix didn't make Marcus generically terse -- he still responds fully and
+  warmly when the user is actually engaged; the brevity only kicks in
+  during a genuine stall.
+
+## v5 — Pre-built social simulation architecture (previous session, major)
 
 **Core principle, now the organizing idea of the whole backend:** *NPCs
 create the interaction. The Narrator creates understanding.* The AI no
@@ -371,14 +457,27 @@ prose), and drift prevention (the model has nowhere to improvise *from*).
   complete blueprint, `npcPromptBuilder.renderNpcBlueprint` works on any
   NPC, not just primaries) -- upgrading to a real second LLM character
   later is a matter of wiring, not a schema change.
-- **Stall-detection heuristic is unvalidated**: `detectStall`'s "≤2 words
-  or a filler word" rule is a reasonable-sounding guess, not something
-  tuned against real conversation transcripts. It may fire too eagerly
-  (interrupting a user who's just being naturally terse) or not eagerly
-  enough (missing a real stall phrased in more words). Worth watching in
-  play-testing and adjusting the word-count/filler-list thresholds in
-  `sceneDirector.js` directly -- no architecture change needed, just
-  number-tuning.
+- **Stall-detection heuristic: validated once, against a real reported bug
+  (v5.1)**: the original design (both NPC's line and user's reply
+  low-content) turned out to structurally never fire against a chatty NPC
+  -- see v5.1 above. The fixed version (2 consecutive low-content user
+  turns, independent of the NPC) was confirmed against a live replay, but
+  it's still just one confirmed pattern, not a broad validation. It may
+  still fire too eagerly (a user who gives two naturally short-but-engaged
+  answers in a row) or miss a real stall phrased in more words. Worth
+  continued watching in play-testing; the word-count/filler-list
+  thresholds and the "2 consecutive turns" window are the numbers to
+  adjust in `sceneDirector.js` if so -- no architecture change needed.
+- **Stage-direction leakage is reduced, not guaranteed eliminated
+  (v5.1)**: after the fix, 16 event-injected turns in testing had zero
+  stage directions -- a real improvement -- but this is prompt-based
+  suppression of a probabilistic model behavior, not a hard guarantee.
+  Longer play-testing could still surface an occasional slip. If it
+  becomes a recurring problem, the more robust fix would be a
+  post-processing step that strips anything wrapped in `*asterisks*` from
+  `message` before it's returned to the client, rather than relying on
+  prompting alone -- not built now since testing after the fix showed a
+  clean run, but worth keeping in mind.
 - **20% random-event chance is a guess**: `RANDOM_EVENT_CHANCE` in
   `sceneDirector.js` was picked to feel occasional without being constant,
   not derived from anything. If intermediate/advanced scenarios feel too

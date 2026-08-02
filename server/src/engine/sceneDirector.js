@@ -21,19 +21,40 @@ function isLowContent(text) {
 }
 
 /**
- * A stall is when the NPC's last line and the user's new reply are both
- * low-content -- neither side is giving the conversation anywhere to go,
- * which is exactly when the Narrator should step in with a beat rather than
- * let the NPC awkwardly re-ask a question.
+ * A stall is the user disengaging, whether or not the NPC notices. Two
+ * ways to detect it:
+ *
+ * 1. The user's last two turns are BOTH low-content. This is the primary
+ *    signal -- a chatty NPC (like Marcus) will keep generating full,
+ *    varied-looking replies even while the user is giving one- and
+ *    two-word answers, so checking only "was the NPC's line also
+ *    minimal" misses a genuinely disengaged user entirely: the NPC's
+ *    length never drops, so that condition never fires. Requiring *two*
+ *    consecutive low-content user turns (not just one) avoids overreacting
+ *    to a single naturally-short reply.
+ * 2. The NPC's own last line was also minimal -- the original signal,
+ *    still valid when the NPC itself trails off into short replies.
+ *
  * @param {{role: "user"|"assistant", content: string}[]} messages
  */
 export function detectStall(messages) {
   if (messages.length < 2) return false;
+
   const lastUser = messages[messages.length - 1];
+  if (!lastUser || lastUser.role !== "user" || !isLowContent(lastUser.content)) {
+    return false;
+  }
+
+  const recentUserTurns = [];
+  for (let i = messages.length - 1; i >= 0 && recentUserTurns.length < 2; i--) {
+    if (messages[i].role === "user") recentUserTurns.push(messages[i]);
+  }
+  if (recentUserTurns.length === 2 && recentUserTurns.every((m) => isLowContent(m.content))) {
+    return true;
+  }
+
   const lastNpc = messages[messages.length - 2];
-  if (!lastUser || !lastNpc) return false;
-  if (lastUser.role !== "user" || lastNpc.role !== "assistant") return false;
-  return isLowContent(lastNpc.content) && isLowContent(lastUser.content);
+  return Boolean(lastNpc && lastNpc.role === "assistant" && isLowContent(lastNpc.content));
 }
 
 function pickFrom(pool, firedEventIds) {
