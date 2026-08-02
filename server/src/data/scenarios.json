@@ -48,6 +48,13 @@
         "eventType": "atmosphere",
         "text": "The office hums on around you both for a beat before Priya glances back at her notes.",
         "difficulty": ["beginner", "intermediate", "advanced"]
+      },
+      {
+        "id": "stall-recovery-2",
+        "trigger": "stall",
+        "eventType": "atmosphere",
+        "text": "Priya's attention drifts to her screen for a moment, giving the conversation a natural pause.",
+        "difficulty": ["beginner", "intermediate", "advanced"]
       }
     ]
   },
@@ -92,6 +99,13 @@
         "trigger": "stall",
         "eventType": "atmosphere",
         "text": "The register beeps quietly as Dana straightens a stack of receipts, unhurried.",
+        "difficulty": ["beginner", "intermediate", "advanced"]
+      },
+      {
+        "id": "stall-recovery-2",
+        "trigger": "stall",
+        "eventType": "atmosphere",
+        "text": "Dana glances toward the next customer in line for a moment, unbothered, still in no rush.",
         "difficulty": ["beginner", "intermediate", "advanced"]
       }
     ]
@@ -160,7 +174,14 @@
         "id": "awkward-silence",
         "trigger": "stall",
         "eventType": "atmosphere",
-        "text": "The shop gets quieter for a moment, just the hum of the dryers filling the space.",
+        "text": "The shop quiets for a moment -- the buzz of the clippers fills the space. Marcus focuses on the cut, comfortable letting the silence sit.",
+        "difficulty": ["beginner", "intermediate", "advanced"]
+      },
+      {
+        "id": "awkward-silence-2",
+        "trigger": "stall",
+        "eventType": "atmosphere",
+        "text": "For a beat, the only sound is the snip of scissors -- Marcus is focused on getting the cut right.",
         "difficulty": ["beginner", "intermediate", "advanced"]
       }
     ]
@@ -206,6 +227,13 @@
         "trigger": "stall",
         "eventType": "atmosphere",
         "text": "Ms. Alvarez glances back at her own papers for a moment, giving the room a beat of quiet.",
+        "difficulty": ["beginner", "intermediate", "advanced"]
+      },
+      {
+        "id": "stall-recovery-2",
+        "trigger": "stall",
+        "eventType": "atmosphere",
+        "text": "The room settles into quiet for a moment, just pages turning here and there.",
         "difficulty": ["beginner", "intermediate", "advanced"]
       }
     ]

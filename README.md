@@ -235,6 +235,18 @@ personality traits or background facts beyond what's given. NPC blueprints
 never reach the client — same privacy reasoning as the old `systemPrompt`
 field they replace.
 
+> ⚠️ **When writing `scenarioReactions`, describe the behavior, don't quote
+> an exact line.** A blueprint is resent in full on *every* turn — a quoted
+> example like `'...just let me know if you need anything'` sits in the
+> model's context the whole conversation, and it will reach for that exact
+> phrase as safe filler far more often than intended, including on turns
+> where the trigger condition doesn't even apply. This caused a real bug
+> (see PROGRESS.md's "v5.1" entry) where an NPC repeated reworded versions
+> of a quoted example line several turns in a row. Write reactions like
+> *"offer a practical adjustment suited to what they specifically asked
+> for"*, not *"say 'Of course, I'll keep it quiet, just let me know if you
+> need anything.'"*
+
 ## Difficulty levels
 
 Every scenario can be started at **beginner**, **intermediate**, or
