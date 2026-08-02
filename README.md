@@ -1,9 +1,9 @@
-# IncludAI — Social Scenario Practice
+# Nexus — Social Scenario Practice
 
 Built for the IncludAI Neurodiversity Hackathon (Track 2: AI for Connection &
 Wellbeing).
 
-IncludAI is a social scenario practice app for neurodivergent users. It's a
+Nexus is a social scenario practice app for neurodivergent users. It's a
 text-based roleplay: you pick an everyday scenario (a manager who gives a
 vague task, a cashier making unprompted small talk, an overstimulating hair
 salon, a teacher noticing you're distracted), an AI plays the other person,
@@ -18,11 +18,18 @@ others.* Nothing in the app — the roleplay, the explanations, or the
 feedback — ever evaluates how "typical" a response sounds. Only whether a
 need got communicated and understood.
 
-Three features make this a *practice* tool rather than just a chatbot:
+A few features make this a *practice* tool rather than just a chatbot:
 
-- **"Explain that"** — under any AI message, you can ask it to break
-  character and plainly explain what the line meant, what the other person
-  likely expected or needed, and what cues hinted at that.
+- **The Narrator** — a distinct voice from the in-scene character (visually
+  set apart in the UI, like a narration box in a visual novel). It frames
+  each scenario before the character speaks, and can proactively step in
+  after a notable exchange to explain the hidden social context behind what
+  just happened — without judgment, and without being asked. See
+  [below](#the-narrator) for the full picture.
+- **"Explain that"** — under any AI message, you can also ask on demand to
+  break character and plainly explain what the line meant, what the other
+  person likely expected or needed, and what cues hinted at that (the same
+  voice as the Narrator, just on request instead of proactive).
 - **"Need a hint?"** — if you're stuck and don't know how to reply, this
   offers 1-2 gentle example directions to consider — not a script to
   copy-paste, just enough to get unstuck. Each scenario also offers a few
@@ -66,8 +73,13 @@ includai-scenario-practice/
 └── client/            React SPA (Vite)
     └── src/
         ├── services/api.js    the only module that calls fetch()
-        └── components/        picker, chat screen, message bubbles, feedback panel
+        └── components/        picker, chat screen, message bubbles, Narrator
+                                (intro + inline notes), feedback panel
 ```
+
+Note: the project folder itself is still named `includai-scenario-practice/`
+on disk — only the app's own name/branding changed to Nexus, not the
+directory path, to avoid unrelated churn.
 
 ## Prerequisites
 
@@ -163,19 +175,59 @@ sent to the browser (see `server/src/data/scenarioStore.js`) — showing the
 "answer" up front would defeat the point of practicing. Feel free to revise
 scenario content throughout the week without touching any app code.
 
-Two more fields frame the scenario before it starts:
+A `preview` field also gives a 1-2 sentence hook shown on the picker card,
+so you know what you're walking into before clicking. The rest of the
+scenario's framing — `narratorOpening` and `narratorAtmosphere` — belongs to
+the Narrator; see below.
 
-- `preview` — a 1-2 sentence hook shown on the picker card, so you know what
-  you're walking into before clicking.
-- `sceneSetting` — a 2-4 sentence scene-direction paragraph (not dialogue)
-  shown once, right before the AI's opening line, establishing who you're
-  playing, who the AI is playing, and the immediate situation. This same
-  text is also prepended to the system prompt on every single `/api/chat`
-  call (see `generateReply` in `server/src/engine/dialogueEngine.js`) — since
-  the API is stateless and the full system prompt is resent every turn, this
-  acts as a persistent anchor the model gets re-grounded in on every reply,
-  which is what keeps the character consistent even as the conversation goes
-  in unscripted directions.
+## The Narrator
+
+The Narrator is a separate voice from the in-scene character (the manager,
+cashier, stylist, or teacher) — visually and textually distinct in the UI,
+the way a narration box is distinct from a dialogue box in a visual novel.
+It has three jobs:
+
+1. **Opening.** Before the character's first line, the Narrator frames the
+   situation like a goal to work toward, not just a location description —
+   the immediate situation, a brief general nod to why this is worth
+   practicing (never a diagnosis or label), and what you're trying to
+   practice. This is `scenario.narratorOpening`.
+2. **Atmosphere.** Alongside the opening, the Narrator describes the
+   sensory/social environment where it's relevant — noise, crowding,
+   multiple things happening at once — as scene-setting prose, not
+   dialogue. This is `scenario.narratorAtmosphere`. Both fields are shown
+   together, once, via the `NarratorIntro` component, before the AI
+   character's opening line ever appears.
+3. **Subtext.** After a roleplay exchange, the Narrator can *proactively*
+   step in — without being asked — to explain the hidden social context
+   behind what the character just said, without judgment (e.g. "The barber
+   is asking for more detail because 'shorter' means different things to
+   different people — they're trying to understand your preference, not
+   challenging you."). This is deliberately occasional, not constant
+   commentary: a lightweight model call after every `/api/chat` turn
+   (`generateNarratorSubtext` in `server/src/engine/dialogueEngine.js`)
+   decides whether anything is actually worth surfacing for that exchange,
+   and says nothing (literally responds `NONE`, which the client never
+   sees) most of the time. When it does have something to say, it's
+   rendered as a `NarratorNote` interspersed right after the exchange it's
+   commenting on.
+
+The same voice also powers "Explain that" (job 3, but on request instead of
+proactive) — both use the same non-judgmental, exploratory framing, and
+share the same visual styling (`.narrator-box` — a distinct serif italic
+typeface, set apart from the sans-serif character dialogue).
+
+**The opening framing is also a persistent anchor**, the same mechanism the
+old scene-setting paragraph used: `narratorOpening` and `narratorAtmosphere`
+are prepended to the system prompt on every single `/api/chat` call, not
+just the first. Since the API is stateless and resends the full system
+prompt every turn, this means the in-character AI is re-grounded in who
+it's playing and the situation on every reply, however long or unscripted
+the conversation runs — without ever constraining how the user's side of
+the conversation can go. The explicit design goal throughout: this is not
+teaching a rigid social script or coaching the user to mask — it's meant to
+support exploring different communication strategies and building
+confidence, never pushing toward one "correct" way to act.
 
 ## Project status
 

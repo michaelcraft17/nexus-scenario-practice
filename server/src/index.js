@@ -23,7 +23,7 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`IncludAI server listening on http://localhost:${PORT}`);
+  console.log(`Nexus server listening on http://localhost:${PORT}`);
   if (!process.env.OPENAI_API_KEY) {
     console.warn("Warning: OPENAI_API_KEY is not set. /api/chat, /api/explain, and /api/feedback will fail until it is.");
   }

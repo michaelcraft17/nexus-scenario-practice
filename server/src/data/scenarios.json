@@ -6,7 +6,8 @@
     "setting": "Your first week as a new employee, your manager stops by with a task",
     "aiRole": "Priya, your manager",
     "opener": "Hey, can you prepare that report and make sure it's ready soon? Thanks!",
-    "sceneSetting": "You're a few weeks into a new job, still finding your footing. Priya, your manager, is about to stop by your desk with a task for you -- she's busy and doesn't always spell out every detail, even though she means well.",
+    "narratorOpening": "You are starting a task for your manager, a few weeks into a new job. In previous experiences, unclear instructions have led to misunderstandings and frustration on both sides. Your goal is to practice asking for what you need to get it right, instead of guessing or carrying all the blame yourself.",
+    "narratorAtmosphere": "The office is quiet for now -- keyboards clicking, someone's phone buzzing a few desks away. You're still new enough that you don't yet know the unwritten rules, and Priya is already half-turned to leave.",
     "teachingPoint": "Asking clarifying questions instead of over-apologizing or getting defensive.",
     "color": "#4F8A8B",
     "responseOptions": [
@@ -35,7 +36,8 @@
     "setting": "Checkout counter at a small local shop, right after paying",
     "aiRole": "Dana, the cashier",
     "opener": "Alright, you're all set! Gosh, this weather's been something lately, hasn't it?",
-    "sceneSetting": "You're finishing up a purchase at a small local shop. Dana, the cashier, is warm and chatty, and likes to make easy small talk with customers while she rings them up -- it doesn't need to go anywhere, she's just being friendly.",
+    "narratorOpening": "You are finishing up a purchase at a small shop. In previous experiences, casual small talk has felt confusing, like it's asking for more than you know how to give. Your goal is to practice responding in a way that's comfortable for you -- short is allowed.",
+    "narratorAtmosphere": "The shop is calm, just a short line forming behind you. Dana finishes ringing up your total and looks up, in no hurry to end the conversation.",
     "teachingPoint": "Small talk doesn't require a deep or \"correct\" answer -- short responses are enough.",
     "color": "#E4A34C",
     "responseOptions": [
@@ -64,7 +66,8 @@
     "setting": "A hair salon, first haircut in a long time -- hairdryers running and other conversations happening nearby",
     "aiRole": "Marcus, your hairstylist",
     "opener": "So, are we thinking just a trim today, or switching things up a bit?",
-    "sceneSetting": "You're at the hair salon for your first haircut in a long time. Marcus, your stylist, is friendly and talkative, and the salon is loud today -- hairdryers running nearby, another stylist chatting loudly with their client a few feet away. You're about to get started.",
+    "narratorOpening": "You are visiting a new stylist today. In previous experiences, staying in a loud, crowded space for a while has been hard to manage without feeling overwhelmed. Your goal is to practice noticing what you need and speaking up before it becomes too much.",
+    "narratorAtmosphere": "The salon is crowded. People are talking, a hair dryer is running nearby, other customers are waiting, and Marcus turns toward you, scissors in hand, ready to start.",
     "teachingPoint": "Noticing sensory overload early and asking for what you need before it becomes too much.",
     "color": "#6C5B7B",
     "responseOptions": [
@@ -93,7 +96,8 @@
     "setting": "Classroom, during quiet study/test prep time -- the overhead lights are uncomfortably bright",
     "aiRole": "Ms. Alvarez, your teacher",
     "opener": "Hey, you okay? You seem a little distracted today.",
-    "sceneSetting": "You're in class during quiet study time, trying to focus, but the overhead lights are uncomfortably bright. Ms. Alvarez, your teacher, notices you seem distracted and is about to check in.",
+    "narratorOpening": "You are trying to focus during quiet study time, in a classroom that isn't working for you today. In previous experiences, asking for an adjustment has felt like it might be asking for too much. Your goal is to practice speaking up for what would actually help.",
+    "narratorAtmosphere": "The room is quiet except for the hum and flicker of the overhead lights, too bright today. Papers shuffle around you as everyone works through the study packet, and Ms. Alvarez glances over.",
     "teachingPoint": "Self-advocacy -- asking for a reasonable adjustment isn't causing trouble.",
     "color": "#C1666B",
     "responseOptions": [
