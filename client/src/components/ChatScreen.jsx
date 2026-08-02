@@ -193,7 +193,6 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
     <div className="chat-screen">
       <ChatHeader
         scenario={scenario}
-        difficulty={difficulty}
         onExit={onExit}
         onReflect={handleReflect}
         reflectDisabled={!canReflect}

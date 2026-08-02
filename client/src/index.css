@@ -270,25 +270,23 @@ input {
 
 .scenario-card__difficulty {
   display: flex;
-  gap: var(--space-2);
 }
 
 .scenario-card__difficulty-button {
   flex: 1;
-  background: var(--color-bg);
-  border: var(--border-width) solid var(--color-border);
-  color: var(--color-primary);
+  background: var(--color-primary);
+  border: var(--border-width) solid var(--color-primary);
+  color: var(--color-primary-contrast);
   border-radius: 999px;
   padding: var(--space-2) var(--space-1);
-  min-height: 40px;
-  font-size: 0.78rem;
+  min-height: 44px;
+  font-size: 0.9rem;
   font-weight: 600;
   text-align: center;
 }
 
 .scenario-card__difficulty-button:active {
-  background: var(--color-primary);
-  color: var(--color-primary-contrast);
+  opacity: 0.85;
 }
 
 /* ---------- Chat Screen ---------- */

@@ -85,7 +85,7 @@ includai-scenario-practice/
 └── client/            React SPA (Vite)
     └── src/
         ├── services/api.js    the only module that calls fetch()
-        └── components/        picker (with difficulty selection), chat screen,
+        └── components/        picker, chat screen,
                                 message bubbles, Narrator (intro + inline notes),
                                 Reflection panel
 ```
@@ -194,9 +194,9 @@ All 4 scenarios live in one place: `server/src/data/scenarios.json`:
 3. **Too Much Happening at Once** — a loud, busy hair salon; practice
    naming a sensory need before it becomes overload. This is the one
    scenario with a secondary NPC (see below).
-4. **Asking for a Change** — a teacher notices you're distracted in an
-   uncomfortably bright classroom; practice self-advocacy for a reasonable
-   adjustment.
+4. **Asking for a Change** — a teacher is mid-lecture on ethos, pathos, and
+   logos, and the classroom lights are uncomfortably bright; practice
+   interrupting the class to self-advocate for a reasonable adjustment.
 
 Each scenario references its NPC by `npcId` (and, for the salon scenario, a
 `secondaryNpcId`) rather than embedding a prompt — the actual character
@@ -254,12 +254,14 @@ field they replace.
 
 ## Difficulty levels
 
-Every scenario can be started at **beginner**, **intermediate**, or
-**advanced** — chosen via three buttons on the scenario card, no separate
-step. The three tiers (`getAllDifficultyGoals()` in `npcPromptBuilder.js`,
-returned once from `GET /api/scenarios` rather than duplicated per
-scenario) shape both the Narrator's opening framing and what happens
-mid-conversation:
+Every scenario now starts at a single fixed **advanced** difficulty — the
+picker card has one "Start scenario" button, not a choice of three. The
+underlying three-tier system (`getAllDifficultyGoals()` in
+`npcPromptBuilder.js`, `DIFFICULTY_LEVELS` in `routes/api.js`) still exists
+in the backend and still shapes both the Narrator's opening framing and
+what happens mid-conversation — beginner and intermediate were removed as
+*picker options*, not deleted from the engine, so the door's still open to
+bring them back as a UI choice later without a backend change:
 
 - **Beginner** — respond naturally, practice short exchanges, notice common
   social cues. Template events never fire beyond stall recovery, so the
@@ -268,13 +270,16 @@ mid-conversation:
   follow-up, sustain the conversation a bit longer. Unlocks "random"
   flavor events (a phone buzzing, a line forming) at a small per-turn
   chance.
-- **Advanced** — stay flexible: topics can shift unexpectedly, an awkward
-  moment can happen, someone else can join in. Unlocks everything
-  intermediate does, plus events that require a secondary NPC.
+- **Advanced** (the only level reachable from the UI now) — stay flexible:
+  topics can shift unexpectedly, an awkward moment can happen, someone else
+  can join in. Unlocks everything intermediate does, plus events that
+  require a secondary NPC.
 
-The chosen difficulty is sent with every `/api/chat` call, not just used for
-the opening framing — it also gates which template events are eligible each
-turn (see "Template events" below).
+The difficulty is sent with every `/api/chat` call, not just used for the
+opening framing — it also gates which template events are eligible each
+turn (see "Template events" below). The server's `resolveDifficulty`
+defaults to `"advanced"` for anything missing/invalid, matching the only
+value the client now ever sends.
 
 ## Multiple NPCs per scenario
 

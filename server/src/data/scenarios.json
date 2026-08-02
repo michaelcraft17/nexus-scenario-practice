@@ -189,51 +189,58 @@
   {
     "id": "asking-for-a-change",
     "title": "Asking for a Change",
-    "preview": "You're trying to focus in class, but the lights are too bright. Is it okay to just... say something?",
-    "setting": "Classroom, during quiet study/test prep time -- the overhead lights are uncomfortably bright",
+    "preview": "Ms. Alvarez is mid-lecture on ethos, pathos, and logos, and the overhead lights are too bright to focus. Do you interrupt the class to say something?",
+    "setting": "Classroom, mid-lecture on ethos, pathos, and logos -- the overhead lights are uncomfortably bright",
     "npcId": "alvarez",
-    "opener": "Hey, you okay? You seem a little distracted today.",
-    "narratorOpening": "You are trying to focus during quiet study time, in a classroom that isn't working for you today. In previous experiences, asking for an adjustment has felt like it might be asking for too much. Your goal is to practice speaking up for what would actually help.",
-    "narratorAtmosphere": "The room is quiet except for the hum and flicker of the overhead lights, too bright today. Papers shuffle around you as everyone works through the study packet, and Ms. Alvarez glances over.",
-    "teachingPoint": "Self-advocacy -- asking for a reasonable adjustment isn't causing trouble.",
+    "opener": "...and that's pathos, the emotional appeal. Now, logos: this is where your evidence and reasoning come in, the actual facts backing up your claim. So if ethos is \"trust me,\" and pathos is \"feel this,\" logos is \"here's the proof.\" Let's look at how a writer might layer all three in the same paragraph --",
+    "narratorOpening": "You're sitting through a lecture on ethos, pathos, and logos -- the three classical appeals -- and the overhead lights are uncomfortably bright today, making it hard to concentrate. In previous experiences, interrupting a class already in progress has felt like way too much attention to draw on yourself. Your goal is to practice speaking up mid-lesson when you need to, even though it feels like interrupting.",
+    "narratorAtmosphere": "Ms. Alvarez is at the whiteboard, marker in hand, diagramming the three appeals as she talks. The rest of the room is quiet and focused, pens moving, eyes on the board -- and the overhead lights buzz and glare more than usual today.",
+    "teachingPoint": "Self-advocacy -- it's okay to interrupt when you need to, even mid-lesson.",
     "color": "#C1666B",
     "responseOptions": [
       {
         "id": "A",
-        "text": "I'm fine.",
-        "note": "The problem continues unaddressed."
+        "text": "Um, sorry -- never mind.",
+        "note": "Draws attention by speaking up, then backs away before naming the actual need -- the problem stays unaddressed."
       },
       {
         "id": "B",
-        "text": "The lights are annoying.",
-        "note": "States the frustration but not the actual need."
+        "text": "Sorry, but the lights are really bright.",
+        "note": "Interrupts and names the frustration, but doesn't say what would help."
       },
       {
         "id": "C",
-        "text": "I'm having trouble focusing because the lights are too bright for me -- would it be possible to turn off some of them, or let me sit somewhere with less direct light?",
-        "note": "Names the barrier and a specific request -- recommended, gives the teacher something to act on."
+        "text": "Sorry to interrupt -- could we dim some of the lights or close the blinds? They're really bright and it's hard for me to focus.",
+        "note": "Interrupts respectfully with a specific, reasonable request -- recommended, gives the teacher something to act on right away."
       }
     ],
     "templateEvents": [
       {
-        "id": "papers-shuffle",
+        "id": "marker-squeaks",
         "trigger": "random",
         "eventType": "atmosphere",
-        "text": "A few classmates shift in their seats, papers rustling as everyone works.",
+        "text": "Ms. Alvarez's marker squeaks against the whiteboard as she underlines a word, a couple of classmates glancing up to copy it down.",
+        "difficulty": ["intermediate", "advanced"]
+      },
+      {
+        "id": "classmate-shifts",
+        "trigger": "random",
+        "eventType": "atmosphere",
+        "text": "A classmate near you shifts in their seat and flips to a new page, pen scratching as they keep taking notes.",
         "difficulty": ["intermediate", "advanced"]
       },
       {
         "id": "stall-recovery",
         "trigger": "stall",
         "eventType": "atmosphere",
-        "text": "Ms. Alvarez glances back at her own papers for a moment, giving the room a beat of quiet.",
+        "text": "Ms. Alvarez taps her marker against the board, giving the room a beat before continuing the lesson.",
         "difficulty": ["beginner", "intermediate", "advanced"]
       },
       {
         "id": "stall-recovery-2",
         "trigger": "stall",
         "eventType": "atmosphere",
-        "text": "The room settles into quiet for a moment, just pages turning here and there.",
+        "text": "For a moment, the only sound is Ms. Alvarez's marker squeaking against the whiteboard as she keeps writing.",
         "difficulty": ["beginner", "intermediate", "advanced"]
       }
     ]
