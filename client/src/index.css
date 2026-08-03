@@ -12,6 +12,22 @@
      whatever text-size zoom is active -- 1 here is just the fallback for
      the instant before that effect runs on first paint. */
   --zoom-factor: 1;
+
+  /* Narrator = blue/green (sampled from the logo's teal hand), Mission =
+     yellow -- fixed brand colors for these two voices/systems,
+     deliberately independent of the calm-earthy/blue-yellow color-scheme
+     choice and of any per-scenario color, so they read the same everywhere. */
+  --color-narrator-accent: #2f7a7d;
+  --color-narrator-tint: #e8f2f2;
+  --color-mission-accent: #b8860b;
+  --color-mission-tint: #fbf2d9;
+}
+
+[data-theme="dark"] {
+  --color-narrator-accent: #7fd0d3;
+  --color-narrator-tint: #1c2e2f;
+  --color-mission-accent: #e8c04a;
+  --color-mission-tint: #34290f;
 }
 
 /* ---------- Color schemes x themes ----------
@@ -489,10 +505,10 @@ input {
 .mission-badge__toggle {
   display: block;
   width: 100%;
-  background: var(--color-tint);
+  background: var(--color-mission-tint);
   color: var(--color-text);
   border: var(--border-width) solid var(--color-border);
-  border-left: 3px solid var(--color-accent);
+  border-left: 3px solid var(--color-mission-accent);
   border-radius: var(--radius);
   padding: var(--space-1) var(--space-2);
   text-align: left;
@@ -668,8 +684,8 @@ input {
 /* ---------- Narrator (distinct voice from in-scene character dialogue) ---------- */
 
 .narrator-box {
-  background: var(--color-tint);
-  border-left: 3px solid var(--color-primary);
+  background: var(--color-narrator-tint);
+  border-left: 3px solid var(--color-narrator-accent);
   border-radius: var(--radius);
 }
 
@@ -696,14 +712,15 @@ input {
 }
 
 .narrator-box--mission {
-  border-left-color: var(--color-accent);
+  background: var(--color-mission-tint);
+  border-left-color: var(--color-mission-accent);
 }
 
 .narrator-box__mission-label {
   margin: 0 0 var(--space-1) !important;
   font-style: normal !important;
   font-weight: 700;
-  color: var(--color-accent) !important;
+  color: var(--color-mission-accent) !important;
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -764,12 +781,23 @@ input {
    NPC line, but tint background + accent left edge + italic EB Garamond
    (via --font-narrator) instead of the plain surface/border NPC bubbles
    use, so it's still clearly narration rather than something the
-   character said. accentColor (the scenario's own color, see
-   ChatScreen.jsx) overrides the left-edge color inline, per scenario. */
-.bubble--narrator {
-  background: var(--color-tint);
+   character said. Fixed blue/green brand color (--color-narrator-*, see
+   :root) rather than per-scenario, so the Narrator reads as one consistent
+   voice across every scenario.
+   Selector is `.bubble-row--assistant .bubble.bubble--narrator` (3 class
+   selectors), not just `.bubble--narrator` -- `.bubble-row--assistant
+   .bubble` (2 classes, the plain NPC-bubble rule above) has higher
+   specificity than a single-class selector would, so a lower-specificity
+   `.bubble--narrator` alone silently loses this exact fight. This was
+   masked before by an inline style (always wins over any stylesheet
+   specificity) that set the same property directly; once that inline
+   style was removed in favor of a fixed color, the underlying specificity
+   problem became visible -- surfaced by manual review, not a report, but
+   worth remembering if a narrator-voice color rule seems to not apply. */
+.bubble-row--assistant .bubble.bubble--narrator {
+  background: var(--color-narrator-tint);
   border: none;
-  border-left: 3px solid var(--color-accent);
+  border-left: 3px solid var(--color-narrator-accent);
 }
 
 .bubble--narrator p {
@@ -809,10 +837,10 @@ input {
 
 .bubble__explanation {
   /* Same Narrator voice as .narrator-box (this is the Narrator too, just
-     on-demand rather than proactive), so it shares the typography. */
+     on-demand rather than proactive), so it shares the typography and color. */
   margin-top: var(--space-2);
-  background: var(--color-tint);
-  border-left: 3px solid var(--color-primary);
+  background: var(--color-narrator-tint);
+  border-left: 3px solid var(--color-narrator-accent);
   border-radius: var(--radius);
   padding: var(--space-3);
   font-family: var(--font-narrator);

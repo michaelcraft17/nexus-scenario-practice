@@ -233,7 +233,6 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
             opening={scenario.narratorOpening}
             atmosphere={scenario.narratorAtmosphere}
             difficultyGoal={difficultyGoal}
-            accentColor={scenario.color}
           />
 
           {messages.map((message) =>
