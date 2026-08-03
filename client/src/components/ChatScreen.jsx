@@ -6,6 +6,7 @@ import {
   getHint,
 } from "../services/api.js";
 import { useAccessibility } from "../a11y/AccessibilityContext.jsx";
+import { saveReflectionToHistory } from "../services/reflectionHistory.js";
 import ChatHeader from "./ChatHeader.jsx";
 import MessageBubble from "./MessageBubble.jsx";
 import ReflectionPanel from "./ReflectionPanel.jsx";
@@ -180,6 +181,7 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
     try {
       const data = await getReflection(scenario.id, toApiShape(messages.filter(isDialogueTurn)));
       setReflection({ open: true, status: "done", data, errorMessage: "" });
+      saveReflectionToHistory({ scenarioId: scenario.id, scenarioTitle: scenario.title, npcName, data });
     } catch (err) {
       setReflection({
         open: true,

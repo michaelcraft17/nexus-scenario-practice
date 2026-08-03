@@ -1,10 +1,16 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import ScenarioCard from "./ScenarioCard.jsx";
 import AccessibilityButton from "./AccessibilityButton.jsx";
+import ReflectionHistoryPanel from "./ReflectionHistoryPanel.jsx";
+import ReflectionPanel from "./ReflectionPanel.jsx";
 import { useAccessibility } from "../a11y/AccessibilityContext.jsx";
+import { getReflectionHistory } from "../services/reflectionHistory.js";
 
 export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
   const { registerReadableContent } = useAccessibility();
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyEntries, setHistoryEntries] = useState([]);
+  const [selectedEntry, setSelectedEntry] = useState(null);
 
   // "Read aloud" on this screen reads the list of scenario cards -- the
   // picker's "resource list" equivalent.
@@ -16,9 +22,36 @@ export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
     );
   }, [scenarios, registerReadableContent]);
 
+  function openHistory() {
+    setHistoryEntries(getReflectionHistory());
+    setHistoryOpen(true);
+  }
+
+  function selectEntry(entry) {
+    setSelectedEntry(entry);
+    setHistoryOpen(false);
+  }
+
+  // The "x" on a selected entry's detail view goes back to the list (it's
+  // one step of navigation, not a full exit); the footer "Close" button
+  // closes the whole history flow, mirroring the live in-scenario
+  // Reflection's own x-vs-footer-button distinction.
+  function backToList() {
+    setSelectedEntry(null);
+    setHistoryOpen(true);
+  }
+
+  function closeHistoryFlow() {
+    setSelectedEntry(null);
+    setHistoryOpen(false);
+  }
+
   return (
     <div className="picker">
       <div className="picker__a11y">
+        <button className="picker__history-button" onClick={openHistory}>
+          Past Reflections
+        </button>
         <AccessibilityButton />
       </div>
 
@@ -50,6 +83,26 @@ export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
           <ScenarioCard key={scenario.id} scenario={scenario} onSelect={onSelect} />
         ))}
       </div>
+
+      <ReflectionHistoryPanel
+        open={historyOpen}
+        entries={historyEntries}
+        onSelect={selectEntry}
+        onClose={() => setHistoryOpen(false)}
+      />
+
+      {selectedEntry && (
+        <ReflectionPanel
+          open
+          status="done"
+          data={selectedEntry.data}
+          npcName={selectedEntry.npcName}
+          subtitle={`${selectedEntry.scenarioTitle} -- ${new Date(selectedEntry.completedAt).toLocaleDateString()}`}
+          finishLabel="Close"
+          onClose={backToList}
+          onFinish={closeHistoryFlow}
+        />
+      )}
     </div>
   );
 }

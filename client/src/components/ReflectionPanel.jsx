@@ -9,22 +9,49 @@
  * "×" just dismisses the panel if someone wants to linger in the
  * conversation a little longer, while "Return to scenarios" is the real
  * exit, closing the scenario along with the panel.
+ * @param {string} [subtitle] - Shown under the "Your Reflection" heading --
+ *   used when reviewing a past reflection from history (see
+ *   ReflectionHistoryPanel.jsx) to remind which scenario/when, since it's
+ *   no longer obvious from context the way a just-finished one is.
+ * @param {string} [finishLabel] - Footer button text, "Return to scenarios"
+ *   by default; history review passes "Close" instead since there's no
+ *   active scenario to exit.
  */
-export default function ReflectionPanel({ open, status, data, errorMessage, npcName, onClose, onFinish }) {
+export default function ReflectionPanel({
+  open,
+  status,
+  data,
+  errorMessage,
+  npcName,
+  onClose,
+  onFinish,
+  subtitle,
+  finishLabel = "Return to scenarios",
+}) {
   if (!open) return null;
 
   return (
     <div className="reflection-overlay" role="dialog" aria-modal="true" aria-label="Conversation reflection">
       <div className="reflection-panel">
         <div className="reflection-panel__header">
-          <h2>Your Reflection</h2>
+          <div>
+            <h2>Your Reflection</h2>
+            {subtitle && <p className="reflection-panel__subtitle">{subtitle}</p>}
+          </div>
           <button className="reflection-panel__close" onClick={onClose} aria-label="Close reflection">
             &times;
           </button>
         </div>
 
         <div className="reflection-panel__body">
-          {status === "loading" && <p className="reflection-panel__loading">Looking back over the conversation...</p>}
+          {status === "loading" && (
+            <div className="reflection-panel__loading">
+              <p>Looking back over the conversation...</p>
+              <p className="reflection-panel__loading-note">
+                This usually takes a few seconds -- the report will appear here once it's ready.
+              </p>
+            </div>
+          )}
           {status === "error" && <p className="reflection-panel__error">{errorMessage}</p>}
 
           {status === "done" && data && (
@@ -98,7 +125,7 @@ export default function ReflectionPanel({ open, status, data, errorMessage, npcN
 
         <div className="reflection-panel__footer">
           <button className="reflection-panel__finish" onClick={onFinish}>
-            Return to scenarios
+            {finishLabel}
           </button>
         </div>
       </div>
