@@ -179,6 +179,29 @@ input {
   padding: var(--space-5) var(--space-4) var(--space-5);
 }
 
+/* Two pre-rendered variants (light-background/dark-ink vs dark-background/
+   light-ink) rather than one image with a CSS filter -- a filter like
+   invert() would also flip the teal/orange color washes, not just the ink
+   strokes. Swapped via the same [data-theme] attribute every other themed
+   rule in this file already keys off. */
+.picker__logo {
+  display: block;
+  height: 56px;
+  margin: 0 0 var(--space-2);
+}
+
+.picker__logo--dark {
+  display: none;
+}
+
+[data-theme="dark"] .picker__logo--light {
+  display: none;
+}
+
+[data-theme="dark"] .picker__logo--dark {
+  display: block;
+}
+
 .picker__header h1 {
   margin: 0 0 var(--space-2);
   font-size: 1.75rem;
@@ -588,6 +611,7 @@ input {
 .response-options__chips {
   display: flex;
   flex-direction: row;
+  align-items: flex-start;
   gap: var(--space-2);
   overflow-x: auto;
   padding-right: var(--space-3);
@@ -600,17 +624,13 @@ input {
   background: var(--color-surface);
   border: var(--border-width) solid var(--color-border);
   color: var(--color-text);
-  border-radius: 999px;
+  border-radius: var(--radius);
   padding: var(--space-2) var(--space-3);
   font-size: 0.8rem;
-  line-height: 1.3;
+  line-height: 1.35;
   min-height: 40px;
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  width: 220px;
+  white-space: normal;
 }
 
 .response-options__chip:active {
