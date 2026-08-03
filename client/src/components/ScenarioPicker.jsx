@@ -23,6 +23,8 @@ export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
       </div>
 
       <header className="picker__header">
+        <img className="picker__logo picker__logo--light" src="/logo-light.png" alt="" aria-hidden="true" />
+        <img className="picker__logo picker__logo--dark" src="/logo-dark.png" alt="" aria-hidden="true" />
         <h1>Nexus</h1>
         <p>Practice everyday conversations in a low-stakes, judgment-free space. Pick a scenario and a difficulty to start.</p>
         <p className="picker__framing">
