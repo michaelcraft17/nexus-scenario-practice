@@ -148,7 +148,17 @@ export function AccessibilityProvider({ children }) {
     root.setAttribute("data-contrast", prefs.contrast);
     root.setAttribute("data-typeface", prefs.typeface);
     root.setAttribute("data-motion", resolvedMotion);
-    root.style.zoom = String(TEXT_ZOOM[prefs.textSize] ?? 1);
+    const zoomValue = TEXT_ZOOM[prefs.textSize] ?? 1;
+    root.style.zoom = String(zoomValue);
+    // `zoom` scales the *rendered* size of everything, but viewport units
+    // (vh/dvh) don't know about zoom and still resolve against the real
+    // viewport -- so `height: 100dvh` becomes `900px` pre-zoom, then renders
+    // at 900*zoom px, overflowing the actual viewport by exactly the zoom
+    // factor whenever it's not 1. --zoom-factor lets any such element
+    // compensate (`calc(100dvh / var(--zoom-factor))`) so it still renders
+    // at the true viewport size. See .chat-screen in index.css, the one
+    // place in this app that currently needs this.
+    root.style.setProperty("--zoom-factor", String(zoomValue));
   }, [prefs.colorScheme, prefs.contrast, prefs.typeface, prefs.textSize, resolvedTheme, resolvedMotion]);
 
   // Voice list loads asynchronously in most browsers.

@@ -8,6 +8,10 @@
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-narrator: "EB Garamond", Georgia, "Iowan Old Style", "Palatino Linotype", serif;
   --border-width: 1px;
+  /* Set in JS (AccessibilityContext) alongside root.style.zoom, matching
+     whatever text-size zoom is active -- 1 here is just the fallback for
+     the instant before that effect runs on first paint. */
+  --zoom-factor: 1;
 }
 
 /* ---------- Color schemes x themes ----------
@@ -343,7 +347,16 @@ input {
 .chat-screen {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  /* Plain `100dvh` renders at 100dvh * zoom once CSS `zoom` (see
+     AccessibilityContext's text-size control) is anything but 1 -- zoom
+     scales the rendered output, but dvh/vh don't know about zoom and still
+     resolve against the true viewport, so the un-compensated box overflows
+     the real viewport by exactly the zoom factor. Dividing by --zoom-factor
+     here cancels that out so this still renders at exactly the viewport
+     height at any text size. This was the actual cause of the mission
+     badge/page needing a scroll to be visible on entering a scenario --
+     not a mission-badge-specific bug, the whole screen was overflowing. */
+  height: calc(100dvh / var(--zoom-factor, 1));
   /* No background-color here on purpose -- .chat-screen isn't a stacking
      context (no position/z-index/transform), so its own background would
      paint in normal flow (painting step 3) *after* (on top of) the fixed,
@@ -639,6 +652,16 @@ input {
 
 .chat-screen__scroll {
   flex: 1;
+  /* Without this, a flex item's default min-height:auto lets it grow to
+     fit all of its content instead of respecting flex:1 and scrolling
+     internally -- the classic flexbox+overflow gotcha. That's what was
+     actually happening: this container was growing taller than the
+     100dvh .chat-screen around it, making the whole PAGE scroll (not this
+     div), which is why the sticky mission badge -- correctly configured,
+     just relying on this container actually being the thing that scrolls
+     -- appeared to scroll away above the header/viewport instead of
+     staying pinned. */
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -863,7 +886,10 @@ input {
   margin: 0 auto;
   background: var(--color-surface);
   border-radius: var(--radius) var(--radius) 0 0;
-  max-height: 82vh;
+  /* Same zoom/vh mismatch as .chat-screen above -- without this, at a
+     non-1 text-size zoom the panel could render taller than 82% of the
+     real viewport. */
+  max-height: calc(82vh / var(--zoom-factor, 1));
   display: flex;
   flex-direction: column;
 }
