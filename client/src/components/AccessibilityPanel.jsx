@@ -59,7 +59,7 @@ export default function AccessibilityPanel() {
   if (!panelOpen) return null;
 
   function handleDeleteAll() {
-    if (window.confirm("Delete all saved accessibility preferences and favorites? This can't be undone.")) {
+    if (window.confirm("Delete all saved accessibility preferences, favorites, and past reflections? This can't be undone.")) {
       deleteAllData();
     }
   }

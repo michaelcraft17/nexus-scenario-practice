@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
+import { getReflectionHistory, clearReflectionHistory } from "../services/reflectionHistory.js";
 
 const PREFS_KEY = "a11y_prefs";
 const FAVS_KEY = "a11y_favs";
@@ -225,7 +226,10 @@ export function AccessibilityProvider({ children }) {
   }, [speechState]);
 
   const exportData = useCallback(() => {
-    const blob = new Blob([JSON.stringify({ prefs, favorites }, null, 2)], { type: "application/json" });
+    const blob = new Blob(
+      [JSON.stringify({ prefs, favorites, reflectionHistory: getReflectionHistory() }, null, 2)],
+      { type: "application/json" }
+    );
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -236,10 +240,16 @@ export function AccessibilityProvider({ children }) {
     URL.revokeObjectURL(url);
   }, [prefs, favorites]);
 
+  // Everything this app persists about a user, client-side -- prefs and
+  // favorites (this context's own storage) plus Past Reflections (see
+  // services/reflectionHistory.js, a separate localStorage key added after
+  // this "delete everything" button already existed, which is why it was
+  // missed here originally).
   const deleteAllData = useCallback(() => {
     stopSpeech();
     localStorage.removeItem(PREFS_KEY);
     localStorage.removeItem(FAVS_KEY);
+    clearReflectionHistory();
     setPrefsState({ ...DEFAULT_PREFS });
     setFavoritesState([]);
   }, [stopSpeech]);
