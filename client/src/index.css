@@ -16,11 +16,20 @@
   /* Narrator = blue/green (sampled from the logo's teal hand), Mission =
      yellow -- fixed brand colors for these two voices/systems,
      deliberately independent of the calm-earthy/blue-yellow color-scheme
-     choice and of any per-scenario color, so they read the same everywhere. */
+     choice and of any per-scenario color, so they read the same everywhere.
+     Tint values a shade darker than a first pass (per feedback that the
+     boxes read too pale/washed-out) -- light mode only, since darkening an
+     already-dark tint further would just hurt contrast against the even
+     darker app background in dark mode. */
   --color-narrator-accent: #2f7a7d;
-  --color-narrator-tint: #e8f2f2;
+  --color-narrator-tint: #d7e9e9;
   --color-mission-accent: #b8860b;
-  --color-mission-tint: #fbf2d9;
+  --color-mission-tint: #f5e6bd;
+  /* The mission badge's *expanded* detail dropdown gets the logo's other
+     hand color (orange), distinct from the collapsed toggle's yellow --
+     sampled the same way as the teal/yellow above. */
+  --color-mission-dropdown-accent: #c6791a;
+  --color-mission-dropdown-tint: #fcebd6;
 }
 
 [data-theme="dark"] {
@@ -28,6 +37,8 @@
   --color-narrator-tint: #1c2e2f;
   --color-mission-accent: #e8c04a;
   --color-mission-tint: #34290f;
+  --color-mission-dropdown-accent: #f0b163;
+  --color-mission-dropdown-tint: #3a2a16;
 }
 
 /* ---------- Color schemes x themes ----------
@@ -543,8 +554,8 @@ input {
 
 .mission-badge__details {
   margin-top: var(--space-1);
-  background: var(--color-surface);
-  border: var(--border-width) solid var(--color-border);
+  background: var(--color-mission-dropdown-tint);
+  border: var(--border-width) solid var(--color-mission-dropdown-accent);
   border-radius: var(--radius);
   padding: var(--space-3);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
