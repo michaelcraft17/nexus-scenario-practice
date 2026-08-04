@@ -1,7 +1,37 @@
 # Progress
 
 Living doc — update this across sessions this week rather than relying on
-memory of what's been done. Last updated: 2026-08-02 -- **v16, shipped to
+memory of what's been done. Last updated: 2026-08-04 -- **v17, full visual
+redesign from a Claude Design handoff**: the picker/home page and the chat
+screen were both restyled from a design-tool handoff bundle (HTML/CSS
+mockups + brand palette), plus a long tail of direct follow-up feedback in
+the same session. Home page: buttons no longer look like identical gray
+pills (distinct icon + color per action), the empty gutters on wide
+screens are filled by a full-bleed corner-blob wash instead of flat
+background, and each scenario card is tinted to its own accent color
+(teal/amber/purple/rose) with an italic serif "intro" line and a compact
+"Practice: ..." pill instead of a plain gray paragraph + quote box. The
+"Nexus" wordmark went through several iterations before landing on a
+hand-composed lockup: colorful rounded squares (bottom layer), the
+original hand-icon logo (middle layer), bold embossed white text (top
+layer) -- see the `.picker__hero` writeup below. Chat screen: the header
+lost its solid color bar (now transparent, blends with the scenario art),
+every scenario-tied element (Hint button, the user's own bubble, Send
+button, "Explain that" link) now picks up that scenario's accent color
+while the Narrator bubble and Mission badge deliberately kept their fixed
+teal/gold brand colors (a real decision, confirmed with the user rather
+than assumed -- see below), and on wide viewports the conversation column
+narrows to a readable width with the Mission badge and two decorative
+boundary lines moved into the freed-up side gutters. Also: the reply box
+is now an auto-growing textarea instead of a fixed single-line input,
+suggestion chips shrank to small centered pills (and the wordiest
+response-option text in each scenario got trimmed to fit them), the
+Mission badge grew an actual checkbox next to the current objective, and a
+real flexbox bug got fixed along the way (auto-margins were silently
+shrinking several bottom-of-screen elements to their content width instead
+of the intended reading column -- see the CSS comment on the fix, it's a
+non-obvious gotcha worth remembering). Full writeup below. Earlier the same
+week, 2026-08-02 -- **v16, shipped to
 GitHub + deployed live**: pushed to a new public repo
 (github.com/michaelcraft17/nexus-scenario-practice), added a per-IP + daily
 request cap ahead of public traffic, and deployed to Railway -- **live at
@@ -89,6 +119,163 @@ renamed IncludAI -> Nexus and the Narrator was introduced as a distinct
 layer (v4); scene-setting framing to reduce AI drift (v3); new scenario
 content + the Hint feature (v2). Originally built 2026-08-01 on Claude,
 switched to OpenAI the same day.
+
+## v17 — Full visual redesign from a Claude Design handoff
+
+**What it is:** the user mocked up a redesign in Claude Design (claude.ai's
+HTML/CSS/JS design tool) and exported a handoff bundle (4 `.dc.html`
+prototypes -- Home Desktop/Mobile, Chat Desktop/Mobile -- plus a brand
+palette). That bundle was implemented as closely as practical given real
+constraints (real scenario art vs. the mockup's text placeholders, no
+per-scenario Narrator/Mission recoloring, responsive breakpoints instead of
+one fixed canvas size), then refined over many rounds of direct
+screenshot-driven feedback in the same session. Scope was explicitly
+desktop-first per the user ("don't worry about mobile") -- mobile still
+works, just wasn't chased for pixel fidelity.
+
+### Home page (`ScenarioPicker.jsx`, `ScenarioCard.jsx`)
+
+- **Picker buttons no longer twins**: "Past Reflections" is now a teal
+  outline pill with a clock icon; "Accessibility Features" is a solid
+  purple pill with a person icon (both plain inline SVG, not emoji or
+  Unicode symbols -- see the "no emoji" note below). "Features" drops at
+  narrow widths (`.a11y-button__optional`, hidden under 420px) so both
+  buttons stay on one line each instead of wrapping.
+- **Full-bleed background**: `.picker__background` is a `position: fixed`
+  layer with four blurred corner blobs (one per scenario accent color),
+  replacing the old header-only wash -- fills the empty gutters either
+  side of the centered content column on wide screens instead of leaving
+  them flat. `.picker__rails` (desktop-only, ≥1180px) adds a subtle
+  vertical hairline + 4 dots either side of the column, echoing the
+  handoff's literal `top:200px / height:520px` boundary-line element.
+- **Scenario cards**: each card gets `data-scenario="<id>"` driving a set
+  of `--scenario-*` custom properties (accent, tint, tint-strong, text,
+  badge-text, and a `--scenario-btn-text` override for the amber card
+  specifically, since white text fails contrast on that one color). A
+  colored dot precedes the title; the old plain-gray preview paragraph is
+  now an italic serif "intro" line (reusing the existing `preview` copy,
+  styled in the Narrator's own voice); the old quote-mark teaching-point
+  box is now a compact "Practice: ..." pill using a new short
+  `practiceLabel` field added to each scenario in `scenarios.json` (the
+  existing `teachingPoint` field is a full sentence, too long for a pill).
+  Real photo art stays full-width rather than shrinking to the mockup's
+  ~66%-width placeholder-blob shape -- there's no reason to shrink real
+  assets to match a placeholder convention that only existed because the
+  design tool didn't have the photos.
+- **The "Nexus" wordmark went through three iterations** before landing
+  where it is: plain text (matching the handoff exactly) → a single
+  watercolor banner JPEG the user generated separately → the current
+  `.picker__hero`, which layers three things the user asked to combine:
+  colorful rounded squares (`.picker__hero-boxes`, 8 hand-placed spans,
+  not generated -- reads as a loose cluster rather than a grid), the
+  original hand-icon logo (`.picker__hero-hands`, light/dark variants,
+  `logo-light.png`/`logo-dark.png`), and bold white embossed text
+  (`.picker__hero-title`, `text-shadow` for the emboss, fixed white
+  regardless of theme since it always sits on its own colorful backdrop).
+  High contrast mode collapses this back to a plain static heading (colors
+  and the hand icon both hidden) -- same "decorative loses to readability"
+  priority used everywhere else in this app.
+- **Utility buttons moved to the top-right corner** on desktop
+  (`position: absolute` within `.picker__content`, which is the
+  `position: relative` anchor) instead of taking a full row above or below
+  the hero. `.picker__header` got `padding-top: 64px` at that breakpoint
+  so the centered-but-not-full-width hero doesn't sit underneath them --
+  without that, the hero's right edge overlaps the corner buttons' x-range
+  at typical desktop widths even though both are nominally "centered."
+- **Font**: added Work Sans (Google Fonts, weights 400–700) as the primary
+  `--font-sans`, with the existing system-font stack still as a fallback
+  if the network request fails -- same pattern already used for EB
+  Garamond and OpenDyslexic, not a new offline-availability regression.
+
+### Chat screen (`ChatHeader.jsx`, `ChatScreen.jsx`, `MissionBar.jsx`, `MessageBubble.jsx`, `ResponseOptions.jsx`)
+
+- **Header**: solid `--color-primary` bar → transparent (then, per direct
+  follow-up feedback, explicitly `background: transparent` rather than
+  matching `--color-bg` -- the scenario art now shows straight through).
+  Reordered to back / Hint / title / Accessibility. Hint is scenario-accent
+  colored; Accessibility stays fixed purple (`#6c5b7b`) regardless of
+  scenario, matching the picker's own Accessibility button -- so it's
+  instantly recognizable no matter which scenario is open.
+- **Scenario accent flows through the conversation**: `ChatScreen.jsx` sets
+  `--scenario-accent` / `--scenario-accent-contrast` as inline custom
+  properties on the root `.chat-screen` div (from `scenario.color`, with
+  the same amber-needs-dark-text exception as the picker cards). The Send
+  button, the user's own message bubbles, and the "Explain that" link all
+  read from these. **The Narrator bubble and Mission badge deliberately do
+  not** -- confirmed with the user rather than assumed, since the app has
+  explicit prior reasoning (a comment in `index.css`) that those two are
+  meant to read as one consistent voice/system across every scenario, and
+  the mockup's one example scenario happening to be teal-colored made it
+  look (misleadingly) like they should be scenario-tinted too.
+- **Desktop layout** (≥1220px): the conversation column narrows to a
+  680px readable width (`.chat-screen__messages`, `.response-options`,
+  `.chat-screen__input`, `.hint-bar`, `.chat-screen__error` all share this
+  via one media query) instead of stretching bubbles edge-to-edge. The
+  Mission badge moves from sticky-in-corner to `position: fixed` in the
+  freed-up right gutter beside the column. Two boundary hairlines
+  (`.chat-rail--left/--right`, `top:220px / height:460px`, matching the
+  handoff's literal values) were added to match the picker's own rails --
+  requested explicitly after the picker's version wasn't initially obvious
+  enough to notice.
+- **A real flexbox bug, not just a style tweak**: `.chat-screen__input`,
+  `.hint-bar`, `.chat-screen__error`, and `.response-options` are direct
+  flex-item children of `.chat-screen`'s column layout. Centering them with
+  `margin-left/right: auto` alone (width left at its default `auto`)
+  triggered flexbox's stretch-vs-auto-margin interaction: the *margins*
+  absorbed the available space instead of the item growing to `max-width`,
+  so each one centered itself while shrinking to its own content size --
+  visually "packed into the middle" instead of spanning the intended
+  680px column, most obvious on the reply box and response chips. Fixed by
+  adding an explicit `width: 100%` alongside `max-width: 680px` so the
+  item has a definite size before the auto margins act on it. Full
+  reasoning is in the CSS comment at the fix site -- worth reading before
+  touching centering on any other flex-item child of `.chat-screen`.
+- **Reply box**: `<input type="text">` → an auto-growing `<textarea>`
+  (height synced to `scrollHeight` in a `useEffect`, capped at ~160px/6
+  lines with internal scroll beyond that). Enter sends, Shift+Enter inserts
+  a newline. The enclosing `.chat-screen__input` bar itself lost its solid
+  white background/border-top (same "no prominent box" feedback as the
+  header) -- the textarea and Send button each carry their own pill shape
+  already, so the outer bar doesn't need one too.
+- **Suggestion chips**: shrank from fixed-width (220px), left-aligned,
+  wrapping cards with a "Suggestions" label to small auto-sized, centered
+  pills with no label (an `aria-label="Suggested replies"` on the row
+  preserves it for screen readers). Wraps to a second row rather than
+  scrolling horizontally -- with 3 short options this rarely triggers, and
+  avoids the "centered content clips on overflow" trap `justify-content:
+  center` + horizontal scroll can fall into. The wordiest response option
+  in each scenario (`scenarios.json`) was also trimmed to actually fit the
+  smaller pill -- e.g. "I want to make sure I complete this correctly --
+  could you clarify what you'd like included and what the deadline should
+  be?" → "Could you clarify what you'd like included, and the deadline?".
+  Meaning kept, length cut.
+- **Mission badge**: the collapsed view's current-objective line
+  (`.mission-badge__next`) now has an actual checkbox (`<rect rx="5">` SVG,
+  always empty since it's by definition the next *incomplete* objective)
+  instead of being plain truncated text -- and the text now wraps instead
+  of ellipsis-truncating to one line, so the full objective is always
+  readable at a glance.
+- **Speaker labels shortened**: `MessageBubble.jsx` now takes `npcName`
+  (already computed in `ChatScreen.jsx` for other purposes) instead of the
+  full `aiRole`, so bubbles show "Priya" instead of "Priya (your
+  manager)".
+
+### No-emoji follow-through
+
+The Mission badge and "Mission Updated" notes (`MissionBar.jsx`,
+`NarratorNote.jsx`) were still using a literal 🎯 emoji (`&#127919;`),
+predating this session's explicit "no emoji on interactive UI" decision
+from `v11` (a past device-rendering issue with even simple Unicode
+symbols). Confirmed with the user before touching it, then replaced with a
+small inline SVG flag icon in both places, consistent with the rest of the
+app.
+
+**Verified live** via Playwright across every round of changes -- desktop
+(1440/1920px) and mobile (390px) viewports, light/dark theme, and high
+contrast, re-checked after each fix. Zero console/page errors at any point.
+Also smoke-tested against the actual production server (port 3001, serving
+`server/public`, not the Vite dev server) after the final rebuild, to
+confirm the committed build works the same way Railway will run it.
 
 ## v16 — Shipped to GitHub, deployed live on Railway
 
@@ -1283,6 +1470,22 @@ prose), and drift prevention (the model has nowhere to improvise *from*).
 
 ## Open decisions
 
+- **v17 redesign was explicitly desktop-first**: the user said not to
+  worry about mobile during the redesign pass. Mobile still works (nothing
+  was broken), but wasn't chased for pixel fidelity against the Chat/Home
+  Mobile mockups the way desktop was -- worth a dedicated mobile pass if
+  it starts to feel neglected.
+- **`.picker__hero`'s colorful squares are hand-placed inline styles, not
+  a reusable component or a real asset (v17)**: eight `<span>`s with
+  literal position/size/rotation/color in `ScenarioPicker.jsx`. Fine for a
+  single fixed composition, but if this ever needs to vary (e.g. per
+  season, per theme) it should become data-driven instead of hand-edited.
+- **Boundary rail lines are intentionally very subtle (v17)**: both the
+  picker's and chat's decorative vertical hairlines use a low-alpha
+  gradient (matching the design handoff's own `rgba(...,0.1-0.12)` values)
+  -- they're nearly invisible against a busy background by design, not a
+  bug. If they should read as more of a deliberate "frame," the fix is
+  raising that alpha, not repositioning them.
 - **Favorites have no dedicated view yet (v7)**: the ★ toggle on each
   scenario card persists to `a11y_favs` and is fully functional, but
   there's no "show favorites only" filter or sorting-favorites-first on the

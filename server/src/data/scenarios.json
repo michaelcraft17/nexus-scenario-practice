@@ -9,6 +9,7 @@
     "narratorOpening": "You are starting a task for your manager, a few weeks into a new job. In previous experiences, unclear instructions have led to misunderstandings and frustration on both sides. Your goal is to practice asking for what you need to get it right, instead of guessing or carrying all the blame yourself.",
     "narratorAtmosphere": "The office is quiet for now -- keyboards clicking, someone's phone buzzing a few desks away. You're still new enough that you don't yet know the unwritten rules, and Priya is already half-turned to leave.",
     "teachingPoint": "Asking clarifying questions instead of over-apologizing or getting defensive.",
+    "practiceLabel": "asking clarifying questions",
     "color": "#4F8A8B",
     "responseOptions": [
       {
@@ -23,7 +24,7 @@
       },
       {
         "id": "C",
-        "text": "I want to make sure I complete this correctly -- could you clarify what you'd like included and what the deadline should be?",
+        "text": "Could you clarify what you'd like included, and the deadline?",
         "note": "Asks a clarifying question -- recommended approach."
       }
     ],
@@ -90,6 +91,7 @@
     "narratorOpening": "You are finishing up a purchase at a small shop. In previous experiences, casual small talk has felt confusing, like it's asking for more than you know how to give. Your goal is to practice responding in a way that's comfortable for you -- short is allowed.",
     "narratorAtmosphere": "The shop is calm, just a short line forming behind you. Dana finishes ringing up your total and looks up, in no hurry to end the conversation.",
     "teachingPoint": "Small talk doesn't require a deep or \"correct\" answer -- short responses are enough.",
+    "practiceLabel": "short responses are enough",
     "color": "#E4A34C",
     "responseOptions": [
       {
@@ -99,7 +101,7 @@
       },
       {
         "id": "B",
-        "text": "Honestly, small talk like this is really hard for me to know how to respond to.",
+        "text": "Honestly, small talk is hard for me to know how to respond to.",
         "note": "Honest, but the cashier may not know what to do with that in a checkout line."
       },
       {
@@ -165,6 +167,7 @@
     "narratorOpening": "You are visiting a new stylist today. In previous experiences, staying in a loud, crowded space for a while has been hard to manage without feeling overwhelmed. Your goal is to practice noticing what you need and speaking up before it becomes too much.",
     "narratorAtmosphere": "The salon is crowded. People are talking, a hair dryer is running nearby, other customers are waiting, and Marcus turns toward you, scissors in hand, ready to start.",
     "teachingPoint": "Noticing sensory overload early and asking for what you need before it becomes too much.",
+    "practiceLabel": "naming sensory overload early",
     "color": "#6C5B7B",
     "responseOptions": [
       {
@@ -179,7 +182,7 @@
       },
       {
         "id": "C",
-        "text": "I get overwhelmed by loud sounds and conversations -- would it be possible to have a quieter appointment, or fewer questions?",
+        "text": "The noise is overwhelming -- could we keep it quieter, fewer questions?",
         "note": "Names the need directly -- recommended, gives the stylist a chance to adjust."
       }
     ],
@@ -262,6 +265,7 @@
     "narratorOpening": "You're sitting through a lecture on ethos, pathos, and logos -- the three classical appeals -- and the overhead lights are uncomfortably bright today, making it hard to concentrate. In previous experiences, interrupting a class already in progress has felt like way too much attention to draw on yourself. Your goal is to practice speaking up mid-lesson when you need to, even though it feels like interrupting.",
     "narratorAtmosphere": "Ms. Alvarez is at the whiteboard, marker in hand, diagramming the three appeals as she talks. The rest of the room is quiet and focused, pens moving, eyes on the board -- and the overhead lights buzz and glare more than usual today.",
     "teachingPoint": "Self-advocacy -- it's okay to interrupt when you need to, even mid-lesson.",
+    "practiceLabel": "self-advocacy, even mid-lesson",
     "color": "#C1666B",
     "responseOptions": [
       {
@@ -276,7 +280,7 @@
       },
       {
         "id": "C",
-        "text": "Sorry to interrupt -- could we dim some of the lights or close the blinds? They're really bright and it's hard for me to focus.",
+        "text": "Sorry to interrupt -- could we dim the lights? They're really bright.",
         "note": "Interrupts respectfully with a specific, reasonable request -- recommended, gives the teacher something to act on right away."
       }
     ],

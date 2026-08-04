@@ -21,7 +21,17 @@ export default function AccessibilityButton({ className, iconOnly = false }) {
       onClick={openPanel}
       aria-label="Open accessibility features"
     >
-      {iconOnly ? "Access" : "Accessibility Features"}
+      {!iconOnly && (
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="12" cy="8" r="3.2" />
+          <path d="M5.5 20c0-3.6 3-6 6.5-6s6.5 2.4 6.5 6" />
+        </svg>
+      )}
+      {iconOnly ? "Access" : (
+        <>
+          Accessibility<span className="a11y-button__optional"> Features</span>
+        </>
+      )}
     </button>
   );
 }

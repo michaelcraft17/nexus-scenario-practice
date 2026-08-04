@@ -48,40 +48,74 @@ export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
 
   return (
     <div className="picker">
-      <div className="picker__a11y">
-        <button className="picker__history-button" onClick={openHistory}>
-          Past Reflections
-        </button>
-        <AccessibilityButton />
+      <div className="picker__background" aria-hidden="true" />
+
+      {/* Desktop-only decorative rail (hidden below 1180px via CSS) --
+          fills the empty gutters either side of the centered content column
+          with the same four scenario accent colors used on the cards below,
+          rather than leaving them visually flat. Purely decorative. */}
+      <div className="picker__rails" aria-hidden="true">
+        <div className="picker__rail picker__rail--left" />
+        <div className="picker__rail picker__rail--right" />
+        <div className="picker__rail-dots">
+          <span className="picker__rail-dot" style={{ background: "#4F8A8B" }} />
+          <span className="picker__rail-dot" style={{ background: "#E4A34C" }} />
+          <span className="picker__rail-dot" style={{ background: "#6C5B7B" }} />
+          <span className="picker__rail-dot" style={{ background: "#C1666B" }} />
+        </div>
       </div>
 
-      <header className="picker__header">
-        <img className="picker__logo picker__logo--light" src="/logo-light.png" alt="" aria-hidden="true" />
-        <img className="picker__logo picker__logo--dark" src="/logo-dark.png" alt="" aria-hidden="true" />
-        <h1>Nexus</h1>
-        <p>Practice everyday conversations in a low-stakes, judgment-free space. Pick a scenario and a difficulty to start.</p>
-        <p className="picker__framing">
-          You're playing as a neurodivergent person navigating everyday
-          situations. The goal isn't to act "normal" -- it's to understand
-          your needs, communicate them, and find what works for you and
-          others.
-        </p>
-      </header>
+      <div className="picker__content">
+        <div className="picker__a11y">
+          <button className="picker__history-button" onClick={openHistory}>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7v5l3.5 2" />
+            </svg>
+            Past Reflections
+          </button>
+          <AccessibilityButton />
+        </div>
 
-      {loadError && (
-        <p className="picker__error">
-          Couldn't load scenarios: {loadError}. Is the server running?
-        </p>
-      )}
+        <header className="picker__header">
+          <div className="picker__hero">
+            <div className="picker__hero-boxes" aria-hidden="true">
+              <span className="picker__hero-box" style={{ background: "#f2cf4a", top: "4%", left: "8%", width: "30%", height: "50%", transform: "rotate(-6deg)" }} />
+              <span className="picker__hero-box" style={{ background: "#9fd447", top: "8%", left: "32%", width: "27%", height: "46%", transform: "rotate(4deg)" }} />
+              <span className="picker__hero-box" style={{ background: "#57c2c2", top: "0%", left: "51%", width: "27%", height: "52%", transform: "rotate(-3deg)" }} />
+              <span className="picker__hero-box" style={{ background: "#f0964a", top: "12%", left: "70%", width: "29%", height: "48%", transform: "rotate(5deg)" }} />
+              <span className="picker__hero-box" style={{ background: "#3fae8f", top: "48%", left: "3%", width: "27%", height: "48%", transform: "rotate(4deg)" }} />
+              <span className="picker__hero-box" style={{ background: "#e8598a", top: "52%", left: "27%", width: "27%", height: "46%", transform: "rotate(-4deg)" }} />
+              <span className="picker__hero-box" style={{ background: "#f2c14e", top: "50%", left: "50%", width: "25%", height: "44%", transform: "rotate(3deg)" }} />
+              <span className="picker__hero-box" style={{ background: "#9b6fd6", top: "46%", left: "70%", width: "29%", height: "50%", transform: "rotate(-5deg)" }} />
+            </div>
+            <img className="picker__hero-hands picker__hero-hands--light" src="/logo-light.png" alt="" aria-hidden="true" />
+            <img className="picker__hero-hands picker__hero-hands--dark" src="/logo-dark.png" alt="" aria-hidden="true" />
+            <h1 className="picker__hero-title">Nexus</h1>
+          </div>
+          <p>Practice everyday conversations in a low-stakes, judgment-free space. Pick a scenario to start.</p>
+          <p className="picker__framing">
+            You're playing as a neurodivergent person navigating everyday
+            situations -- the goal is to understand your needs, not to act
+            "normal."
+          </p>
+        </header>
 
-      {!loadError && scenarios.length === 0 && (
-        <p className="picker__loading">Loading scenarios...</p>
-      )}
+        {loadError && (
+          <p className="picker__error">
+            Couldn't load scenarios: {loadError}. Is the server running?
+          </p>
+        )}
 
-      <div className="picker__grid">
-        {scenarios.map((scenario) => (
-          <ScenarioCard key={scenario.id} scenario={scenario} onSelect={onSelect} />
-        ))}
+        {!loadError && scenarios.length === 0 && (
+          <p className="picker__loading">Loading scenarios...</p>
+        )}
+
+        <div className="picker__grid">
+          {scenarios.map((scenario) => (
+            <ScenarioCard key={scenario.id} scenario={scenario} onSelect={onSelect} />
+          ))}
+        </div>
       </div>
 
       <ReflectionHistoryPanel

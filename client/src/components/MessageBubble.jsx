@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export default function MessageBubble({ message, aiRole, onExplain }) {
+export default function MessageBubble({ message, npcName, onExplain }) {
   const isAssistant = message.role === "assistant";
   const [status, setStatus] = useState("idle"); // idle | loading | done | error
   const [explanation, setExplanation] = useState("");
@@ -27,7 +27,7 @@ export default function MessageBubble({ message, aiRole, onExplain }) {
   return (
     <div className={`bubble-row ${isAssistant ? "bubble-row--assistant" : "bubble-row--user"}`}>
       <div className="bubble">
-        {isAssistant && <div className="bubble__speaker">{aiRole}</div>}
+        {isAssistant && <div className="bubble__speaker">{npcName}</div>}
         <div className="bubble__text">{message.content}</div>
       </div>
 
