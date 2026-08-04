@@ -5,7 +5,7 @@
   --space-3: 12px;
   --space-4: 16px;
   --space-5: 24px;
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-sans: "Work Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-narrator: "EB Garamond", Georgia, "Iowan Old Style", "Palatino Linotype", serif;
   --border-width: 1px;
   /* Set in JS (AccessibilityContext) alongside root.style.zoom, matching
@@ -30,6 +30,15 @@
      sampled the same way as the teal/yellow above. */
   --color-mission-dropdown-accent: #c6791a;
   --color-mission-dropdown-tint: #fcebd6;
+
+  /* Soft watercolor wash behind the picker header -- same teal/gold
+     family as the narrator/mission accents above, plus a dusty rose,
+     kept scheme-independent for the same reason those are. Low alpha
+     since these are blurred into a wash, not shown as solid blobs. */
+  --watercolor-teal: rgba(47, 122, 125, 0.32);
+  --watercolor-gold: rgba(184, 134, 11, 0.28);
+  --watercolor-rose: rgba(196, 108, 118, 0.26);
+  --watercolor-purple: rgba(108, 91, 123, 0.24);
 }
 
 [data-theme="dark"] {
@@ -39,6 +48,13 @@
   --color-mission-tint: #34290f;
   --color-mission-dropdown-accent: #f0b163;
   --color-mission-dropdown-tint: #3a2a16;
+
+  /* Lighter, slightly less saturated versions read the same way against
+     the dark background that the light-mode alphas do against a pale one. */
+  --watercolor-teal: rgba(127, 208, 211, 0.22);
+  --watercolor-gold: rgba(232, 192, 74, 0.2);
+  --watercolor-rose: rgba(214, 140, 150, 0.2);
+  --watercolor-purple: rgba(163, 145, 179, 0.18);
 }
 
 /* ---------- Color schemes x themes ----------
@@ -205,50 +221,248 @@ input {
 /* ---------- Scenario Picker ---------- */
 
 .picker {
+  position: relative;
+  overflow: hidden;
+  min-height: 100%;
+}
+
+/* Full-bleed ambient wash, fixed behind the entire page rather than confined
+   to a small header box -- fills the empty gutters either side of the
+   centered content column on wide viewports instead of leaving them flat.
+   Percentage-based positions (not the mockup's fixed px-on-a-1440px-canvas
+   values) so this scales sensibly at any real viewport width. */
+.picker__background {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 6% 8%, var(--watercolor-teal), transparent 32%),
+    radial-gradient(circle at 95% 6%, var(--watercolor-rose), transparent 30%),
+    radial-gradient(circle at 4% 78%, var(--watercolor-purple), transparent 30%),
+    radial-gradient(circle at 96% 82%, var(--watercolor-gold), transparent 32%);
+  filter: blur(50px);
+}
+
+[data-contrast="high"] .picker__background {
+  display: none;
+}
+
+/* The readable column -- grows from a single mobile-width block to a wider
+   centered column on desktop, where .picker__rails (below) takes over
+   decorating the space either side of it. */
+.picker__content {
+  position: relative;
+  z-index: 1;
   max-width: 640px;
   margin: 0 auto;
   padding: var(--space-5) var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
 }
 
-/* Two pre-rendered variants (light-background/dark-ink vs dark-background/
-   light-ink) rather than one image with a CSS filter -- a filter like
-   invert() would also flip the teal/orange color washes, not just the ink
-   strokes. Swapped via the same [data-theme] attribute every other themed
-   rule in this file already keys off. */
-.picker__logo {
-  display: block;
-  height: 56px;
-  margin: 0 0 var(--space-2);
-}
-
-.picker__logo--dark {
+/* Desktop-only decorative rail either side of the content column -- four
+   dots (one per scenario color) plus a hairline, echoing the accent colors
+   used throughout the cards below. Purely decorative (aria-hidden), so it's
+   absent from mobile rather than squeezed in. */
+.picker__rails {
   display: none;
 }
 
-[data-theme="dark"] .picker__logo--light {
+@media (min-width: 1180px) {
+  .picker__rails {
+    display: block;
+  }
+
+  .picker__rail {
+    position: fixed;
+    top: 200px;
+    width: 1px;
+    height: 520px;
+    background: linear-gradient(to bottom, transparent, var(--color-border), transparent);
+  }
+
+  .picker__rail--left {
+    left: max(48px, calc(50% - 660px));
+  }
+
+  .picker__rail--right {
+    right: max(48px, calc(50% - 660px));
+  }
+
+  .picker__rail-dots {
+    position: fixed;
+    left: max(28px, calc(50% - 680px));
+    top: 340px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .picker__rail-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    opacity: 0.8;
+  }
+}
+
+.picker__a11y {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  order: 1;
+}
+
+.picker__header {
+  order: 2;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+}
+
+/* The hero lockup -- colorful rounded squares (bottom layer), the
+   hand-icon logo (middle layer), the "Nexus" wordmark (top layer),
+   stacked in one composition instead of three separate elements. The
+   squares are hand-placed (not generated) so they read as a loose,
+   overlapping cluster rather than a grid. */
+.picker__hero {
+  position: relative;
+  width: min(360px, 85vw);
+  height: 160px;
+  margin: 0 auto;
+}
+
+.picker__hero-boxes {
+  position: absolute;
+  inset: 0;
+}
+
+.picker__hero-box {
+  position: absolute;
+  border-radius: 14px;
+  opacity: 0.85;
+}
+
+.picker__hero-hands {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 46%;
+  transform: translate(-50%, -68%);
+  z-index: 2;
+}
+
+.picker__hero-hands--dark {
   display: none;
 }
 
-[data-theme="dark"] .picker__logo--dark {
+[data-theme="dark"] .picker__hero-hands--light {
+  display: none;
+}
+
+[data-theme="dark"] .picker__hero-hands--dark {
   display: block;
 }
 
-.picker__header h1 {
-  margin: 0 0 var(--space-2);
+/* White embossed text over its own colorful backdrop -- fixed white/dark
+   rather than theme tokens, since it always sits on the same bright
+   squares regardless of which app theme is active. */
+.picker__hero-title {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  font-size: 2.75rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  text-shadow: 0 2px 0 rgba(38, 34, 51, 0.35), 0 6px 14px rgba(38, 34, 51, 0.25);
+}
+
+/* High contrast prioritizes readability over the decorative composition --
+   same pattern as the picker background wash and card colors. */
+[data-contrast="high"] .picker__hero {
+  height: auto;
+}
+
+[data-contrast="high"] .picker__hero-boxes,
+[data-contrast="high"] .picker__hero-hands {
+  display: none;
+}
+
+[data-contrast="high"] .picker__hero-title {
+  position: static;
   font-size: 1.75rem;
+  color: var(--color-text);
+  text-shadow: none;
 }
 
 .picker__header p {
-  margin: 0 0 var(--space-4);
-  color: var(--color-text-muted);
-  line-height: 1.5;
+  margin: 0;
+  color: var(--color-text);
+  line-height: 1.55;
+  max-width: 32em;
 }
 
 .picker__framing {
-  border-left: 3px solid var(--color-accent);
-  padding: var(--space-1) 0 var(--space-1) var(--space-3);
   font-style: italic;
-  margin-bottom: var(--space-5) !important;
+  font-family: var(--font-narrator);
+  color: var(--color-narrator-accent);
+  line-height: 1.6;
+  max-width: 32em;
+}
+
+@media (min-width: 1180px) {
+  .picker__content {
+    max-width: 1180px;
+  }
+
+  /* Pinned to the corner instead of taking a row in the flex flow --
+     .picker__content is the position: relative anchor. .picker__header
+     gets top padding equal to roughly the buttons' own height so the
+     centered hero clears them instead of the two overlapping (the hero is
+     centered but not full-width, so at typical desktop widths its right
+     edge would otherwise sit under these corner buttons). */
+  .picker__a11y {
+    position: absolute;
+    top: var(--space-5);
+    right: var(--space-4);
+    margin: 0;
+  }
+
+  .picker__a11y .a11y-button,
+  .picker__a11y .picker__history-button {
+    flex: none;
+  }
+
+  .picker__header {
+    order: 1;
+    margin-bottom: 0;
+    padding-top: 64px;
+  }
+
+  .picker__hero {
+    width: 420px;
+    height: 190px;
+  }
+
+  .picker__hero-title {
+    font-size: 3.25rem;
+  }
+
+  /* The plain description line is redundant with the framing sentence at
+     this width and reads as more boilerplate copy -- dropped on desktop,
+     kept on mobile where the extra context earns its space more. */
+  .picker__header p {
+    display: none;
+  }
 }
 
 .picker__error {
@@ -263,9 +477,10 @@ input {
 }
 
 .picker__grid {
+  order: 3;
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--space-4);
+  gap: 20px;
 }
 
 @media (min-width: 600px) {
@@ -274,16 +489,28 @@ input {
   }
 }
 
+@media (min-width: 1180px) {
+  .picker__grid {
+    gap: 26px;
+  }
+}
+
 .scenario-card {
   position: relative;
   display: block;
   text-align: left;
   background: var(--color-surface);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius);
+  border: none;
+  border-radius: 26px;
+  box-shadow: 0 10px 26px rgba(38, 34, 51, 0.07);
   padding: 0;
   overflow: hidden;
   width: 100%;
+}
+
+[data-contrast="high"] .scenario-card {
+  border: var(--border-width) solid var(--color-border);
+  box-shadow: none;
 }
 
 .scenario-card__image {
@@ -295,57 +522,61 @@ input {
 }
 
 .scenario-card__body {
-  padding: var(--space-4);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.scenario-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.scenario-card__dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--scenario-accent, var(--color-primary));
 }
 
 .scenario-card__title {
-  margin: 0 0 var(--space-2);
-  font-size: 1.4rem;
-  font-weight: 700;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
   line-height: 1.25;
 }
 
-.scenario-card__preview {
-  margin: 0 0 var(--space-3);
-  color: var(--color-text-muted);
-  font-size: 0.85rem;
-  line-height: 1.5;
-}
-
-.scenario-card__teaching-point {
-  position: relative;
-  margin: 0 0 var(--space-3);
-  font-size: 0.85rem;
-  line-height: 1.5;
-  color: var(--color-primary);
-  background: var(--color-tint);
-  display: block;
-  padding: var(--space-3) var(--space-4);
+/* The scene-setup line, in the Narrator's own italic serif voice rather
+   than plain muted sans -- ties each card's "hook" to the same atmospheric
+   register the in-scenario Narrator uses, instead of reading like plain UI
+   copy. Tinted per-scenario (see the [data-scenario] blocks below) so the
+   four cards read as distinct moods rather than four identical templates. */
+.scenario-card__intro {
+  margin: 0;
+  background: var(--scenario-tint, var(--color-tint));
   border-radius: var(--radius);
-  overflow: hidden;
+  padding: 12px 14px;
+  font-family: var(--font-narrator);
+  font-style: italic;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--scenario-text, var(--color-text));
 }
 
-.scenario-card__teaching-point::before,
-.scenario-card__teaching-point::after {
-  position: absolute;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 2.4rem;
-  line-height: 1;
-  color: var(--color-primary);
-  opacity: 0.16;
-  pointer-events: none;
-}
-
-.scenario-card__teaching-point::before {
-  content: "\201C";
-  top: -0.05em;
-  left: var(--space-2);
-}
-
-.scenario-card__teaching-point::after {
-  content: "\201D";
-  bottom: -0.4em;
-  right: var(--space-2);
+.scenario-card__practice {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  background: var(--scenario-tint-strong, var(--color-tint));
+  color: var(--scenario-badge-text, var(--color-primary));
+  font-size: 11.5px;
+  font-weight: 600;
 }
 
 .scenario-card__difficulty {
@@ -354,19 +585,106 @@ input {
 
 .scenario-card__difficulty-button {
   flex: 1;
-  background: var(--color-primary);
-  border: var(--border-width) solid var(--color-primary);
-  color: var(--color-primary-contrast);
+  background: var(--scenario-accent, var(--color-primary));
+  border: var(--border-width) solid var(--scenario-accent, var(--color-primary));
+  color: var(--scenario-btn-text, var(--color-primary-contrast));
   border-radius: 999px;
-  padding: var(--space-2) var(--space-1);
+  padding: 11px 0;
   min-height: 44px;
-  font-size: 0.9rem;
+  font-size: 14px;
   font-weight: 600;
   text-align: center;
 }
 
 .scenario-card__difficulty-button:active {
   opacity: 0.85;
+}
+
+/* Per-scenario color set -- drives the dot, intro/practice tints, and CTA
+   button above via the --scenario-* custom properties, so the structural
+   rules stay shared while each card still reads as its own mood. Values
+   match the approved design handoff exactly, including the one deliberate
+   exception: the amber card uses dark text on its CTA (--scenario-btn-text),
+   since white-on-amber falls short of readable contrast where the other
+   three colors are dark enough for white text to work fine. */
+.scenario-card[data-scenario="missing-details"] {
+  --scenario-accent: #4f8a8b;
+  --scenario-tint: rgba(79, 138, 139, 0.09);
+  --scenario-tint-strong: rgba(79, 138, 139, 0.14);
+  --scenario-text: #2c5859;
+  --scenario-badge-text: #3d6e6f;
+}
+
+.scenario-card[data-scenario="unexpected-conversation"] {
+  --scenario-accent: #e4a34c;
+  --scenario-tint: rgba(228, 163, 76, 0.14);
+  --scenario-tint-strong: rgba(228, 163, 76, 0.2);
+  --scenario-text: #7a591f;
+  --scenario-badge-text: #96702c;
+  --scenario-btn-text: #3a2a0d;
+}
+
+.scenario-card[data-scenario="too-much-happening"] {
+  --scenario-accent: #6c5b7b;
+  --scenario-tint: rgba(108, 91, 123, 0.1);
+  --scenario-tint-strong: rgba(108, 91, 123, 0.15);
+  --scenario-text: #4d4058;
+  --scenario-badge-text: #4d4058;
+}
+
+.scenario-card[data-scenario="asking-for-a-change"] {
+  --scenario-accent: #c1666b;
+  --scenario-tint: rgba(193, 102, 107, 0.1);
+  --scenario-tint-strong: rgba(193, 102, 107, 0.15);
+  --scenario-text: #7a3a3e;
+  --scenario-badge-text: #8a3a3f;
+}
+
+/* --scenario-accent/--scenario-btn-text don't need a dark variant -- the
+   CTA button and dot are solid fills that already read fine against either
+   theme. --scenario-tint/--scenario-text/--scenario-badge-text do: they
+   were tuned as dark text on a near-white tint, which goes near-invisible
+   once --color-surface itself goes dark. Teal/gold reuse the app's existing
+   narrator/mission dark accents (already contrast-checked); purple/rose get
+   the same lightened-hue treatment by hand. */
+[data-theme="dark"] .scenario-card[data-scenario="missing-details"] {
+  --scenario-tint: rgba(127, 208, 211, 0.12);
+  --scenario-tint-strong: rgba(127, 208, 211, 0.18);
+  --scenario-text: var(--color-narrator-accent);
+  --scenario-badge-text: var(--color-narrator-accent);
+}
+
+[data-theme="dark"] .scenario-card[data-scenario="unexpected-conversation"] {
+  --scenario-tint: rgba(232, 192, 74, 0.12);
+  --scenario-tint-strong: rgba(232, 192, 74, 0.18);
+  --scenario-text: var(--color-mission-accent);
+  --scenario-badge-text: var(--color-mission-accent);
+}
+
+[data-theme="dark"] .scenario-card[data-scenario="too-much-happening"] {
+  --scenario-tint: rgba(179, 160, 199, 0.14);
+  --scenario-tint-strong: rgba(179, 160, 199, 0.2);
+  --scenario-text: #cbb9dc;
+  --scenario-badge-text: #cbb9dc;
+}
+
+[data-theme="dark"] .scenario-card[data-scenario="asking-for-a-change"] {
+  --scenario-tint: rgba(224, 138, 144, 0.14);
+  --scenario-tint-strong: rgba(224, 138, 144, 0.2);
+  --scenario-text: #eeb0b4;
+  --scenario-badge-text: #eeb0b4;
+}
+
+/* High contrast overrides every --scenario-* custom property back to the
+   theme's own guaranteed-contrast tokens -- same "decorative color loses to
+   readability" priority as the picker background and card border above. */
+[data-contrast="high"] .scenario-card {
+  --scenario-accent: var(--color-primary);
+  --scenario-tint: var(--color-tint);
+  --scenario-tint-strong: var(--color-tint);
+  --scenario-text: var(--color-text);
+  --scenario-badge-text: var(--color-primary);
+  --scenario-btn-text: var(--color-primary-contrast);
 }
 
 /* ---------- Chat Screen ---------- */
@@ -443,9 +761,20 @@ input {
   display: none;
 }
 
+/* Hidden below the desktop breakpoint (see the 1220px block further down,
+   which turns this on and supplies the actual position/size) -- there's no
+   side gutter to decorate on narrower viewports. */
+.chat-rail {
+  display: none;
+}
+
+/* Pale/blended rather than a solid color bar -- matches --color-bg exactly
+   so the header reads as part of the page instead of an app-bar sitting on
+   top of it. Still opaque (not translucent), so it stays legible over
+   whatever the active scenario's background art looks like beneath it. */
 .chat-header {
-  background: var(--color-primary);
-  color: var(--color-primary-contrast);
+  background: transparent;
+  color: var(--color-text);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -455,14 +784,14 @@ input {
 .chat-header__row {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-2) var(--space-2);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3) var(--space-2);
 }
 
 .chat-header__exit {
-  background: rgba(255, 255, 255, 0.15);
-  color: var(--color-primary-contrast);
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(38, 34, 51, 0.06);
+  color: var(--color-text);
+  border: none;
   border-radius: 999px;
   min-width: 40px;
   min-height: 40px;
@@ -470,21 +799,44 @@ input {
   flex-shrink: 0;
 }
 
+[data-theme="dark"] .chat-header__exit {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .chat-header__title {
   flex: 1;
   text-align: center;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   padding: 0 var(--space-1);
 }
 
-.chat-header__icon {
-  background: none;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  color: var(--color-primary-contrast);
+/* Scenario-accent-tinted -- ties the header's one interactive scenario
+   action to the same color as the user's bubble/Send button below, rather
+   than the fixed app-wide primary color. */
+.chat-header__hint {
+  background: color-mix(in srgb, var(--scenario-accent) 14%, transparent);
+  border: none;
+  color: var(--scenario-accent);
+  border-radius: 999px;
+  padding: 0 var(--space-3);
+  min-width: 40px;
+  min-height: 40px;
+  font-weight: 600;
+  font-size: 0.78rem;
+  flex-shrink: 0;
+}
+
+/* Fixed purple, not scenario-tinted -- same reasoning as the picker's own
+   .a11y-button: Accessibility should look identical everywhere so it's
+   instantly recognizable regardless of which scenario is active. */
+.chat-header__access {
+  background: rgba(108, 91, 123, 0.14);
+  color: #6c5b7b;
+  border: none;
   border-radius: 999px;
   padding: 0 var(--space-2);
   min-width: 40px;
@@ -492,6 +844,17 @@ input {
   font-weight: 600;
   font-size: 0.72rem;
   flex-shrink: 0;
+}
+
+[data-theme="dark"] .chat-header__access {
+  background: rgba(138, 118, 163, 0.22);
+  color: #b3a0c7;
+}
+
+[data-contrast="high"] .chat-header__hint,
+[data-contrast="high"] .chat-header__access {
+  background: var(--color-tint);
+  color: var(--color-primary);
 }
 
 /* A small quest-tracker-style badge, not a full-width bar -- lives as the
@@ -543,13 +906,19 @@ input {
 }
 
 .mission-badge__next {
-  margin-top: 2px;
-  font-size: 0.8rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: var(--space-1);
+  font-size: 0.9rem;
   font-weight: 600;
   line-height: 1.3;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.mission-badge__next-checkbox {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--color-text);
 }
 
 .mission-badge__details {
@@ -636,40 +1005,34 @@ input {
    height no matter how many options there are. */
 .response-options {
   margin: 0 0 var(--space-2);
-  padding-left: var(--space-3);
 }
 
-.response-options__label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--color-text-muted);
-  margin-bottom: var(--space-1);
-}
-
+/* Small, auto-sized, centered pills -- like a messaging app's quick-reply
+   row -- rather than the earlier fixed-width, left-aligned cards with a
+   "Suggestions" label above them. Wraps to a second row instead of
+   scrolling horizontally: with 3 short options this rarely triggers, and
+   wrapping avoids the centered-content-clips-on-overflow scroll trap that
+   `justify-content: center` + horizontal scroll can fall into. */
 .response-options__chips {
   display: flex;
-  flex-direction: row;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: var(--space-2);
-  overflow-x: auto;
-  padding-right: var(--space-3);
-  padding-bottom: var(--space-1);
+  padding: 0 var(--space-3);
 }
 
 .response-options__chip {
   flex: 0 0 auto;
-  text-align: left;
+  text-align: center;
   background: var(--color-surface);
   border: var(--border-width) solid var(--color-border);
   color: var(--color-text);
-  border-radius: var(--radius);
-  padding: var(--space-2) var(--space-3);
-  font-size: 0.8rem;
-  line-height: 1.35;
+  border-radius: 20px;
+  padding: 10px 16px;
+  font-size: 0.85rem;
+  line-height: 1.3;
   min-height: 40px;
-  width: 220px;
+  max-width: 320px;
   white-space: normal;
 }
 
@@ -728,6 +1091,9 @@ input {
 }
 
 .narrator-box__mission-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   margin: 0 0 var(--space-1) !important;
   font-style: normal !important;
   font-weight: 700;
@@ -779,9 +1145,14 @@ input {
 }
 
 .bubble-row--user .bubble {
+  background: var(--scenario-accent, var(--color-primary));
+  color: var(--scenario-accent-contrast, var(--color-primary-contrast));
+  border-top-right-radius: 4px;
+}
+
+[data-contrast="high"] .bubble-row--user .bubble {
   background: var(--color-primary);
   color: var(--color-primary-contrast);
-  border-top-right-radius: 4px;
 }
 
 .bubble--typing {
@@ -839,11 +1210,15 @@ input {
 .bubble__explain-button {
   background: none;
   border: var(--border-width) solid var(--color-border);
-  color: var(--color-primary);
+  color: var(--scenario-accent, var(--color-primary));
   border-radius: 999px;
   padding: var(--space-1) var(--space-3);
   font-size: 0.78rem;
   min-height: 32px;
+}
+
+[data-contrast="high"] .bubble__explain-button {
+  color: var(--color-primary);
 }
 
 .bubble__explanation {
@@ -875,37 +1250,170 @@ input {
   font-size: 0.85rem;
 }
 
+/* No enclosing panel/border -- the textarea and Send button each carry
+   their own pill shape and background already, so a solid full-width box
+   behind them would just be a big prominent rectangle competing with the
+   scenario art, the same reason the header lost its solid background. */
 .chat-screen__input {
   display: flex;
+  align-items: flex-end;
   gap: var(--space-2);
   padding: var(--space-3);
   padding-bottom: max(var(--space-3), env(safe-area-inset-bottom));
-  background: var(--color-surface);
-  border-top: var(--border-width) solid var(--color-border);
+  background: transparent;
 }
 
-.chat-screen__input input {
+/* Grows with its content (see the height-sync effect in ChatScreen.jsx)
+   instead of staying pinned to one line -- a moderate radius rather than a
+   full 999px pill, since a tall multi-line pill would look like a stretched
+   capsule instead of a text box. Capped at ~6 lines; anything longer
+   scrolls inside the box rather than growing forever. */
+.chat-screen__input textarea {
   flex: 1;
+  resize: none;
   border: var(--border-width) solid var(--color-border);
-  border-radius: 999px;
+  border-radius: 20px;
   padding: var(--space-3) var(--space-4);
+  font-family: inherit;
   font-size: 1rem;
+  line-height: 1.4;
   min-height: 44px;
+  max-height: 160px;
+  overflow-y: auto;
 }
 
 .chat-screen__input button {
-  background: var(--color-primary);
-  color: var(--color-primary-contrast);
+  background: var(--scenario-accent, var(--color-primary));
+  color: var(--scenario-accent-contrast, var(--color-primary-contrast));
   border: none;
   border-radius: 999px;
   padding: 0 var(--space-4);
   min-height: 44px;
   min-width: 44px;
   font-weight: 600;
+  flex-shrink: 0;
 }
 
 .chat-screen__input button:disabled {
   opacity: 0.5;
+}
+
+[data-contrast="high"] .chat-screen__input button {
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+}
+
+/* Desktop: the conversation column narrows to a comfortable reading width
+   (echoing the picker's own centered-column treatment) instead of
+   stretching bubbles edge-to-edge on a wide viewport. That freed-up gutter
+   is exactly where the mission badge moves to -- fixed in place beside the
+   column rather than sticky-within-scroll, so it's always visible without
+   floating over the conversation itself, using the same "put something in
+   the empty side space" fix as the picker's background/rails. Below this
+   width there isn't reliably room for the badge beside the column, so it
+   stays with the sticky-corner placement defined earlier. */
+@media (min-width: 1220px) {
+  .chat-screen__messages,
+  .response-options,
+  .chat-screen__input,
+  .hint-bar,
+  .chat-screen__error {
+    /* Explicit width (not just max-width) matters here: .response-options,
+       .chat-screen__input, .hint-bar, and .chat-screen__error are direct
+       flex items of .chat-screen's column layout, where flexbox's default
+       stretch alignment interacts with auto margins in a easy-to-miss way
+       -- `margin: auto` on a stretch-aligned item whose width is `auto`
+       makes the *margins* absorb the available space instead of the item
+       growing to max-width, so it centers itself while shrinking to fit its
+       own content instead of filling the intended reading column. Pinning
+       width: 100% first (then letting max-width cap it) sidesteps that:
+       the item has a definite size, so stretch no longer applies and the
+       auto margins center the actually-680px-wide box like intended.
+       (.chat-screen__messages isn't affected by this -- its parent,
+       .chat-screen__scroll, is a plain block, not a flex container -- but
+       it's harmless to include here too.) */
+    width: 100%;
+    max-width: 680px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .mission-badge {
+    position: fixed;
+    top: 84px;
+    left: calc(50% + 364px);
+    margin: 0;
+    width: 220px;
+    max-width: 220px;
+  }
+
+  .chat-rail {
+    display: block;
+    position: fixed;
+    top: 220px;
+    width: 1px;
+    height: 460px;
+    background: linear-gradient(to bottom, transparent, var(--color-border), transparent);
+    z-index: 0;
+  }
+
+  .chat-rail--left {
+    left: max(48px, calc(50% - 660px));
+  }
+
+  .chat-rail--right {
+    right: max(48px, calc(50% - 660px));
+  }
+
+  /* Typography/sizing below matches the Chat-Desktop design handoff's
+     literal values -- desktop-only since these are noticeably larger than
+     what's comfortable in the compact mobile header/bubbles. */
+  .chat-header__row {
+    padding: 20px 60px;
+    gap: 16px;
+  }
+
+  .chat-header__exit {
+    min-width: 48px;
+    min-height: 48px;
+    font-size: 25px;
+  }
+
+  .chat-header__title {
+    font-size: 30px;
+  }
+
+  .chat-header__hint,
+  .chat-header__access {
+    padding: 14px 24px;
+    min-height: 48px;
+    font-size: 16px;
+  }
+
+  .bubble__speaker {
+    font-size: 1.125rem;
+  }
+
+  .bubble--narrator p,
+  .bubble__text {
+    font-size: 16.5px;
+  }
+
+  .bubble__explain-button {
+    padding: 4px 10px;
+    font-size: 13px;
+  }
+
+  .chat-screen__input textarea {
+    padding: 13px 18px;
+    font-size: 15px;
+  }
+
+  .chat-screen__input button {
+    padding: 0 32px;
+    min-height: 52px;
+    font-size: 17px;
+  }
 }
 
 /* ---------- Reflection Panel ---------- */
@@ -1105,33 +1613,70 @@ input {
 
 /* ---------- Accessibility Features ---------- */
 
+/* Used by the icon-only chat-header instance too (AccessibilityButton's
+   className prop replaces this default rather than combining with it, so
+   restyling here only ever affects the picker's own full-label button). */
 .a11y-button {
-  background: var(--color-tint);
-  border: var(--border-width) solid var(--color-border);
-  color: var(--color-primary);
-  border-radius: 999px;
-  padding: var(--space-2) var(--space-3);
-  min-height: 40px;
-  font-size: 0.78rem;
-  font-weight: 600;
-}
-
-.picker__a11y {
+  flex: 1;
   display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #6c5b7b;
+  border: none;
+  color: #fff;
+  border-radius: 999px;
+  padding: 10px 18px;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
+/* "Features" drops at narrow widths so "Past Reflections" + "Accessibility"
+   both fit on one line each, side by side, without wrapping or overflowing
+   -- same shortening the design handoff uses on its mobile mockup. The
+   aria-label stays the full phrase either way (see AccessibilityButton). */
+@media (max-width: 420px) {
+  .a11y-button__optional {
+    display: none;
+  }
+}
+
+[data-theme="dark"] .a11y-button {
+  background: #8a76a3;
+  color: #1a1721;
+}
+
+[data-contrast="high"] .a11y-button {
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+}
+
+/* Distinct from .a11y-button on purpose -- an outline pill in the teal
+   brand accent rather than a solid fill, so the two picker-header buttons
+   read as two different actions rather than twin gray pills. */
 .picker__history-button {
-  background: var(--color-tint);
-  border: var(--border-width) solid var(--color-border);
-  color: var(--color-primary);
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--color-narrator-tint);
+  border: 1.5px solid var(--color-narrator-accent);
+  color: var(--color-narrator-accent);
   border-radius: 999px;
-  padding: var(--space-2) var(--space-3);
-  min-height: 40px;
-  font-size: 0.78rem;
-  font-weight: 600;
+  padding: 10px 18px;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+[data-contrast="high"] .picker__history-button {
+  background: var(--color-bg);
+  border-color: var(--color-border);
+  color: var(--color-text);
 }
 
 .a11y-overlay {

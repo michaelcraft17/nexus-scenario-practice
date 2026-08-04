@@ -20,6 +20,14 @@ function makeId() {
   return `m${nextId++}`;
 }
 
+/** White text fails contrast on the amber scenario color specifically --
+ * same exception already made for its picker card CTA button (see
+ * index.css's [data-scenario="unexpected-conversation"] block). Every
+ * other scenario color is dark enough for white text to work fine. */
+const SCENARIO_ACCENT_CONTRAST = {
+  "unexpected-conversation": "#3a2a0d",
+};
+
 /** Real roleplay turns only -- excludes the Narrator's proactive asides,
  * which never go back to the API (their role isn't "user"/"assistant", so
  * the backend's message validation would reject them anyway). */
@@ -56,6 +64,18 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
 
   const userTurnCount = messages.filter((m) => m.role === "user").length;
   const npcName = scenario.aiRole.split(" (")[0];
+
+  // Auto-grows the reply box with its content instead of staying pinned to
+  // one line -- reset to "auto" first so it can shrink back down too (e.g.
+  // after sending), not just grow. Capped in CSS (max-height + overflow-y)
+  // so a very long draft scrolls internally rather than pushing the rest of
+  // the screen around.
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [inputValue]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -215,12 +235,25 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
   const showResponseOptions = userTurnCount === 0 && !sending;
 
   return (
-    <div className="chat-screen">
+    <div
+      className="chat-screen"
+      style={{
+        "--scenario-accent": scenario.color,
+        "--scenario-accent-contrast": SCENARIO_ACCENT_CONTRAST[scenario.id] ?? "#ffffff",
+      }}
+    >
       <div
         className="chat-screen__background"
         style={{ backgroundImage: `url(/images/scenarios/${scenario.id}.jpg)` }}
         aria-hidden="true"
       />
+
+      {/* Desktop-only decorative boundary lines either side of the centered
+          conversation column -- same element/positioning formula as the
+          picker's own rails, so it reads as a consistent site-wide framing
+          detail rather than something new per screen. */}
+      <div className="chat-rail chat-rail--left" aria-hidden="true" />
+      <div className="chat-rail chat-rail--right" aria-hidden="true" />
 
       <ChatHeader scenario={scenario} onExit={onExit} onHint={handleHint} />
 
@@ -242,7 +275,7 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
               <MessageBubble
                 key={message.id}
                 message={message}
-                aiRole={scenario.aiRole}
+                npcName={npcName}
                 onExplain={handleExplain}
               />
             )
@@ -278,11 +311,19 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
       )}
 
       <form className="chat-screen__input" onSubmit={handleSend}>
-        <input
+        <textarea
           ref={inputRef}
-          type="text"
+          rows={1}
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={(e) => {
+            // Enter sends, like a chat app; Shift+Enter still inserts a
+            // newline for anyone drafting a longer, multi-line reply.
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              handleSend(e);
+            }
+          }}
           placeholder="Type your reply..."
           disabled={sending}
           aria-label="Your reply"

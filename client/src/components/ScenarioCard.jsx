@@ -5,7 +5,7 @@ export default function ScenarioCard({ scenario, onSelect }) {
   const favorite = isFavorite(scenario.id);
 
   return (
-    <div className="scenario-card">
+    <div className="scenario-card" data-scenario={scenario.id}>
       <div
         className="scenario-card__image"
         style={{
@@ -24,9 +24,16 @@ export default function ScenarioCard({ scenario, onSelect }) {
         {favorite ? "★" : "☆"}
       </button>
       <div className="scenario-card__body">
-        <h2 className="scenario-card__title">{scenario.title}</h2>
-        <p className="scenario-card__preview">{scenario.preview}</p>
-        <p className="scenario-card__teaching-point">{scenario.teachingPoint}</p>
+        <div className="scenario-card__title-row">
+          <span className="scenario-card__dot" aria-hidden="true" />
+          <h2 className="scenario-card__title">{scenario.title}</h2>
+        </div>
+
+        <p className="scenario-card__intro">{scenario.preview}</p>
+
+        {scenario.practiceLabel && (
+          <div className="scenario-card__practice">Practice: {scenario.practiceLabel}</div>
+        )}
 
         <div className="scenario-card__difficulty">
           <button

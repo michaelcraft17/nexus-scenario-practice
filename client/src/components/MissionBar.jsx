@@ -30,12 +30,21 @@ export default function MissionBar({ mission }) {
         aria-label={`Current mission, ${completedCount} of ${mission.objectives.length} objectives complete. Tap to ${expanded ? "collapse" : "expand"}.`}
       >
         <div className="mission-badge__label">
-          <span aria-hidden="true">&#127919;</span> Mission
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M5 21V4" />
+            <path d="M5 4h13l-3 4 3 4H5" />
+          </svg>
+          Mission
           <span className="mission-badge__progress">
             {completedCount}/{mission.objectives.length}
           </span>
         </div>
         <div className="mission-badge__next">
+          {nextObjective && (
+            <svg className="mission-badge__next-checkbox" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="5" />
+            </svg>
+          )}
           {nextObjective ? nextObjective.text : "All objectives complete"}
         </div>
       </button>

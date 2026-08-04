@@ -18,11 +18,11 @@ export default function ChatHeader({ scenario, onExit, onHint }) {
         >
           <span aria-hidden="true">&larr;</span>
         </button>
-        <div className="chat-header__title">{scenario.title}</div>
-        <button className="chat-header__icon" onClick={onHint} aria-label="Need a hint?" title="Need a hint?">
+        <button className="chat-header__hint" onClick={onHint} aria-label="Need a hint?" title="Need a hint?">
           Hint
         </button>
-        <AccessibilityButton className="chat-header__icon" iconOnly />
+        <div className="chat-header__title">{scenario.title}</div>
+        <AccessibilityButton className="chat-header__access" iconOnly />
       </div>
     </header>
   );

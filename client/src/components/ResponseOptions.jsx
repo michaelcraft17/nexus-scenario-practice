@@ -9,8 +9,7 @@ export default function ResponseOptions({ options, onPick }) {
 
   return (
     <div className="response-options">
-      <div className="response-options__label">Suggestions</div>
-      <div className="response-options__chips">
+      <div className="response-options__chips" aria-label="Suggested replies">
         {options.map((option) => (
           <button
             key={option.id}

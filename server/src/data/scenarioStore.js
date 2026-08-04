@@ -38,6 +38,7 @@ export function getAllPublic() {
       narratorOpening,
       narratorAtmosphere,
       teachingPoint,
+      practiceLabel,
       color,
       responseOptions,
       missions,
@@ -51,6 +52,7 @@ export function getAllPublic() {
       narratorOpening,
       narratorAtmosphere,
       teachingPoint,
+      practiceLabel,
       color,
       responseOptions: (responseOptions ?? []).map(({ id: optionId, text }) => ({
         id: optionId,
