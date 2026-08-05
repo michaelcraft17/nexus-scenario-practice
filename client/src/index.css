@@ -314,6 +314,34 @@ input {
   order: 1;
 }
 
+/* Mirrors .picker__history-button's outline-pill treatment so it reads as
+   part of the same header button family, but sits on the opposite side --
+   in-flow above the a11y row on mobile, pinned to the top-left corner to
+   match .picker__a11y's top-right pin on desktop (below). */
+.picker__feedback-link {
+  order: 0;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: var(--space-3);
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--color-narrator-accent);
+  background: var(--color-narrator-tint);
+  color: var(--color-narrator-accent);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+[data-contrast="high"] .picker__feedback-link {
+  background: var(--color-bg);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
 .picker__header {
   order: 2;
   text-align: center;
@@ -332,7 +360,7 @@ input {
 .picker__hero {
   position: relative;
   width: min(360px, 85vw);
-  height: 160px;
+  height: 190px;
   margin: 0 auto;
 }
 
@@ -341,19 +369,34 @@ input {
   inset: 0;
 }
 
+/* Soft radial-gradient fills (set inline, per box) plus a blur + multiply
+   blend read as painted washes bleeding into each other at the overlaps,
+   instead of flat, printed-looking rounded rectangles -- the border-radius
+   is also set per box (inline, four asymmetric horizontal/vertical corner
+   pairs each) to an irregular water-drop blob rather than a rounded square,
+   for the same reason: no two edges the same curve, like an unplanned
+   watercolor mark rather than a drawn shape. */
 .picker__hero-box {
   position: absolute;
-  border-radius: 14px;
-  opacity: 0.85;
+  border-radius: 50% 50% 50% 50% / 50% 50% 50% 50%;
+  opacity: 0.88;
+  filter: blur(1.75px);
+  mix-blend-mode: multiply;
+}
+
+[data-theme="dark"] .picker__hero-box {
+  mix-blend-mode: screen;
+  opacity: 0.7;
 }
 
 .picker__hero-hands {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 46%;
-  transform: translate(-50%, -68%);
+  width: 60%;
+  transform: translate(-50%, -66%);
   z-index: 2;
+  filter: drop-shadow(0 4px 10px rgba(38, 34, 51, 0.25));
 }
 
 .picker__hero-hands--dark {
@@ -379,11 +422,11 @@ input {
   align-items: center;
   justify-content: center;
   margin: 0;
-  font-size: 2.75rem;
-  font-weight: 700;
+  font-size: 3.4rem;
+  font-weight: 800;
   letter-spacing: -0.01em;
   color: #ffffff;
-  text-shadow: 0 2px 0 rgba(38, 34, 51, 0.35), 0 6px 14px rgba(38, 34, 51, 0.25);
+  text-shadow: 0 3px 0 rgba(38, 34, 51, 0.4), 0 8px 18px rgba(38, 34, 51, 0.3);
 }
 
 /* High contrast prioritizes readability over the decorative composition --
@@ -442,6 +485,13 @@ input {
     flex: none;
   }
 
+  .picker__feedback-link {
+    position: absolute;
+    top: var(--space-5);
+    left: var(--space-4);
+    margin: 0;
+  }
+
   .picker__header {
     order: 1;
     margin-bottom: 0;
@@ -449,12 +499,12 @@ input {
   }
 
   .picker__hero {
-    width: 420px;
-    height: 190px;
+    width: 460px;
+    height: 220px;
   }
 
   .picker__hero-title {
-    font-size: 3.25rem;
+    font-size: 4.25rem;
   }
 
   /* The plain description line is redundant with the framing sentence at
