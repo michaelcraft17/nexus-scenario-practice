@@ -129,3 +129,20 @@ export function getHint(scenarioId, contextMessages) {
     body: JSON.stringify({ scenarioId, contextMessages }),
   });
 }
+
+/**
+ * Mint a short-lived Realtime API credential scoped to one scenario's NPC
+ * (personality + voice baked in server-side) for a live voice call. The
+ * returned clientSecret goes straight to OpenAI's WebRTC endpoint from the
+ * browser (see VoiceModePanel.jsx) -- it's the one exception to this
+ * module's "only fetch() caller" rule stated above, since the call's audio
+ * itself never round-trips through our server.
+ * @param {string} scenarioId
+ * @returns {Promise<{clientSecret: string, expiresAt: number, model: string, npcName: string}>}
+ */
+export function startRealtimeSession(scenarioId) {
+  return request("/realtime-session", {
+    method: "POST",
+    body: JSON.stringify({ scenarioId }),
+  });
+}

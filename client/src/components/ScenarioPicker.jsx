@@ -3,14 +3,37 @@ import ScenarioCard from "./ScenarioCard.jsx";
 import AccessibilityButton from "./AccessibilityButton.jsx";
 import ReflectionHistoryPanel from "./ReflectionHistoryPanel.jsx";
 import ReflectionPanel from "./ReflectionPanel.jsx";
+import TutorialOverlay from "./TutorialOverlay.jsx";
 import { useAccessibility } from "../a11y/AccessibilityContext.jsx";
 import { getReflectionHistory } from "../services/reflectionHistory.js";
+
+/** querySelector always returns the first match, so each target here
+ * naturally lands on the leftmost/first scenario card -- one representative
+ * example rather than needing an nth-child selector. */
+const PICKER_TUTORIAL_STEPS = [
+  {
+    target: ".scenario-card__image",
+    title: "Pick a scenario",
+    text: "Each card is a short, scripted social situation to practice -- read the setup, then jump in whenever you're ready.",
+  },
+  {
+    target: ".scenario-card__practice",
+    title: "See what you'll practice",
+    text: "This tag tells you the specific skill this scenario focuses on.",
+  },
+  {
+    target: ".scenario-card__difficulty-button",
+    title: "Start when you're ready",
+    text: "Tap here to begin -- you'll choose between typing or talking live next.",
+  },
+];
 
 export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
   const { registerReadableContent } = useAccessibility();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyEntries, setHistoryEntries] = useState([]);
   const [selectedEntry, setSelectedEntry] = useState(null);
+  const [tutorialKey, setTutorialKey] = useState(0);
 
   // "Read aloud" on this screen reads the list of scenario cards -- the
   // picker's "resource list" equivalent.
@@ -46,6 +69,18 @@ export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
     setHistoryOpen(false);
   }
 
+  // Removing the localStorage flag plus remounting (via the key bump) is
+  // what actually replays it -- TutorialOverlay only ever reads its
+  // "seen?" flag once, at its own mount, via useState's lazy initializer.
+  function replayTutorial() {
+    try {
+      localStorage.removeItem("nexus-tutorial-picker");
+    } catch {
+      // Ignore -- storage may be unavailable (private browsing etc.).
+    }
+    setTutorialKey((k) => k + 1);
+  }
+
   return (
     <div className="picker">
       <div className="picker__background" aria-hidden="true" />
@@ -66,17 +101,28 @@ export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
       </div>
 
       <div className="picker__content">
-        <a
-          className="picker__feedback-link"
-          href="https://docs.google.com/forms/d/e/1FAIpQLSeOQX7N0Xs7XWItzUE6zYQa6qRlpnooBnryST7SeiG7ub4Edw/viewform?usp=header"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-          </svg>
-          Share Feedback
-        </a>
+        <div className="picker__left">
+          <a
+            className="picker__feedback-link"
+            href="https://docs.google.com/forms/d/e/1FAIpQLSeOQX7N0Xs7XWItzUE6zYQa6qRlpnooBnryST7SeiG7ub4Edw/viewform?usp=header"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+            </svg>
+            Share Feedback
+          </a>
+          <button
+            type="button"
+            className="tutorial-replay-button"
+            onClick={replayTutorial}
+            aria-label="Replay the getting-started walkthrough"
+            title="Getting started"
+          >
+            <span aria-hidden="true">?</span> Tutorial
+          </button>
+        </div>
 
         <div className="picker__a11y">
           <button className="picker__history-button" onClick={openHistory}>
@@ -105,6 +151,9 @@ export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
             <img className="picker__hero-hands picker__hero-hands--dark" src="/logo-dark.png" alt="" aria-hidden="true" />
             <h1 className="picker__hero-title">Nexus</h1>
           </div>
+          <p className="picker__tagline">
+            AI-powered social scenario practice, designed for the neurodivergent community.
+          </p>
           <p>Practice everyday conversations in a low-stakes, judgment-free space. Pick a scenario to start.</p>
           <p className="picker__framing">
             You're playing as a neurodivergent person navigating everyday
@@ -149,6 +198,13 @@ export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
           onFinish={closeHistoryFlow}
         />
       )}
+
+      <TutorialOverlay
+        key={tutorialKey}
+        storageKey="nexus-tutorial-picker"
+        active={scenarios.length > 0}
+        steps={PICKER_TUTORIAL_STEPS}
+      />
     </div>
   );
 }

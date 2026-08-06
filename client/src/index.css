@@ -314,23 +314,39 @@ input {
   order: 1;
 }
 
-/* Mirrors .picker__history-button's outline-pill treatment so it reads as
-   part of the same header button family, but sits on the opposite side --
-   in-flow above the a11y row on mobile, pinned to the top-left corner to
-   match .picker__a11y's top-right pin on desktop (below). */
-.picker__feedback-link {
-  order: 0;
+/* Mirrors .picker__a11y's row-of-pills grouping, but on the opposite side
+   -- Share Feedback and the Tutorial replay button live together here so
+   the tutorial button reads as part of this left-side group, not the
+   right-side accessibility one it used to sit in. In-flow above the a11y
+   row on mobile, pinned to the top-left corner to match .picker__a11y's
+   top-right pin on desktop (below). */
+.picker__left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   align-self: flex-start;
+  order: 0;
+  margin-bottom: var(--space-3);
+}
+
+/* Same outline-pill construction as .picker__history-button, but sized to
+   match it exactly (10px/18px padding, 14px text, 44px min-height -- these
+   used to be visibly smaller than the right-side pair) and in the app's
+   established amber rather than teal, so the left group reads as its own
+   distinct pair rather than a paler echo of Past Reflections. Amber values
+   reused as-is from the "unexpected-conversation" scenario's own
+   already-contrast-tuned tint/text pairing. */
+.picker__feedback-link {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: var(--space-3);
-  padding: 8px 14px;
+  padding: 10px 18px;
+  min-height: 44px;
   border-radius: 999px;
-  border: 1.5px solid var(--color-narrator-accent);
-  background: var(--color-narrator-tint);
-  color: var(--color-narrator-accent);
-  font-size: 13px;
+  border: 1.5px solid #96702c;
+  background: rgba(228, 163, 76, 0.14);
+  color: #96702c;
+  font-size: 14px;
   font-weight: 500;
   text-decoration: none;
   white-space: nowrap;
@@ -462,6 +478,28 @@ input {
   max-width: 32em;
 }
 
+/* A plain "what this product is" subtitle, distinct from the instructional
+   line below it ("Practice X. Pick a scenario to start.") -- kept visible
+   at every width (see the higher-specificity override just below) unlike
+   that instructional line and the framing sentence, both of which the
+   desktop breakpoint further down intentionally hides as redundant at that
+   size. Without this, desktop currently shows the hero lockup with no
+   description under it at all. */
+.picker__tagline {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  line-height: 1.5;
+  max-width: 32em;
+}
+
+/* Two classes beats .picker__header p's one-class-one-type specificity
+   regardless of source order, so this survives that rule's desktop
+   display:none without needing !important. */
+.picker__header .picker__tagline {
+  display: block;
+}
+
 @media (min-width: 1180px) {
   .picker__content {
     max-width: 1180px;
@@ -485,7 +523,7 @@ input {
     flex: none;
   }
 
-  .picker__feedback-link {
+  .picker__left {
     position: absolute;
     top: var(--space-5);
     left: var(--space-4);
@@ -629,10 +667,44 @@ input {
   font-weight: 600;
 }
 
+/* Whichever line the mouse is over grows slightly, settling back the
+   moment it leaves -- transform (not font-size) so it never reflows its
+   siblings, just a quiet "this is what you're looking at" nudge. */
+.scenario-card__title,
+.scenario-card__intro,
+.scenario-card__practice {
+  transition: transform 150ms ease;
+  transform-origin: left center;
+}
+
+.scenario-card__title:hover,
+.scenario-card__intro:hover,
+.scenario-card__practice:hover {
+  transform: scale(1.045);
+  position: relative;
+  z-index: 1;
+}
+
+/* Matches the app's own resolved-motion setting (AccessibilityContext),
+   not a raw prefers-reduced-motion media query -- consistent with every
+   other motion override in this file, since it also covers the in-app
+   "Reduce motion" toggle, not just the OS-level preference. */
+[data-motion="reduce"] .scenario-card__title,
+[data-motion="reduce"] .scenario-card__intro,
+[data-motion="reduce"] .scenario-card__practice {
+  transition: none;
+}
+
 .scenario-card__difficulty {
   display: flex;
 }
 
+/* A solid-color "ledge" beneath the button (not a blurred drop shadow) --
+   pressing it moves the button down by the same distance the ledge sits at
+   and the ledge itself shrinks to 0, so it reads as the button physically
+   sinking down onto the surface, not just dimming. Releasing (mouse/touch
+   up, or keyup on a keyboard-activated button -- :active covers both
+   natively) reverses the same transition back to resting height. */
 .scenario-card__difficulty-button {
   flex: 1;
   background: var(--scenario-accent, var(--color-primary));
@@ -644,10 +716,14 @@ input {
   font-size: 14px;
   font-weight: 600;
   text-align: center;
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--scenario-accent) 78%, black);
+  transform: translateY(0);
+  transition: transform 100ms ease-out, box-shadow 100ms ease-out;
 }
 
 .scenario-card__difficulty-button:active {
-  opacity: 0.85;
+  transform: translateY(3px);
+  box-shadow: 0 0 0 color-mix(in srgb, var(--scenario-accent) 78%, black);
 }
 
 /* Per-scenario color set -- drives the dot, intro/practice tints, and CTA
@@ -878,6 +954,47 @@ input {
   font-weight: 600;
   font-size: 0.78rem;
   flex-shrink: 0;
+}
+
+/* Solid scenario-accent fill (vs. Hint's tinted outline) -- it's the button
+   that starts something new (a live call), so it reads with a bit more
+   weight than Hint, echoing the Send button's own solid-accent treatment. */
+.chat-header__voice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--scenario-accent, var(--color-primary));
+  border: none;
+  color: var(--scenario-accent-contrast, var(--color-primary-contrast));
+  border-radius: 999px;
+  padding: 0 var(--space-3);
+  min-width: 40px;
+  min-height: 40px;
+  font-weight: 600;
+  font-size: 0.78rem;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+[data-contrast="high"] .chat-header__voice {
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+}
+
+/* Below phone widths, .chat-header__title (flex: 1, centered) has too
+   little room left once exit/Hint/Talk Live/Access all claim their own
+   space -- the label drops first (icon alone still communicates the
+   action, same reasoning as AccessibilityButton's iconOnly variant),
+   before the title has to start truncating. */
+@media (max-width: 430px) {
+  .chat-header__voice-label {
+    display: none;
+  }
+
+  .chat-header__voice {
+    padding: 0;
+    width: 40px;
+  }
 }
 
 /* Fixed purple, not scenario-tinted -- same reasoning as the picker's own
@@ -1434,6 +1551,7 @@ input {
   }
 
   .chat-header__hint,
+  .chat-header__voice,
   .chat-header__access {
     padding: 14px 24px;
     min-height: 48px;
@@ -1564,6 +1682,642 @@ input {
   line-height: 1.6;
 }
 
+/* Full-screen call takeover -- "Her" (2013)'s OS1 as the direct reference:
+   no chrome, no filled shapes, just a warm field, quiet typography, and a
+   single thin line standing in for the AI's presence. Fixed light regardless
+   of the app's own theme (same reasoning .picker__hero-title's fixed white
+   text uses elsewhere) -- this screen's whole point is a warm, permanent,
+   paper-like calm, not something that should flip dark with the rest of
+   the app. */
+.voice-call {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding: var(--space-5) var(--space-4);
+  padding-top: max(40px, env(safe-area-inset-top));
+  padding-bottom: max(var(--space-5), env(safe-area-inset-bottom));
+  background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--scenario-accent) 6%, #faf6f0) 0%, #f7f2ea 70%);
+  color: #2a2620;
+  text-align: center;
+}
+
+[data-contrast="high"] .voice-call {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.voice-call__top {
+  flex-shrink: 0;
+}
+
+/* Serif, not the app's usual sans -- same --font-narrator EB Garamond used
+   for atmospheric/voice-y text elsewhere (the picker card intros, the
+   Narrator's own lines), reused here for its quieter, more human register
+   instead of introducing a third typeface just for this screen. */
+.voice-call__name {
+  margin: 0;
+  font-family: var(--font-narrator);
+  font-size: 1.7rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: #2a2620;
+}
+
+.voice-call__status {
+  margin: var(--space-2) 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--scenario-accent) 55%, #6b6355);
+}
+
+/* Narrator-voice italic serif, same as text mode's NarratorIntro/scenario
+   card intros -- ties this one moment of scene-setting to the same
+   atmospheric register used everywhere else in the app, rather than
+   reading like a plain instruction. */
+.voice-call__intro {
+  margin: var(--space-3) auto 0;
+  max-width: 30em;
+  font-family: var(--font-narrator);
+  font-style: italic;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: #4a4438;
+}
+
+/* Solid (not italic/muted) and accent-tinted -- deliberately reads as a
+   distinct, unambiguous status cue rather than atmosphere, since its whole
+   job is to remove any doubt about whether it's okay to end the call. */
+.voice-call__wrap-up {
+  margin: var(--space-3) auto 0;
+  max-width: 26em;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--scenario-accent) 14%, transparent);
+  color: color-mix(in srgb, var(--scenario-accent) 80%, #2a2620);
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+/* Replaces the whole ring/controls layout when askingReflection is true
+   (see VoiceCallScreen.jsx) -- a deliberate ask, not an auto-triggered
+   panel, since unlike text mode's mission-completion signal there's
+   nothing here to auto-trigger it from. Same warm field/serif-name
+   language as the rest of this screen so it still reads as the same
+   place, just its closing beat. */
+.voice-call__ask {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  max-width: 26em;
+  margin: 0 auto;
+  padding: 0 var(--space-4);
+  text-align: center;
+}
+
+.voice-call__ask-title {
+  margin: 0;
+  font-family: var(--font-narrator);
+  font-size: 1.3rem;
+  font-weight: 500;
+  color: #2a2620;
+}
+
+.voice-call__ask-text {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #6b6355;
+}
+
+.voice-call__ask-buttons {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  width: 100%;
+  max-width: 320px;
+}
+
+.voice-call__ask-skip,
+.voice-call__ask-yes {
+  flex: 1;
+  min-height: 48px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.voice-call__ask-skip {
+  background: rgba(42, 38, 32, 0.08);
+  border: none;
+  color: #2a2620;
+}
+
+.voice-call__ask-yes {
+  background: var(--scenario-accent);
+  border: none;
+  color: var(--scenario-accent-contrast);
+}
+
+.voice-call__loop-wrapper {
+  --amp: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.voice-call__loop {
+  width: min(320px, 78vw);
+  height: auto;
+  overflow: visible;
+}
+
+/* r comes from --r, written every animation frame by stepWave() in
+   VoiceCallScreen.jsx -- ONE continuous breathing wave whose range/tempo
+   eases toward whatever body-language state is current, rather than a CSS
+   @keyframes animation whose *name* swaps per state (which restarts the
+   cycle at 0%, producing a visible jump-cut on every transition -- this
+   used to be `animation: voice-loop-grow ...` for exactly that reason).
+   The fallback (34) only ever shows for an instant before JS starts
+   writing --r. stroke/opacity (not stroke-width, which is amp-driven every
+   frame and would fight a transition retriggering 60x/sec) still
+   transition smoothly between states below, so a state change reads as a
+   mood shifting, not a UI toggle snapping. */
+.voice-call__loop-base {
+  fill: none;
+  stroke-linecap: round;
+  r: var(--r, 34);
+  filter: url(#voice-ink-wobble);
+  stroke: color-mix(in srgb, var(--scenario-accent) 70%, #2a2620);
+  stroke-width: calc(1.5px + var(--amp) * 1.5px);
+  opacity: 0.4;
+  transition: stroke 500ms ease, opacity 500ms ease;
+}
+
+/* Two small bright points orbiting clockwise at a fixed radius (35, the
+   ring's own midpoint between its grow/shrink extremes of 30-40) -- energy
+   traveling around a biological system, not a loading-spinner-style dash
+   sweeping around the outline. Each also pulses its own size/glow on a
+   separate faster cycle, like a packet of light breathing as it travels,
+   and reacts to live audio the same way the rest of the ring does. Offset
+   from each other via animation-delay (not evenly opposite at 180deg) so
+   the pair feels a little irregular/organic rather than mechanically
+   symmetric. */
+.voice-call__loop-pulse {
+  fill: var(--scenario-accent);
+  cx: 85;
+  cy: 50;
+  r: calc(1.7px + var(--amp) * 1.6px);
+  filter: drop-shadow(0 0 calc(2px + var(--amp) * 7px) var(--scenario-accent));
+  animation: voice-loop-orbit 6s linear infinite, voice-loop-pulse-glow 2.2s ease-in-out infinite;
+}
+
+.voice-call__loop-pulse--2 {
+  r: calc(1.2px + var(--amp) * 1.3px);
+  animation-delay: -2.6s, -1.1s;
+}
+
+@keyframes voice-loop-orbit {
+  0% {
+    cx: 85;
+    cy: 50;
+  }
+  8.333% {
+    cx: 80.31;
+    cy: 67.5;
+  }
+  16.667% {
+    cx: 67.5;
+    cy: 80.31;
+  }
+  25% {
+    cx: 50;
+    cy: 85;
+  }
+  33.333% {
+    cx: 32.5;
+    cy: 80.31;
+  }
+  41.667% {
+    cx: 19.69;
+    cy: 67.5;
+  }
+  50% {
+    cx: 15;
+    cy: 50;
+  }
+  58.333% {
+    cx: 19.69;
+    cy: 32.5;
+  }
+  66.667% {
+    cx: 32.5;
+    cy: 19.69;
+  }
+  75% {
+    cx: 50;
+    cy: 15;
+  }
+  83.333% {
+    cx: 67.5;
+    cy: 19.69;
+  }
+  91.667% {
+    cx: 80.31;
+    cy: 32.5;
+  }
+  100% {
+    cx: 85;
+    cy: 50;
+  }
+}
+
+@keyframes voice-loop-pulse-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Wide, soft, low-opacity duplicate ring behind the other two -- pure glow
+   diffusion ("fiber optic" softness) rather than a crisp edge. Same --r as
+   the base ring (both read the one JS-driven wave, see above) so it always
+   sits concentric with the ring it's glowing around. */
+.voice-call__loop-bloom {
+  fill: none;
+  stroke: var(--scenario-accent);
+  stroke-width: 9;
+  opacity: 0.16;
+  r: var(--r, 34);
+  filter: blur(9px);
+  transition: opacity 500ms ease, filter 500ms ease;
+}
+
+/* --- Body language: idle/listening/thinking/speaking/ending ---
+   A tiny vocabulary of motion standing in for emotion (see
+   VoiceCallScreen.jsx's handleServerEvent -- these are driven by real
+   Realtime API turn-detection events, not a guess from amplitude). "idle"
+   needs no rules of its own; it's just WAVE_TARGETS.idle's default. The
+   ring/bloom's actual breathing range (via --r) transitions between states
+   smoothly in JS -- see stepWave() -- as ONE continuous wave whose
+   amplitude/tempo eases toward the new target, never a restart, so nothing
+   here touches r directly; these rules are just the other cues (color,
+   opacity, blur, pulse behavior) that complete each pose. Loud audio during
+   "speaking" (--amp, already wired through every element's own
+   stroke-width/r/glow formulas) is what "excited speech" is -- more motion
+   within the speaking pose, not a separate discrete state, since there's no
+   reason a louder response should look like a categorically different mood
+   than a quieter one. */
+
+/* Listening: "I'm paying attention" -- a more focused glow (tighter blur,
+   a touch more present/saturated) than idle's loose ambient wash; the
+   actual inward contraction is WAVE_TARGETS.listening. */
+.voice-call__loop-wrapper--listening .voice-call__loop-base {
+  stroke: color-mix(in srgb, var(--scenario-accent) 85%, #2a2620);
+  opacity: 0.55;
+}
+
+.voice-call__loop-wrapper--listening .voice-call__loop-bloom {
+  opacity: 0.22;
+  filter: blur(5px);
+}
+
+.voice-call__loop-wrapper--listening .voice-call__loop-pulse {
+  animation-duration: 9s, 2.2s;
+}
+
+/* Thinking: "I'm considering" -- WAVE_TARGETS.thinking narrows the
+   breathing range to almost nothing (settling, not freezing outright), and
+   the bloom gets its own slow independent shimmer -- soft diffuse light,
+   a different quality of motion rather than just "paused". The pulses do
+   pause outright, though: no energy actively traveling while the AI isn't
+   speaking or being spoken to. */
+.voice-call__loop-wrapper--thinking .voice-call__loop-pulse {
+  animation-play-state: paused;
+  opacity: 0.35;
+}
+
+.voice-call__loop-wrapper--thinking .voice-call__loop-base {
+  opacity: 0.3;
+}
+
+.voice-call__loop-wrapper--thinking .voice-call__loop-bloom {
+  animation: voice-loop-shimmer 2.4s ease-in-out infinite;
+  filter: blur(18px);
+}
+
+@keyframes voice-loop-shimmer {
+  0%,
+  100% {
+    opacity: 0.14;
+  }
+  50% {
+    opacity: 0.26;
+  }
+}
+
+/* Speaking: "I'm responding" -- a richer glow and more expressive pulses
+   (bigger base size and a stronger reach to --amp, so a livelier response
+   visibly swings further than a subdued one -- this is where "excited
+   speech" actually lives); the outward bloom itself is
+   WAVE_TARGETS.speaking. */
+.voice-call__loop-wrapper--speaking .voice-call__loop-base {
+  stroke: color-mix(in srgb, var(--scenario-accent) 82%, #2a2620);
+  opacity: 0.5;
+}
+
+.voice-call__loop-wrapper--speaking .voice-call__loop-bloom {
+  opacity: 0.27;
+  filter: blur(12px);
+}
+
+.voice-call__loop-wrapper--speaking .voice-call__loop-pulse {
+  r: calc(2px + var(--amp) * 2.6px);
+  filter: drop-shadow(0 0 calc(3px + var(--amp) * 11px) var(--scenario-accent));
+  animation-duration: 4s, 1.8s;
+}
+
+/* Goodbye / ending: "conversation complete" -- everything relaxes and
+   fades toward rest together over a slow, deliberate 650ms (see
+   VoiceCallScreen.jsx's handleClose, which waits roughly that long before
+   actually closing) rather than the screen just vanishing mid-gesture.
+   WAVE_TARGETS.ending also settles the breathing range down at the same
+   time, so the ring itself relaxes, not just fades. */
+.voice-call__loop-wrapper--ending {
+  transition: opacity 650ms ease-out, transform 650ms ease-out;
+  opacity: 0.15;
+  transform: scale(0.94);
+}
+
+.voice-call__loop-wrapper--ending .voice-call__loop-pulse {
+  animation-play-state: paused;
+}
+
+[data-motion="reduce"] .voice-call__loop-pulse {
+  animation: none;
+  opacity: 0.7;
+}
+
+.voice-call__loop-wrapper--error .voice-call__loop-base {
+  stroke: #9a9284;
+  opacity: 0.7;
+}
+
+.voice-call__loop-wrapper--error .voice-call__loop-pulse,
+.voice-call__loop-wrapper--error .voice-call__loop-bloom,
+.voice-call__loop-wrapper--error .voice-call__loop-nodes {
+  display: none;
+}
+
+/* Each node twinkles on its own independent cycle (staggered delays, not
+   synchronized) so the halo reads as a loose scatter of ambient points
+   rather than a single pulsing group. */
+.voice-call__loop-node {
+  fill: var(--scenario-accent);
+  animation: voice-loop-twinkle 3.6s ease-in-out infinite;
+}
+
+.voice-call__loop-node--1 {
+  animation-delay: 0s;
+}
+.voice-call__loop-node--2 {
+  animation-delay: 0.5s;
+}
+.voice-call__loop-node--3 {
+  animation-delay: 1s;
+}
+.voice-call__loop-node--4 {
+  animation-delay: 1.5s;
+}
+.voice-call__loop-node--5 {
+  animation-delay: 2s;
+}
+.voice-call__loop-node--6 {
+  animation-delay: 2.5s;
+}
+.voice-call__loop-node--7 {
+  animation-delay: 3s;
+}
+.voice-call__loop-node--8 {
+  animation-delay: 0.8s;
+}
+
+@keyframes voice-loop-twinkle {
+  0%,
+  100% {
+    opacity: 0.12;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+[data-motion="reduce"] .voice-call__loop-node {
+  animation: none;
+  opacity: 0.3;
+}
+
+.voice-call__controls {
+  flex-shrink: 0;
+  display: flex;
+  gap: var(--space-5);
+}
+
+/* "No buttons, no menus" -- these are icon-only, borderless, and invisible
+   at rest (no pill, no fill), only gaining a soft circular backdrop on
+   hover/focus/active as a lightweight affordance. Still real 44px+ tap
+   targets and properly aria-labeled underneath the minimalism. */
+.voice-call__icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: #2a2620;
+}
+
+.voice-call__icon-btn:hover,
+.voice-call__icon-btn:focus-visible,
+.voice-call__icon-btn[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--scenario-accent) 14%, transparent);
+}
+
+.voice-call__icon-btn:disabled {
+  opacity: 0.35;
+}
+
+.voice-call__icon-btn--end {
+  color: #b3403a;
+}
+
+.voice-call__icon-btn--end:hover,
+.voice-call__icon-btn--end:focus-visible {
+  background: color-mix(in srgb, #b3403a 14%, transparent);
+}
+
+/* Sits between ScenarioPicker and ChatScreen (see App.jsx) -- the scenario's
+   own photo backdrop (.chat-screen__background, reused as-is) plus a single
+   centered card, rather than a full header/scroll layout, since there's
+   only one decision to make here. */
+.mode-select {
+  position: relative;
+  min-height: calc(100dvh / var(--zoom-factor, 1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5) var(--space-4);
+}
+
+.mode-select__back {
+  position: fixed;
+  top: max(var(--space-3), env(safe-area-inset-top));
+  left: var(--space-3);
+  z-index: 10;
+  background: rgba(38, 34, 51, 0.06);
+  color: var(--color-text);
+  border: none;
+  border-radius: 999px;
+  min-width: 40px;
+  min-height: 40px;
+  font-size: 1.1rem;
+}
+
+[data-theme="dark"] .mode-select__back {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.mode-select__content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 480px;
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  padding: var(--space-5) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  text-align: center;
+  box-shadow: 0 12px 32px rgba(38, 34, 51, 0.14);
+}
+
+.mode-select__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--scenario-accent, var(--color-primary));
+}
+
+.mode-select__title {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.mode-select__intro {
+  margin: var(--space-1) 0 0;
+  background: color-mix(in srgb, var(--scenario-accent) 12%, var(--color-tint));
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-family: var(--font-narrator);
+  font-style: italic;
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+
+.mode-select__practice {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--scenario-accent) 18%, var(--color-tint));
+  color: var(--scenario-accent, var(--color-primary));
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.mode-select__prompt {
+  margin: var(--space-4) 0 0;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.mode-select__options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+.mode-select__option {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--color-tint);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-4) var(--space-3);
+  color: var(--color-text-muted);
+}
+
+.mode-select__option:hover,
+.mode-select__option:focus-visible {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.mode-select__option--voice {
+  color: var(--scenario-accent, var(--color-primary));
+}
+
+.mode-select__option--voice:hover,
+.mode-select__option--voice:focus-visible {
+  border-color: var(--scenario-accent, var(--color-primary));
+  color: var(--scenario-accent, var(--color-primary));
+}
+
+.mode-select__option-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.mode-select__option-desc {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+@media (min-width: 480px) {
+  .mode-select__options {
+    flex-direction: row;
+  }
+}
+
 .reflection-history__list {
   list-style: none;
   margin: 0;
@@ -1672,9 +2426,13 @@ input {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: #6c5b7b;
-  border: none;
-  color: #fff;
+  /* Outline pill, matching Past Reflections/Share Feedback/Tutorial right
+     next to it (was a borderless solid fill) -- purple values reused from
+     the "too-much-happening" scenario's own light-purple/dark-text pairing
+     elsewhere in the app, same construction as those other three pills. */
+  border: 1.5px solid #4d4058;
+  background: rgba(108, 91, 123, 0.14);
+  color: #4d4058;
   border-radius: 999px;
   padding: 10px 18px;
   min-height: 44px;
@@ -1693,14 +2451,20 @@ input {
   }
 }
 
+/* Lighter purple than the light-theme values -- a dark outline/text pair
+   would be too low-contrast against a dark background, same reasoning the
+   "too-much-happening" scenario's own dark-theme override uses for its
+   equivalent light-purple/dark-text pairing. */
 [data-theme="dark"] .a11y-button {
-  background: #8a76a3;
-  color: #1a1721;
+  border-color: #cbb9dc;
+  background: rgba(179, 160, 199, 0.14);
+  color: #cbb9dc;
 }
 
 [data-contrast="high"] .a11y-button {
-  background: var(--color-primary);
-  color: var(--color-primary-contrast);
+  background: var(--color-bg);
+  border-color: var(--color-border);
+  color: var(--color-text);
 }
 
 /* Distinct from .a11y-button on purpose -- an outline pill in the teal
@@ -1868,6 +2632,125 @@ input {
   font-size: 1.1rem;
   color: #ffffff;
   line-height: 1;
+}
+
+/* --- Getting-started walkthrough (TutorialOverlay.jsx) ---
+   A dashed-circle-and-arrow coach-mark, not a modal or a static image --
+   the ellipse and arrow are drawn live around the real target element's
+   own bounding box every step, so it always points at the actual current
+   UI rather than a screenshot of it. Sits above every other overlay in
+   the app (reflection: z-index 20, voice-call: 25) since it's meant to be
+   the very first thing a new user deals with. */
+.tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+
+.tutorial-overlay__svg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.tutorial-overlay__scrim {
+  pointer-events: auto;
+}
+
+.tutorial-overlay__ring {
+  filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.15));
+}
+
+.tutorial-overlay__callout {
+  position: fixed;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  box-shadow: 0 12px 32px rgba(20, 18, 27, 0.28);
+}
+
+.tutorial-overlay__count {
+  margin: 0 0 var(--space-1);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+.tutorial-overlay__title {
+  margin: 0 0 var(--space-1);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.tutorial-overlay__text {
+  margin: 0 0 var(--space-3);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.tutorial-overlay__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.tutorial-overlay__skip {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: var(--space-2) 0;
+}
+
+.tutorial-overlay__next {
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+  border: none;
+  border-radius: 999px;
+  padding: var(--space-2) var(--space-4);
+  min-height: 40px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+/* A small, always-available way to replay a walkthrough after its first
+   automatic showing -- same outline-pill family and amber color as
+   .picker__feedback-link right next to it (now grouped together in
+   .picker__left, both sized to match the right-side pair), with a visible
+   "Tutorial" label rather than an icon-only "?" so its purpose doesn't rely
+   on hover/title text alone. */
+.tutorial-replay-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  min-height: 44px;
+  border-radius: 999px;
+  /* Neutral gray, deliberately not from the app's warm scenario palette --
+     distinguishes it from Share Feedback's amber right next to it, now
+     that they're no longer the same color. */
+  border: 1.5px solid #6b6b6b;
+  background: rgba(107, 107, 107, 0.12);
+  color: #5c5c5c;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tutorial-replay-button span {
+  font-weight: 700;
+}
+
+[data-contrast="high"] .tutorial-replay-button {
+  background: var(--color-bg);
+  border-color: var(--color-border);
+  color: var(--color-text);
 }
 
 .scenario-card__favorite--active {
