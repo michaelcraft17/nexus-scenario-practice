@@ -9,6 +9,8 @@ import {
   generateNarratorUpdate,
 } from "../engine/dialogueEngine.js";
 import { computeConversationBalance } from "../engine/conversationStats.js";
+import { buildSceneAnchor, renderNpcBlueprint, buildVoiceContinuityAddendum } from "../engine/npcPromptBuilder.js";
+import { createRealtimeClientSecret } from "../engine/openaiClient.js";
 
 const router = Router();
 
@@ -146,6 +148,34 @@ router.post("/chat", async (req, res, next) => {
       narratorNote,
       mission,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** Mints a scoped, short-lived Realtime API credential for a live voice call
+ * with this scenario's NPC -- same personality (scene anchor + NPC
+ * blueprint) the text chat uses, folded into one instructions string, plus
+ * that NPC's assigned voice. The browser takes this straight to OpenAI over
+ * WebRTC; our server never sees or relays the call's audio. */
+router.post("/realtime-session", async (req, res, next) => {
+  try {
+    const { scenarioId } = req.body ?? {};
+
+    const scenario = getById(scenarioId);
+    if (!scenario) {
+      return res.status(404).json({ error: "Unknown scenario." });
+    }
+
+    const npc = getNpcById(scenario.npcId);
+    const instructions =
+      buildSceneAnchor(scenario, "advanced") +
+      renderNpcBlueprint(npc) +
+      buildVoiceContinuityAddendum(scenario);
+
+    const session = await createRealtimeClientSecret({ instructions, voice: npc.voice });
+
+    res.json({ ...session, npcName: npc.name });
   } catch (err) {
     next(err);
   }

@@ -14,17 +14,45 @@ import ResponseOptions from "./ResponseOptions.jsx";
 import NarratorIntro from "./NarratorIntro.jsx";
 import NarratorNote from "./NarratorNote.jsx";
 import MissionBar from "./MissionBar.jsx";
+import VoiceCallScreen from "./VoiceCallScreen.jsx";
+import TutorialOverlay from "./TutorialOverlay.jsx";
 
 let nextId = 1;
 function makeId() {
   return `m${nextId++}`;
 }
 
+/** Text-chat only, deliberately -- voice mode is its own separate live
+ * experience (see ChatScreen's own startInVoiceMode gating below) and
+ * doesn't need or get this walkthrough. */
+const CHAT_TUTORIAL_STEPS = [
+  {
+    target: ".chat-screen__input textarea",
+    title: "Type your reply",
+    text: "Write what you'd actually say. Press Enter to send, or Shift+Enter for a new line.",
+  },
+  {
+    target: ".response-options",
+    title: "Stuck on what to say?",
+    text: "These starter replies show a few different ways to respond -- tap one to use it as-is or edit it first.",
+  },
+  {
+    target: ".chat-header__hint",
+    title: "Need a nudge?",
+    text: "Tap Hint any time mid-conversation for a couple of gentle example directions.",
+  },
+  {
+    target: ".mission-badge",
+    title: "Your practice goal",
+    text: "This tracks what you're working on in this scenario, and updates as the conversation goes.",
+  },
+];
+
 /** White text fails contrast on the amber scenario color specifically --
  * same exception already made for its picker card CTA button (see
  * index.css's [data-scenario="unexpected-conversation"] block). Every
  * other scenario color is dark enough for white text to work fine. */
-const SCENARIO_ACCENT_CONTRAST = {
+export const SCENARIO_ACCENT_CONTRAST = {
   "unexpected-conversation": "#3a2a0d",
 };
 
@@ -40,7 +68,7 @@ function toApiShape(messages) {
   return messages.map(({ role, content }) => ({ role, content }));
 }
 
-export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExit }) {
+export default function ChatScreen({ scenario, difficulty, difficultyGoal, startInVoiceMode = false, onExit }) {
   const { resolvedMotion, registerReadableContent } = useAccessibility();
   const [messages, setMessages] = useState(() => [
     { id: makeId(), role: "assistant", content: scenario.opener, isOpener: true },
@@ -50,6 +78,11 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
   const [sendError, setSendError] = useState(null);
   const [reflection, setReflection] = useState({ open: false, status: "idle", data: null, errorMessage: "" });
   const [hint, setHint] = useState({ open: false, status: "idle", text: "" });
+  // Set once from the mode-select screen's choice (App.jsx) -- ChatScreen
+  // is freshly mounted whenever that choice is made (see its `key` in
+  // App.jsx), so reading this only at initial state is correct; it never
+  // needs to react to the prop changing afterward.
+  const [voiceOpen, setVoiceOpen] = useState(startInVoiceMode);
   // Template event ids the Narrator has already used this session, so the
   // same beat doesn't repeat turn after turn while others are available.
   const [firedEventIds, setFiredEventIds] = useState([]);
@@ -196,10 +229,17 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
     return explanation;
   }
 
-  async function handleReflect() {
+  /** @param {{role: "user"|"assistant", content: string}[]} [transcriptOverride] -
+   *   Used by the voice call's own "want a reflection?" flow (see
+   *   VoiceCallScreen's onClose below) to reflect on its own spoken
+   *   transcript instead of this screen's typed `messages` state -- the
+   *   text-mode auto-trigger call site (missionComplete effect) omits this,
+   *   falling back to the normal typed-transcript behavior. */
+  async function handleReflect(transcriptOverride) {
     setReflection({ open: true, status: "loading", data: null, errorMessage: "" });
     try {
-      const data = await getReflection(scenario.id, toApiShape(messages.filter(isDialogueTurn)));
+      const transcript = transcriptOverride ?? toApiShape(messages.filter(isDialogueTurn));
+      const data = await getReflection(scenario.id, transcript);
       setReflection({ open: true, status: "done", data, errorMessage: "" });
       saveReflectionToHistory({ scenarioId: scenario.id, scenarioTitle: scenario.title, npcName, data });
     } catch (err) {
@@ -255,7 +295,7 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
       <div className="chat-rail chat-rail--left" aria-hidden="true" />
       <div className="chat-rail chat-rail--right" aria-hidden="true" />
 
-      <ChatHeader scenario={scenario} onExit={onExit} onHint={handleHint} />
+      <ChatHeader scenario={scenario} onExit={onExit} onHint={handleHint} onTalkLive={() => setVoiceOpen(true)} />
 
       <div className="chat-screen__scroll" ref={scrollRef}>
         <div className="chat-screen__messages">
@@ -341,6 +381,37 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, onExi
         npcName={npcName}
         onClose={() => setReflection((r) => ({ ...r, open: false }))}
         onFinish={onExit}
+      />
+
+      <VoiceCallScreen
+        open={voiceOpen}
+        scenarioId={scenario.id}
+        npcName={npcName}
+        voiceIntro={scenario.voiceIntro}
+        accentColor={scenario.color}
+        accentContrast={SCENARIO_ACCENT_CONTRAST[scenario.id] ?? "#ffffff"}
+        // Called with the call's own spoken transcript if the user opted
+        // into a reflection on the "want a reflection?" prompt VoiceCall
+        // Screen shows after ending, or with nothing if they skipped it/
+        // there was nothing to reflect on -- either way this always also
+        // closes the call screen itself.
+        onClose={(voiceTranscript) => {
+          setVoiceOpen(false);
+          if (voiceTranscript) {
+            handleReflect(voiceTranscript);
+          }
+        }}
+      />
+
+      {/* Text mode only, per its own steps' target elements -- voice mode
+          starts with voiceOpen already true (see startInVoiceMode), so this
+          screen's own text UI never becomes the first thing shown in that
+          case, and the walkthrough would have nothing correctly staged to
+          point at anyway. */}
+      <TutorialOverlay
+        storageKey="nexus-tutorial-chat"
+        active={!startInVoiceMode}
+        steps={CHAT_TUTORIAL_STEPS}
       />
     </div>
   );
