@@ -970,6 +970,36 @@ input {
 /* Solid scenario-accent fill (vs. Hint's tinted outline) -- it's the button
    that starts something new (a live call), so it reads with a bit more
    weight than Hint, echoing the Send button's own solid-accent treatment. */
+/* Neutral gray, like the picker's own Tutorial button -- deliberately not
+   scenario-tinted, so it reads as "help with this app" rather than as part
+   of the scenario. Takes the slot Hint used to occupy. */
+.chat-header__tutorial {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(107, 107, 107, 0.12);
+  border: none;
+  color: #5c5c5c;
+  border-radius: 999px;
+  padding: 0 var(--space-3);
+  min-width: 40px;
+  min-height: 40px;
+  font-weight: 600;
+  font-size: 0.78rem;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .chat-header__tutorial {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-text-muted);
+}
+
+[data-contrast="high"] .chat-header__tutorial {
+  background: var(--color-tint);
+  color: var(--color-primary);
+}
+
 .chat-header__voice {
   display: flex;
   align-items: center;
@@ -998,13 +1028,37 @@ input {
    action, same reasoning as AccessibilityButton's iconOnly variant),
    before the title has to start truncating. */
 @media (max-width: 430px) {
-  .chat-header__voice-label {
+  .chat-header__voice-label,
+  .chat-header__tutorial-label {
     display: none;
   }
 
-  .chat-header__voice {
+  .chat-header__voice,
+  .chat-header__tutorial {
     padding: 0;
     width: 40px;
+    justify-content: center;
+  }
+}
+
+/* Five controls (Back, Tutorial, Talk Live, Hint, Accessibility) plus the
+   scenario title don't fit one row on a phone -- the title was left with
+   ~27px at 360px wide. So on narrow screens the title drops to its own line
+   under the buttons (full width, so even the longest title fits) and Hint
+   and Accessibility stay pinned to the right end of the button row. */
+@media (max-width: 640px) {
+  .chat-header__row {
+    flex-wrap: wrap;
+  }
+
+  .chat-header__title {
+    order: 10;
+    flex: 1 0 100%;
+    padding-top: 0;
+  }
+
+  .chat-header__hint {
+    margin-left: auto;
   }
 }
 
@@ -1385,18 +1439,29 @@ input {
   margin-top: var(--space-1);
 }
 
+/* Solid fill, not an outline: as a transparent pill it read as faint
+   decoration and people didn't notice it was a button. The fill is the
+   scenario accent nudged 12% darker so the label clears 4.5:1 in every
+   scenario color (plain accent + white text was ~3.9:1 for teal and rose). */
 .bubble__explain-button {
-  background: none;
-  border: var(--border-width) solid var(--color-border);
-  color: var(--scenario-accent, var(--color-primary));
+  background: color-mix(in srgb, var(--scenario-accent, var(--color-primary)) 88%, #000);
+  border: var(--border-width) solid color-mix(in srgb, var(--scenario-accent, var(--color-primary)) 88%, #000);
+  color: var(--scenario-accent-contrast, var(--color-primary-contrast));
   border-radius: 999px;
   padding: var(--space-1) var(--space-3);
   font-size: 0.78rem;
+  font-weight: 600;
   min-height: 32px;
 }
 
+.bubble__explain-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--scenario-accent, var(--color-primary)) 74%, #000);
+}
+
 [data-contrast="high"] .bubble__explain-button {
-  color: var(--color-primary);
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-contrast);
 }
 
 .bubble__explanation {
@@ -1557,11 +1622,15 @@ input {
     font-size: 25px;
   }
 
+  /* 30px at full desktop width, easing down as the window narrows: the row
+     now holds Back, Tutorial, Talk Live, Hint and Accessibility, and a fixed
+     30px clipped the longest scenario titles at ~1300px wide. */
   .chat-header__title {
-    font-size: 30px;
+    font-size: clamp(22px, 1.9vw, 30px);
   }
 
   .chat-header__hint,
+  .chat-header__tutorial,
   .chat-header__voice,
   .chat-header__access {
     padding: 14px 24px;
@@ -2816,6 +2885,17 @@ input {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
+  /* If the callout has to scroll (tiny screen and/or very large text size --
+     see TutorialOverlay's max-height), keep Skip / Next pinned to its bottom
+     edge instead of scrolling out of sight with the text. It fills the
+     callout's bottom padding (negative margin + matching padding) so text
+     scrolling underneath never shows through around the buttons. */
+  position: sticky;
+  bottom: calc(-1 * var(--space-4));
+  margin-bottom: calc(-1 * var(--space-4));
+  padding-bottom: var(--space-4);
+  padding-top: var(--space-2);
+  background: var(--color-surface);
 }
 
 .tutorial-overlay__skip {

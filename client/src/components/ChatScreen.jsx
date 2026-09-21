@@ -83,6 +83,9 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
   // App.jsx), so reading this only at initial state is correct; it never
   // needs to react to the prop changing afterward.
   const [voiceOpen, setVoiceOpen] = useState(startInVoiceMode);
+  // Bumped by the header's Tutorial button to remount the walkthrough (it only
+  // reads its "seen already?" flag once, at mount -- see TutorialOverlay).
+  const [tutorialKey, setTutorialKey] = useState(0);
   // Template event ids the Narrator has already used this session, so the
   // same beat doesn't repeat turn after turn while others are available.
   const [firedEventIds, setFiredEventIds] = useState([]);
@@ -156,6 +159,17 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
       handleReflect();
     }
   }, [missionComplete]);
+
+  // Clearing the flag and remounting (via the key bump) is what actually
+  // replays it, same as the picker's own Tutorial button.
+  function replayTutorial() {
+    try {
+      localStorage.removeItem("nexus-tutorial-chat");
+    } catch {
+      // Ignore -- storage may be unavailable (private browsing etc.).
+    }
+    setTutorialKey((k) => k + 1);
+  }
 
   async function handleSend(e) {
     e.preventDefault();
@@ -298,7 +312,13 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
       <div className="chat-rail chat-rail--left" aria-hidden="true" />
       <div className="chat-rail chat-rail--right" aria-hidden="true" />
 
-      <ChatHeader scenario={scenario} onExit={onExit} onHint={handleHint} onTalkLive={() => setVoiceOpen(true)} />
+      <ChatHeader
+        scenario={scenario}
+        onExit={onExit}
+        onHint={handleHint}
+        onTalkLive={() => setVoiceOpen(true)}
+        onTutorial={replayTutorial}
+      />
 
       <div className="chat-screen__scroll" ref={scrollRef}>
         <div className="chat-screen__messages">
@@ -414,8 +434,12 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
           case, and the walkthrough would have nothing correctly staged to
           point at anyway. */}
       <TutorialOverlay
+        key={tutorialKey}
         storageKey="nexus-tutorial-chat"
-        active={!startInVoiceMode}
+        // First-run only in text mode (see above), but an explicit replay
+        // request always runs -- including for someone who started in voice
+        // mode and has since come back to the text chat.
+        active={(!startInVoiceMode || tutorialKey > 0) && !voiceOpen}
         steps={CHAT_TUTORIAL_STEPS}
       />
     </div>

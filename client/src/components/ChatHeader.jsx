@@ -1,13 +1,13 @@
 import AccessibilityButton from "./AccessibilityButton.jsx";
 
 /**
- * A single compact row -- exit, title, and two icon-sized actions (hint,
- * accessibility). No manual Reflection trigger anymore -- the Reflection
+ * A single compact row -- exit, tutorial replay, live-call, title, and two
+ * small actions on the right (hint, accessibility). No manual Reflection trigger anymore -- the Reflection
  * auto-opens once the whole mission is complete instead (see ChatScreen.jsx).
  * Icon-only buttons keep their full-text meaning in `aria-label`/`title` for
  * anyone not able to rely on the icon alone.
  */
-export default function ChatHeader({ scenario, onExit, onHint, onTalkLive }) {
+export default function ChatHeader({ scenario, onExit, onHint, onTalkLive, onTutorial }) {
   return (
     <header className="chat-header">
       <div className="chat-header__row">
@@ -18,8 +18,18 @@ export default function ChatHeader({ scenario, onExit, onHint, onTalkLive }) {
         >
           <span aria-hidden="true">&larr;</span>
         </button>
-        <button className="chat-header__hint" onClick={onHint} aria-label="Need a hint?" title="Need a hint?">
-          Hint
+        {/* Where Hint used to sit -- the tutorial is the thing a newcomer
+            reaches for first, and Hint moved over next to Accessibility on
+            the right with the other in-the-moment helpers. On narrow screens
+            only the "?" shows (the label drops, same as Talk Live's). */}
+        <button
+          className="chat-header__tutorial"
+          onClick={onTutorial}
+          aria-label="Replay the getting-started walkthrough"
+          title="Getting started"
+        >
+          <span aria-hidden="true">?</span>
+          <span className="chat-header__tutorial-label">Tutorial</span>
         </button>
         <button
           className="chat-header__voice"
@@ -34,6 +44,9 @@ export default function ChatHeader({ scenario, onExit, onHint, onTalkLive }) {
           <span className="chat-header__voice-label">Talk Live</span>
         </button>
         <div className="chat-header__title">{scenario.title}</div>
+        <button className="chat-header__hint" onClick={onHint} aria-label="Need a hint?" title="Need a hint?">
+          Hint
+        </button>
         <AccessibilityButton className="chat-header__access" iconOnly />
       </div>
     </header>

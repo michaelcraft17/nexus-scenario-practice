@@ -1,7 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useAccessibility } from "../a11y/AccessibilityContext.jsx";
 
-const PADDING = 14;
+// 8, not more: neighbouring header buttons are only 8px apart, and a bigger
+// frame around Hint would overlap Accessibility next to it.
+const PADDING = 8;
+// Keep the spotlight this far inside the screen edge, so a wide target
+// (a full-width reply box) gets a frame that's visible on both sides
+// instead of one that runs off the screen.
+const EDGE_INSET = 6;
+const MAX_CORNER_RADIUS = 28;
 const CALLOUT_WIDTH = 280;
 const CALLOUT_MARGIN = 16;
 
@@ -28,6 +35,12 @@ export default function TutorialOverlay({ steps, storageKey, active }) {
   });
   const [rect, setRect] = useState(null);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
+  // The callout's real rendered height (real screen pixels), measured after
+  // layout. Its text length varies by step and grows with the user's text-size
+  // setting, so placement can't assume a fixed height -- doing that pushed the
+  // Next button off the bottom of the screen once a step's text got long.
+  const calloutRef = useRef(null);
+  const [calloutHeight, setCalloutHeight] = useState(0);
 
   const running = active && !dismissed;
   const step = steps[stepIndex];
@@ -73,6 +86,13 @@ export default function TutorialOverlay({ steps, storageKey, active }) {
     };
   }, [running, step]);
 
+  useLayoutEffect(() => {
+    const el = calloutRef.current;
+    if (!el) return;
+    const height = el.getBoundingClientRect().height;
+    setCalloutHeight((prev) => (Math.abs(prev - height) > 1 ? height : prev));
+  }, [running, rect, stepIndex, viewport.width, viewport.height]);
+
   function finish() {
     try {
       localStorage.setItem(storageKey, "1");
@@ -92,18 +112,40 @@ export default function TutorialOverlay({ steps, storageKey, active }) {
 
   if (!running || !rect) return null;
 
-  const cx = rect.left + rect.width / 2;
-  const cy = rect.top + rect.height / 2;
-  // Floor (not an aspect-ratio clamp -- that blows up badly for anything
-  // genuinely wide-and-short, like a full-width textarea) so a very small
-  // or thin target still gets a legible-sized ring rather than a sliver.
-  const rx = Math.max(rect.width / 2 + PADDING, 30);
-  const ry = Math.max(rect.height / 2 + PADDING, 30);
+  // The spotlight is a rounded rectangle hugging the target (padded, floored
+  // so a tiny target still gets a legible frame, and clamped to stay on
+  // screen). It used to be an ellipse sized from the target's half-width and
+  // half-height, which for anything wide and flat -- the reply box, the row
+  // of starter replies -- turned into a huge flattened oval that ran off both
+  // screen edges. Small targets like the Hint button still come out pill-shaped:
+  // the corner radius is capped by half the frame's shorter side.
+  const halfW = Math.max(rect.width / 2 + PADDING, 30);
+  const halfH = Math.max(rect.height / 2 + PADDING, 30);
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+  const hlLeft = Math.max(EDGE_INSET, centerX - halfW);
+  const hlRight = Math.min(viewport.width - EDGE_INSET, centerX + halfW);
+  const hlTop = Math.max(EDGE_INSET, centerY - halfH);
+  const hlBottom = Math.min(viewport.height - EDGE_INSET, centerY + halfH);
+  const cx = (hlLeft + hlRight) / 2;
+  const cy = (hlTop + hlBottom) / 2;
+  const rx = (hlRight - hlLeft) / 2;
+  const ry = (hlBottom - hlTop) / 2;
+  const cornerRadius = Math.min(MAX_CORNER_RADIUS, rx, ry);
 
+  // Before the first measurement, fall back to the old fixed guess (a layout
+  // effect re-runs this synchronously, before paint, once the real height is
+  // known). Then: prefer whichever side has room for the whole callout, and
+  // always clamp so it stays fully on screen whatever side it ends up on.
+  const calloutH = calloutHeight || 200;
   const roomBelow = viewport.height - (cy + ry);
-  const placeBelow = roomBelow > 170 || cy - ry < 170;
-  const calloutTopRaw = placeBelow ? Math.min(cy + ry + 18, viewport.height - 200) : undefined;
-  const calloutBottomRaw = placeBelow ? undefined : viewport.height - (cy - ry) + 18;
+  const placeBelow = roomBelow > calloutH + 18 || cy - ry < calloutH + 18;
+  const calloutTopRaw = placeBelow
+    ? Math.max(CALLOUT_MARGIN, Math.min(cy + ry + 18, viewport.height - calloutH - CALLOUT_MARGIN))
+    : undefined;
+  const calloutBottomRaw = placeBelow
+    ? undefined
+    : Math.max(CALLOUT_MARGIN, Math.min(viewport.height - (cy - ry) + 18, viewport.height - calloutH - CALLOUT_MARGIN));
   const calloutLeftRaw = Math.max(CALLOUT_MARGIN, Math.min(cx - CALLOUT_WIDTH / 2, viewport.width - CALLOUT_WIDTH - CALLOUT_MARGIN));
 
   // getBoundingClientRect() (what `rect`/cx/cy/rx/ry above come from) reports
@@ -134,6 +176,9 @@ export default function TutorialOverlay({ steps, storageKey, active }) {
   const arrowStartX = calloutLeftRaw + CALLOUT_WIDTH / 2;
   const arrowStartY = placeBelow ? (calloutTopRaw ?? 0) - 2 : viewport.height - (calloutBottomRaw ?? 0) + 2;
   const arrowEndY = placeBelow ? cy + ry : cy - ry;
+  // Land the arrow on the frame's edge as directly below/above the callout as
+  // the frame allows, rather than swooping to the middle of a wide frame.
+  const arrowEndX = Math.min(Math.max(arrowStartX, hlLeft + cornerRadius), hlRight - cornerRadius);
   const arrowMidY = (arrowStartY + arrowEndY) / 2;
 
   return (
@@ -153,7 +198,7 @@ export default function TutorialOverlay({ steps, storageKey, active }) {
         <defs>
           <mask id={`${storageKey}-spotlight`}>
             <rect x="0" y="0" width={viewport.width} height={viewport.height} fill="white" />
-            <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill="black" />
+            <rect x={hlLeft} y={hlTop} width={hlRight - hlLeft} height={hlBottom - hlTop} rx={cornerRadius} fill="black" />
           </mask>
           <marker id={`${storageKey}-arrowhead`} markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
             <path d="M0,0 L8,4 L0,8" fill="none" stroke="var(--color-primary)" strokeWidth="1.6" />
@@ -168,11 +213,12 @@ export default function TutorialOverlay({ steps, storageKey, active }) {
           mask={`url(#${storageKey}-spotlight)`}
           className="tutorial-overlay__scrim"
         />
-        <ellipse
-          cx={cx}
-          cy={cy}
-          rx={rx}
-          ry={ry}
+        <rect
+          x={hlLeft}
+          y={hlTop}
+          width={hlRight - hlLeft}
+          height={hlBottom - hlTop}
+          rx={cornerRadius}
           fill="none"
           stroke="var(--color-primary)"
           strokeWidth="2.5"
@@ -180,7 +226,7 @@ export default function TutorialOverlay({ steps, storageKey, active }) {
           className="tutorial-overlay__ring"
         />
         <path
-          d={`M ${arrowStartX} ${arrowStartY} Q ${arrowStartX} ${arrowMidY} ${cx} ${arrowEndY}`}
+          d={`M ${arrowStartX} ${arrowStartY} Q ${arrowStartX} ${arrowMidY} ${arrowEndX} ${arrowEndY}`}
           fill="none"
           stroke="var(--color-primary)"
           strokeWidth="2"
@@ -190,8 +236,13 @@ export default function TutorialOverlay({ steps, storageKey, active }) {
       </svg>
 
       <div
+        ref={calloutRef}
         className="tutorial-overlay__callout"
         style={{
+          // If even the clamped callout can't fit (a very small screen or a
+          // very large text size), scroll inside it rather than run off.
+          maxHeight: (viewport.height - CALLOUT_MARGIN * 2) / zoom,
+          overflowY: "auto",
           left: calloutLeft,
           top: calloutTop,
           bottom: calloutBottom,
