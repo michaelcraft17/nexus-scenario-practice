@@ -309,9 +309,18 @@ input {
 
 .picker__a11y {
   display: flex;
+  /* Three pills now (Past Reflections, Favorites, Accessibility): on a
+     phone they don't fit one row, so they wrap and each row fills the
+     width. Desktop pins the group to the corner and turns wrapping back
+     off (see the min-width: 1180px block). */
+  flex-wrap: wrap;
   gap: var(--space-2);
   margin-bottom: var(--space-4);
   order: 1;
+}
+
+.picker__a11y > * {
+  flex: 1 1 auto;
 }
 
 /* Mirrors .picker__a11y's row-of-pills grouping, but on the opposite side
@@ -516,10 +525,12 @@ input {
     top: var(--space-5);
     right: var(--space-4);
     margin: 0;
+    flex-wrap: nowrap;
   }
 
   .picker__a11y .a11y-button,
-  .picker__a11y .picker__history-button {
+  .picker__a11y .picker__history-button,
+  .picker__a11y .picker__favorites-button {
     flex: none;
   }
 
@@ -2441,16 +2452,6 @@ input {
   white-space: nowrap;
 }
 
-/* "Features" drops at narrow widths so "Past Reflections" + "Accessibility"
-   both fit on one line each, side by side, without wrapping or overflowing
-   -- same shortening the design handoff uses on its mobile mockup. The
-   aria-label stays the full phrase either way (see AccessibilityButton). */
-@media (max-width: 420px) {
-  .a11y-button__optional {
-    display: none;
-  }
-}
-
 /* Lighter purple than the light-theme values -- a dark outline/text pair
    would be too low-contrast against a dark background, same reasoning the
    "too-much-happening" scenario's own dark-theme override uses for its
@@ -2493,58 +2494,103 @@ input {
   color: var(--color-text);
 }
 
-.a11y-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 30;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.a11y-panel {
-  width: min(360px, 100%);
-  height: 100%;
-  background: var(--color-surface);
-  overflow-y: auto;
-  padding: var(--space-4);
-  padding-top: max(var(--space-4), env(safe-area-inset-top));
-  padding-bottom: max(var(--space-4), env(safe-area-inset-bottom));
-  animation: a11y-slide-in 0.2s ease-out;
-}
-
-@keyframes a11y-slide-in {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-.a11y-panel__header {
+/* Header shortcut that narrows the scenario list to the starred ones -- the
+   stars on the cards used to save a flag nothing ever read back. Same
+   outline-pill construction as its neighbours, in the gold of a star (the
+   text is a deeper gold than the border so it clears 4.5:1 on the pale
+   tint); fills solid while the filter is on. */
+.picker__favorites-button {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-4);
-  position: sticky;
-  top: 0;
-  background: var(--color-surface);
-}
-
-.a11y-panel__header h2 {
-  margin: 0;
-  font-size: 1.15rem;
-}
-
-.a11y-panel__close {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  line-height: 1;
-  color: var(--color-text-muted);
+  justify-content: center;
+  gap: 8px;
+  background: rgba(228, 163, 76, 0.16);
+  border: 1.5px solid #96702c;
+  color: #7a591f;
+  border-radius: 999px;
+  padding: 10px 18px;
   min-height: 44px;
-  min-width: 44px;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.picker__favorites-button--active {
+  background: #7a591f;
+  border-color: #7a591f;
+  color: #ffffff;
+}
+
+.picker__favorites-count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #7a591f;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+}
+
+.picker__favorites-button--active .picker__favorites-count {
+  background: #ffffff;
+  color: #7a591f;
+}
+
+[data-theme="dark"] .picker__favorites-button {
+  background: rgba(232, 181, 103, 0.14);
+  border-color: #e8b567;
+  color: #e8b567;
+}
+
+[data-theme="dark"] .picker__favorites-button--active {
+  background: #e8b567;
+  border-color: #e8b567;
+  color: #1a1721;
+}
+
+[data-theme="dark"] .picker__favorites-count {
+  background: #e8b567;
+  color: #1a1721;
+}
+
+[data-theme="dark"] .picker__favorites-button--active .picker__favorites-count {
+  background: #1a1721;
+  color: #e8b567;
+}
+
+[data-contrast="high"] .picker__favorites-button {
+  background: var(--color-bg);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+/* Shown in place of the grid when the Favorites filter is on and nothing is
+   starred yet. */
+.picker__empty {
+  order: 3;
+  padding: var(--space-4);
+  border: var(--border-width) dashed var(--color-border);
+  border-radius: var(--radius);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.picker__empty p {
+  margin: 0 0 var(--space-3);
+}
+
+.picker__empty-button {
+  min-height: 44px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1.5px solid var(--color-primary);
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .a11y-field {
@@ -2613,6 +2659,79 @@ input {
   color: var(--color-text);
   font-size: 0.85rem;
   min-height: 40px;
+}
+
+.a11y-option--danger-solid {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: #ffffff;
+}
+
+.a11y-confirm {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius);
+  border: var(--border-width) solid var(--color-danger);
+  background: var(--color-danger-bg);
+}
+
+.a11y-confirm__text {
+  margin: 0 0 var(--space-2);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--color-text);
+}
+
+/* Color-scheme cards: each swatch element carries its own scheme's
+   data-color-scheme/data-theme (see AccessibilityPanel.jsx), so these vars
+   resolve to that scheme's real colors, not the page's current ones. */
+.a11y-scheme-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.a11y-scheme {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  min-height: 44px;
+  text-align: left;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.a11y-scheme--active {
+  border-color: var(--color-primary);
+  background: var(--color-tint);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.a11y-scheme__swatches {
+  display: flex;
+  gap: var(--space-1);
+  background: none;
+}
+
+.a11y-scheme__dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+}
+
+.a11y-scheme__dot--primary {
+  background: var(--color-primary);
+}
+
+.a11y-scheme__dot--accent {
+  background: var(--color-accent);
 }
 
 /* ---------- Favorites ---------- */

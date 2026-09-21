@@ -69,7 +69,7 @@ function toApiShape(messages) {
 }
 
 export default function ChatScreen({ scenario, difficulty, difficultyGoal, startInVoiceMode = false, onExit }) {
-  const { resolvedMotion, registerReadableContent } = useAccessibility();
+  const { resolvedMotion, registerReadableContent, stopSpeech } = useAccessibility();
   const [messages, setMessages] = useState(() => [
     { id: makeId(), role: "assistant", content: scenario.opener, isOpener: true },
   ]);
@@ -137,9 +137,12 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
           parts.push(`You said: ${m.content}`);
         }
       }
-      return parts.filter(Boolean).join(" ");
+      return parts.filter(Boolean);
     });
   }, [messages, scenario, registerReadableContent, npcName, mission]);
+
+  // Don't keep reading the conversation aloud after leaving this screen.
+  useEffect(() => stopSpeech, [stopSpeech]);
 
   // Auto-open the Reflection once the whole mission is done -- the final
   // authored stage, every objective on it checked off -- rather than on a

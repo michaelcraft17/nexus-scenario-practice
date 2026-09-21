@@ -1,0 +1,554 @@
+/* ==========================================================================
+   Accessibility menu + the features it toggles. Kept in its own file (loaded
+   after index.css, see main.jsx) so the whole system lives in one place.
+
+   AccessibilityContext writes the user's choices onto <html> as data-*
+   attributes (data-contrast, data-links, data-spacing, data-line-height,
+   data-text-align, data-cursor, data-hide-images, data-typeface, ...) and
+   the rules below key off those. Text size is <html> `zoom` (see the
+   context); --zoom-factor is that same number, used below to keep the
+   menu, tooltips and reading aids at their true size while the page grows.
+   ========================================================================== */
+
+/* ---------- Contrast: dark / light ----------
+   Yellow-on-black and black-on-white palettes. The context pins data-theme
+   to dark/light for these steps so every existing [data-theme="dark"] rule
+   applies as the base; these override the palette on top. The extra
+   [data-color-scheme][data-theme] attributes are only there to out-rank the
+   scheme blocks in index.css, which use the same two attributes. */
+
+[data-contrast="dark"][data-color-scheme][data-theme] {
+  --color-bg: #000000;
+  --color-surface: #000000;
+  --color-text: #ffff00;
+  --color-text-muted: #ffff00;
+  --color-primary: #00ffff;
+  --color-primary-contrast: #000000;
+  --color-accent: #ffa500;
+  --color-danger: #ff8080;
+  --color-danger-bg: #2a0000;
+  --color-border: #ffff00;
+  --color-tint: #111111;
+  --color-narrator-accent: #00ffff;
+  --color-narrator-tint: #000000;
+  --color-mission-accent: #ffa500;
+  --color-mission-tint: #000000;
+  --color-mission-dropdown-accent: #ffa500;
+  --color-mission-dropdown-tint: #000000;
+  --border-width: 2px;
+}
+
+[data-contrast="light"][data-color-scheme][data-theme] {
+  --color-bg: #ffffff;
+  --color-surface: #ffffff;
+  --color-text: #000000;
+  --color-text-muted: #000000;
+  --color-primary: #0000c8;
+  --color-primary-contrast: #ffffff;
+  --color-accent: #b35900;
+  --color-danger: #b00020;
+  --color-danger-bg: #ffffff;
+  --color-border: #000000;
+  --color-tint: #ffffff;
+  --color-narrator-accent: #005a5a;
+  --color-narrator-tint: #ffffff;
+  --color-mission-accent: #7a4b00;
+  --color-mission-tint: #ffffff;
+  --color-mission-dropdown-accent: #7a4b00;
+  --color-mission-dropdown-tint: #ffffff;
+  --border-width: 2px;
+}
+
+/* Dark/light contrast, part 2: things the palette variables alone don't reach.
+   - Each scenario sets its own accent colors (--scenario-*) inline on its
+     card/chat/mode-select root; pin those back to the contrast palette so
+     buttons, badges and pills all get maximum contrast, not a per-scenario
+     teal/purple/gold that may not.
+   - The scenario art behind the chat and mode-select screens shows through
+     the translucent message bubbles and lowers their contrast, so drop it.
+   - A few pills hard-code their colors. */
+
+[data-contrast="dark"] :is(.scenario-card, .chat-screen, .mode-select),
+[data-contrast="light"] :is(.scenario-card, .chat-screen, .mode-select) {
+  --scenario-accent: var(--color-primary) !important;
+  --scenario-accent-contrast: var(--color-primary-contrast) !important;
+  --scenario-tint-strong: var(--color-tint) !important;
+  --scenario-badge-text: var(--color-text) !important;
+  --scenario-btn-text: var(--color-primary-contrast) !important;
+}
+
+[data-contrast="dark"] .chat-screen__background,
+[data-contrast="light"] .chat-screen__background {
+  display: none;
+}
+
+[data-contrast="dark"] :is(.picker__feedback-link, .tutorial-replay-button, .tutorial-replay-button *, .a11y-button, .picker__favorites-button, .chat-header__access),
+[data-contrast="light"] :is(.picker__feedback-link, .tutorial-replay-button, .tutorial-replay-button *, .a11y-button, .picker__favorites-button, .chat-header__access) {
+  color: var(--color-text);
+}
+
+[data-contrast="dark"] :is(.picker__feedback-link, .tutorial-replay-button, .a11y-button, .picker__favorites-button, .chat-header__access),
+[data-contrast="light"] :is(.picker__feedback-link, .tutorial-replay-button, .a11y-button, .picker__favorites-button, .chat-header__access) {
+  border-color: var(--color-text);
+  background: var(--color-surface);
+}
+
+[data-contrast="dark"] .picker__favorites-button--active,
+[data-contrast="light"] .picker__favorites-button--active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-contrast);
+}
+
+[data-contrast="dark"] .picker__favorites-count,
+[data-contrast="light"] .picker__favorites-count {
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+}
+
+/* Invert Colors is a filter on <html> (set by the context). Photos and video
+   get inverted back so they still look like photos; the menu, tooltip and
+   reading mask/guide too, so they keep their own look. */
+[data-contrast="invert"] img,
+[data-contrast="invert"] video,
+[data-contrast="invert"] [style*="background-image"],
+[data-contrast="invert"] .a11y-menu,
+[data-contrast="invert"] .a11y-tip,
+[data-contrast="invert"] .ra-guide,
+[data-contrast="invert"] .ra-mask {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* ---------- Typeface: legible ----------
+   Verdana-style plain sans (the "Dyslexia Friendly" tile's second step).
+   The dyslexia step itself lives in index.css. */
+
+[data-typeface="legible"] {
+  --font-sans: Verdana, "Segoe UI", Tahoma, Arial, sans-serif;
+  --font-narrator: Verdana, "Segoe UI", Tahoma, Arial, sans-serif;
+}
+
+[data-typeface="legible"] body {
+  letter-spacing: 0.01em;
+}
+
+/* ---------- Highlight links ---------- */
+
+[data-links="on"] a:not(.a11y-menu a) {
+  background: #ffff00 !important;
+  color: #000000 !important;
+  text-decoration: underline !important;
+  outline: 2px solid #000000;
+}
+
+/* ---------- Hide images ----------
+   <img> tags plus the scenario art, which is set as inline CSS
+   background-image rather than an <img>. Layout is kept (visibility, not
+   display) so nothing jumps around. */
+
+[data-hide-images="on"] img {
+  visibility: hidden !important;
+}
+
+[data-hide-images="on"] [style*="background-image"] {
+  background-image: none !important;
+}
+
+/* ---------- Text spacing / line height / alignment ----------
+   Applied to reading text, not to the menu itself or the live-call screen
+   (whose layout is hand-tuned and has almost no running text). Line height
+   also skips buttons, inputs and headings so controls don't balloon. */
+
+[data-line-height="1"] :not(.a11y-menu, .a11y-menu *, .voice-call, .voice-call *, button, button *, input, select, textarea, h1, h2, h3, h4) {
+  line-height: 1.5 !important;
+}
+[data-line-height="2"] :not(.a11y-menu, .a11y-menu *, .voice-call, .voice-call *, button, button *, input, select, textarea, h1, h2, h3, h4) {
+  line-height: 1.75 !important;
+}
+[data-line-height="3"] :not(.a11y-menu, .a11y-menu *, .voice-call, .voice-call *, button, button *, input, select, textarea, h1, h2, h3, h4) {
+  line-height: 2 !important;
+}
+
+[data-spacing="1"] *:not(.a11y-menu):not(.a11y-menu *):not(.voice-call):not(.voice-call *) {
+  letter-spacing: 0.06em !important;
+  word-spacing: 0.12em !important;
+}
+[data-spacing="2"] *:not(.a11y-menu):not(.a11y-menu *):not(.voice-call):not(.voice-call *) {
+  letter-spacing: 0.12em !important;
+  word-spacing: 0.24em !important;
+}
+[data-spacing="3"] *:not(.a11y-menu):not(.a11y-menu *):not(.voice-call):not(.voice-call *) {
+  letter-spacing: 0.2em !important;
+  word-spacing: 0.4em !important;
+}
+
+[data-text-align="left"] *:not(.a11y-menu):not(.a11y-menu *):not(.voice-call):not(.voice-call *) {
+  text-align: left !important;
+}
+[data-text-align="center"] *:not(.a11y-menu):not(.a11y-menu *):not(.voice-call):not(.voice-call *) {
+  text-align: center !important;
+}
+[data-text-align="right"] *:not(.a11y-menu):not(.a11y-menu *):not(.voice-call):not(.voice-call *) {
+  text-align: right !important;
+}
+[data-text-align="justify"] *:not(.a11y-menu):not(.a11y-menu *):not(.voice-call):not(.voice-call *) {
+  text-align: justify !important;
+}
+
+/* ---------- Big cursor ---------- */
+
+[data-cursor="black"],
+[data-cursor="black"] * {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24'%3E%3Cpath d='M5 2l14 10-6 1.5 3.5 7-3 1.5-3.5-7L5 19z' fill='black' stroke='white' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 6 3, auto !important;
+}
+
+/* ---------- Reading Mask / Reading Guide (see ReadingAid.jsx) ---------- */
+
+.ra-mask,
+.ra-guide {
+  position: fixed;
+  z-index: 70;
+  pointer-events: none;
+  zoom: calc(1 / var(--zoom-factor, 1));
+}
+
+.ra-mask {
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.62);
+}
+
+/* Reading Guide: a 512x12 black bar with a 3px yellow outline and a
+   yellow-outlined black arrow at its centre, following the pointer (see
+   ReadingAid.jsx, which mirrors this geometry). Fixed black-on-yellow, not
+   theme colors, so it stands out on any background in any theme.
+
+   The element is the 506x6 black core and the outline is a box-shadow ring
+   rather than a border: this element is counter-scaled against the page
+   zoom, and Chrome floors a scaled border (3px -> 2px) to whole device
+   pixels on a 1x screen, thinning the outline; shadows aren't snapped.
+   Outer size is the same 512x12. */
+.ra-guide {
+  left: 0;
+  top: 0;
+  /* 512 outer at most; on a narrow screen, the viewport less an 8px margin
+     each side (outer = core + 6, so core = 100vw - 16 - 6). Keep in step
+     with GUIDE_MARGIN in ReadingAid.jsx. */
+  width: min(506px, calc(100vw - 22px));
+  height: 6px;
+  background: #000000;
+  border-radius: 2px;
+  box-shadow: 0 0 0 3px #fff300;
+  will-change: transform;
+}
+
+/* The arrow: a yellow triangle with a slightly smaller black one on top. The
+   black one reaches 3px down over the bar's top ring, so the outline wraps
+   arrow and bar as one shape instead of showing a seam where they join. */
+.ra-guide::before,
+.ra-guide::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-color: transparent;
+  transform: translateX(-50%);
+}
+
+.ra-guide::before {
+  top: -17px;
+  border-width: 0 14px 14px 14px;
+  border-bottom-color: #fff300;
+}
+
+.ra-guide::after {
+  top: -12.8px;
+  border-width: 0 12.8px 12.8px 12.8px;
+  border-bottom-color: #000000;
+}
+
+/* ---------- Tooltips (see useTooltips.js) ---------- */
+
+.a11y-tip {
+  position: fixed;
+  z-index: 2147483647;
+  display: none;
+  max-width: 260px;
+  background: #111111;
+  color: #ffffff;
+  font: 600 13px/1.3 var(--font-sans);
+  padding: 6px 10px;
+  border-radius: 6px;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  zoom: calc(1 / var(--zoom-factor, 1));
+}
+
+/* ---------- The menu ----------
+   `zoom: calc(1 / var(--zoom-factor))` cancels the page's text-size zoom so
+   the menu stays one size however large the page is set -- otherwise
+   "Giant" would zoom the very controls used to change it back. */
+
+.a11y-menu {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100dvh;
+  width: min(355px, 100vw);
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+  font-family: var(--font-sans);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.28);
+  zoom: calc(1 / var(--zoom-factor, 1));
+  animation: a11y-menu-in 0.2s ease-out;
+}
+
+.a11y-menu--big {
+  width: min(520px, 100vw);
+}
+
+@keyframes a11y-menu-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.a11y-menu__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  height: 62px;
+  padding: 0 20px;
+  padding-top: env(safe-area-inset-top);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.a11y-menu--big .a11y-menu__head {
+  font-size: 17px;
+}
+
+.a11y-menu__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  background: transparent;
+  color: inherit;
+}
+
+.a11y-menu__close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.a11y-menu__body {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--color-tint);
+  color: var(--color-text);
+  border-radius: 24px 24px 0 0;
+  padding: 20px 20px 32px;
+  padding-bottom: max(32px, env(safe-area-inset-bottom));
+}
+
+.a11y-menu__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.a11y-menu--big .a11y-menu__row {
+  font-size: 16px;
+}
+
+.a11y-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 46px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 13px;
+  background: var(--color-text-muted);
+}
+
+.a11y-switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  transition: transform 0.14s;
+}
+
+.a11y-switch[aria-checked="true"] {
+  background: var(--color-primary);
+}
+
+.a11y-switch[aria-checked="true"]::after {
+  transform: translateX(20px);
+}
+
+.a11y-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.a11y-tile {
+  --tc: var(--color-primary);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 114px;
+  padding: 10px 10px 22px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.a11y-menu--big .a11y-tile {
+  min-height: 140px;
+  font-size: 16px;
+}
+
+.a11y-tile:hover {
+  border-color: var(--color-border);
+}
+
+.a11y-tile[aria-pressed="true"] {
+  border-color: var(--tc);
+  color: var(--tc);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--tc) 14%, transparent);
+}
+
+/* The little check badge in a switched-on tile's corner. */
+.a11y-tile[aria-pressed="true"]::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--tc) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.5l4 4 8-9'/%3E%3C/svg%3E") center / 14px no-repeat;
+}
+
+.a11y-tile svg {
+  width: 32px;
+  height: 32px;
+}
+
+.a11y-menu--big .a11y-tile svg {
+  width: 42px;
+  height: 42px;
+}
+
+/* Step bars along the bottom of a multi-step tile: filled up to the current
+   step, so "how far along am I" reads without any words. */
+.a11y-tile__steps {
+  position: absolute;
+  bottom: 9px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+}
+
+.a11y-tile__steps i {
+  flex: 1;
+  max-width: 44px;
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--tc) 26%, var(--color-surface));
+}
+
+.a11y-tile__steps i.on {
+  background: var(--tc);
+}
+
+.a11y-menu__wide {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 14px 16px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.a11y-menu--big .a11y-menu__wide {
+  font-size: 16px;
+}
+
+.a11y-menu__wide:hover {
+  border-color: var(--color-border);
+}
+
+.a11y-menu__wide svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.a11y-menu__more {
+  margin: 26px 0 12px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.a11y-menu button:focus-visible,
+.a11y-menu select:focus-visible {
+  outline: 3px solid var(--color-text);
+  outline-offset: 2px;
+}
+
+.a11y-menu__head .a11y-menu__close:focus-visible {
+  outline-color: var(--color-primary-contrast);
+}
+
+@media (max-width: 420px) {
+  .a11y-menu,
+  .a11y-menu--big {
+    width: 100vw;
+  }
+}

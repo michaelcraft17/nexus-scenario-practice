@@ -29,21 +29,29 @@ const PICKER_TUTORIAL_STEPS = [
 ];
 
 export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
-  const { registerReadableContent } = useAccessibility();
+  const { registerReadableContent, stopSpeech, favorites } = useAccessibility();
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyEntries, setHistoryEntries] = useState([]);
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [tutorialKey, setTutorialKey] = useState(0);
 
+  // The Favorites button in the header narrows the list to starred
+  // scenarios; the stars on the cards are what feed it.
+  const favoriteCount = scenarios.filter((s) => favorites.includes(s.id)).length;
+  const visibleScenarios = showFavoritesOnly ? scenarios.filter((s) => favorites.includes(s.id)) : scenarios;
+
   // "Read aloud" on this screen reads the list of scenario cards -- the
-  // picker's "resource list" equivalent.
+  // picker's "resource list" equivalent -- as currently shown (so, only the
+  // favorites while that filter is on).
   useEffect(() => {
     return registerReadableContent(() =>
-      scenarios
-        .map((s) => `${s.title}. ${s.preview} ${s.teachingPoint}`)
-        .join(" ")
+      visibleScenarios.map((s) => `${s.title}. ${s.preview} ${s.teachingPoint}`)
     );
-  }, [scenarios, registerReadableContent]);
+  }, [visibleScenarios, registerReadableContent]);
+
+  // Don't keep reading this list aloud after moving on to another screen.
+  useEffect(() => stopSpeech, [stopSpeech]);
 
   function openHistory() {
     setHistoryEntries(getReflectionHistory());
@@ -132,6 +140,25 @@ export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
             </svg>
             Past Reflections
           </button>
+          <button
+            type="button"
+            className={`picker__favorites-button ${showFavoritesOnly ? "picker__favorites-button--active" : ""}`}
+            onClick={() => setShowFavoritesOnly((on) => !on)}
+            aria-pressed={showFavoritesOnly}
+            aria-label={
+              showFavoritesOnly
+                ? "Showing favorites only. Show all scenarios"
+                : `Show favorites only, ${favoriteCount} saved`
+            }
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" fill={showFavoritesOnly ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9l-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z" />
+            </svg>
+            Favorites
+            {favoriteCount > 0 && (
+              <span className="picker__favorites-count" aria-hidden="true">{favoriteCount}</span>
+            )}
+          </button>
           <AccessibilityButton />
         </div>
 
@@ -172,8 +199,19 @@ export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
           <p className="picker__loading">Loading scenarios...</p>
         )}
 
+        {showFavoritesOnly && scenarios.length > 0 && visibleScenarios.length === 0 && (
+          <div className="picker__empty" role="status">
+            <p>
+              No favorites yet. Tap the star on a scenario to save it here.
+            </p>
+            <button type="button" className="picker__empty-button" onClick={() => setShowFavoritesOnly(false)}>
+              Show all scenarios
+            </button>
+          </div>
+        )}
+
         <div className="picker__grid">
-          {scenarios.map((scenario) => (
+          {visibleScenarios.map((scenario) => (
             <ScenarioCard key={scenario.id} scenario={scenario} onSelect={onSelect} />
           ))}
         </div>
