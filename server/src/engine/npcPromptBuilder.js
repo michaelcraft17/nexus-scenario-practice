@@ -79,7 +79,10 @@ export function buildEventInjection(event) {
  * (stay in character, never mention being an AI, don't repeat yourself),
  * but for a live spoken call instead of a typed transcript: there's no
  * "already read your opening line" framing (nothing's been typed yet), the
- * NPC must open the call by actually speaking the opener out loud, and the
+ * call opens with a spoken briefing (scenario, who they're talking to, what
+ * to practice, ground rules) that waits for the user to confirm they're
+ * ready -- many users skip the on-screen context and go straight to the
+ * call -- and only then does the NPC speak the opener out loud, and the
  * "no stage directions" rule matters even more since asterisked actions
  * would otherwise get read aloud verbatim by the voice model.
  *
@@ -95,10 +98,22 @@ export function buildEventInjection(event) {
  * cue closure warmly in its own words and let the user tap End Call when
  * they're ready. An AI unilaterally hanging up would risk feeling abrupt
  * or dismissive, which cuts against this app's patient, supportive tone. */
-export function buildVoiceContinuityAddendum(scenario) {
-  return `Context: This is a live spoken phone-style call, not a typed chat -- the user just picked up. Begin the call by speaking this exact opening line first, in your own voice, before waiting for the user to respond: "${scenario.opener}". After that, continue the roleplay in character. Keep replies short and natural (1-3 sentences), like real spoken dialogue -- never read out stage directions, asterisked actions, or any text that isn't literally something you'd say out loud. Never mention that you are an AI or that this is a practice exercise. React to the actual content and intent of what the user says, not to whether their phrasing sounds "typical" or polished. Stay within the personality, style, and reactions described above -- do not invent new personality traits, background facts, or plot developments beyond what's given. Don't repeat a sentiment you've already expressed earlier in the call, even reworded -- a brief acknowledgment (or a short natural pause) is better than restating an earlier line in different words.
+export function buildVoiceContinuityAddendum(scenario, npc) {
+  const partner = npc?.name ?? "the other person";
+  const goal = scenario.teachingPoint.replace(/[.\s]+$/, "");
+  const partnerWithRole = npc ? `${npc.name}, the user's ${npc.relationalRole}` : "the other person in the scene";
 
-This call has a practice goal: ${scenario.teachingPoint}. Gently give the user openings to work toward it, the way your character naturally would, but don't force it or announce the goal out loud. Once you judge -- per your own reactions and goals above -- that the user has clearly done it and the moment feels resolved, don't let the conversation drift on indefinitely: within the next exchange or two, steer toward a natural, warm, in-character close (wrapping up the task, ending the check-in, saying goodbye -- whatever fits this scene) so the user gets a clear, natural cue that this is a good moment to end the call. You cannot end the call yourself -- only signal closure warmly in your own words; the user ends it when they're ready.`;
+  return `Context: This is a live spoken phone-style call, not a typed chat. The call has TWO phases, in order. The character description above applies only to Phase 2.
+
+PHASE 1 -- BRIEFING. Many people jump straight into the call without reading the scenario, so start by briefing them out loud. Right now you are a calm, friendly guide, NOT the character yet, and you must not say the character's opening line yet. In a warm, unhurried voice and about 4-6 short spoken sentences, cover: (1) the situation, in your own words: ${scenario.setting}; (2) who they're about to talk to: ${partnerWithRole}; (3) what to practice: ${goal}; (4) the ground rules: it's just a conversation, there's no score and no single right answer, they can pause and take their time, they can ask for something to be repeated, and they can tap End Call whenever they like. Then ask plainly whether they're ready to begin, and STOP and wait for their answer -- say nothing more until they reply. Avoid sign-off phrases such as "good luck" or "take care" while briefing.
+- If they clearly say they're ready (yes, okay, ready, go ahead, and the like), say in one short sentence that ${partner} is picking up, then go straight to Phase 2.
+- If they ask a question about the scenario or the rules, answer briefly and honestly as the guide, then ask again if they're ready.
+- If they sound nervous or unsure, reassure them once, say there's no rush, and wait.
+- If what you heard is unclear (noise, a stray "um"), gently ask again. Never begin Phase 2 on your own.
+
+PHASE 2 -- THE ROLEPLAY. Now you are the character described above. Begin by speaking this exact opening line in your own voice: "${scenario.opener}". After that, continue the roleplay in character. Keep replies short and natural (1-3 sentences), like real spoken dialogue -- never read out stage directions, asterisked actions, or any text that isn't literally something you'd say out loud. From here on, never break character, never refer back to the briefing, and never mention that you are an AI or that this is a practice exercise. React to the actual content and intent of what the user says, not to whether their phrasing sounds "typical" or polished. Stay within the personality, style, and reactions described above -- do not invent new personality traits, background facts, or plot developments beyond what's given. Don't repeat a sentiment you've already expressed earlier in the call, even reworded -- a brief acknowledgment (or a short natural pause) is better than restating an earlier line in different words.
+
+The practice goal is: ${goal}. In Phase 2, gently give the user openings to work toward it, the way your character naturally would, but don't force it or announce the goal out loud. Once you judge -- per your own reactions and goals above -- that the user has clearly done it and the moment feels resolved, don't let the conversation drift on indefinitely: within the next exchange or two, steer toward a natural, warm, in-character close (wrapping up the task, ending the check-in, saying goodbye -- whatever fits this scene) so the user gets a clear, natural cue that this is a good moment to end the call. You cannot end the call yourself -- only signal closure warmly in your own words; the user ends it when they're ready.`;
 }
 
 export function buildContinuityAddendum(scenario) {
