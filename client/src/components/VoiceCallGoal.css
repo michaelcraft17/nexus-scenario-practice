@@ -1,0 +1,160 @@
+/* ==========================================================================
+   Live-call extras: the "goal reached" celebration + hang-up nudge, and the
+   small Reduce motion toggle. Loaded by VoiceCallScreen.jsx. The call
+   screen's base look lives in index.css (.voice-call*); this only adds to it.
+
+   Anything that animates here is switched off by the global reduce-motion
+   rule ([data-motion="reduce"] * in index.css sets animation/transition
+   durations to ~0), and the confetti isn't rendered at all under it.
+   ========================================================================== */
+
+/* ---------- Reduce motion toggle ---------- */
+
+.voice-call__motion {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  right: var(--space-3);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1.5px solid color-mix(in srgb, #2a2620 40%, transparent);
+  background: transparent;
+  color: #2a2620;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.voice-call__motion[aria-pressed="true"] {
+  background: #2a2620;
+  border-color: #2a2620;
+  color: #faf6f0;
+}
+
+.voice-call__motion:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.voice-call__motion:focus-visible,
+.voice-call__goal-hangup:focus-visible {
+  outline: 3px solid #2a2620;
+  outline-offset: 2px;
+}
+
+/* ---------- Goal reached: card + hang-up nudge ---------- */
+
+.voice-call__goal {
+  margin: var(--space-3) auto 0;
+  max-width: 24em;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-radius: var(--radius);
+  background: var(--scenario-accent);
+  color: var(--scenario-accent-contrast);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--scenario-accent) 35%, transparent);
+  animation: voice-goal-in 0.5s cubic-bezier(0.2, 1.25, 0.4, 1) both;
+}
+
+@keyframes voice-goal-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.voice-call__goal-title {
+  margin: 0 0 var(--space-1);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.voice-call__goal-text {
+  margin: 0 0 var(--space-3);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+/* Inverted colors so it reads as the primary action on the accent card. */
+.voice-call__goal-hangup {
+  min-height: 44px;
+  padding: 10px 28px;
+  border: none;
+  border-radius: 999px;
+  background: var(--scenario-accent-contrast);
+  color: var(--scenario-accent);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+/* The round End Call button also gets picked out, in case the eye goes to
+   the usual place rather than the card. Higher specificity than the base
+   .voice-call__icon-btn--end rules in index.css (which load later). */
+.voice-call__icon-btn.voice-call__icon-btn--attention {
+  box-shadow: 0 0 0 3px var(--scenario-accent);
+  animation: voice-attention 1.7s ease-in-out infinite;
+}
+
+@keyframes voice-attention {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px var(--scenario-accent), 0 0 0 3px transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--scenario-accent), 0 0 0 11px color-mix(in srgb, var(--scenario-accent) 25%, transparent);
+  }
+}
+
+/* ---------- Confetti: two party poppers, one per bottom corner ----------
+   Each piece launches up and inward (--rise / --dx), spinning (--rot), then
+   arcs back down (--fall) and fades. The two-part easing is what makes it
+   read as a pop and then gravity, not a straight drift. Pointer-events off
+   so it never blocks the End Call button. */
+
+.voice-call__confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 26;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.voice-call__confetti-piece {
+  position: absolute;
+  bottom: -12px;
+  background: var(--c);
+  opacity: 0;
+  animation: voice-confetti var(--dur) linear var(--delay) both;
+}
+
+.voice-call__confetti-piece--left {
+  left: 3%;
+}
+
+.voice-call__confetti-piece--right {
+  right: 3%;
+}
+
+@keyframes voice-confetti {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
+    animation-timing-function: cubic-bezier(0.12, 0.8, 0.3, 1);
+  }
+  38% {
+    opacity: 1;
+    transform: translate(calc(var(--dx) * 0.75), calc(var(--rise) * -1)) rotate(calc(var(--rot) * 0.55));
+    animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.6);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--fall)) rotate(var(--rot));
+  }
+}

@@ -391,6 +391,8 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
         scenarioId={scenario.id}
         npcName={npcName}
         voiceIntro={scenario.voiceIntro}
+        opener={scenario.opener}
+        practiceLabel={scenario.practiceLabel}
         accentColor={scenario.color}
         accentContrast={SCENARIO_ACCENT_CONTRAST[scenario.id] ?? "#ffffff"}
         // Called with the call's own spoken transcript if the user opted

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
-import { startRealtimeSession } from "../services/api.js";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { startRealtimeSession, checkVoiceGoal } from "../services/api.js";
 import { useAccessibility } from "../a11y/AccessibilityContext.jsx";
+import "./VoiceCallGoal.css";
 
 /** Roughly maps a stream's RMS loudness to 0..1 -- typical spoken-voice RMS
  * sits well under 1 (silence is near 0, a raised voice maybe 0.15-0.25), so
@@ -37,6 +38,55 @@ function fakeAmplitude(t) {
  * simply being warm mid-conversation. */
 const FAREWELL_PATTERN =
   /\b(good luck|take care|have a (great|good|wonderful) (day|one|rest)|talk (to you )?(soon|later)|see you (soon|later|around)|goodbye|bye for now|that(?:'s| is) all for (today|now)|i(?:'ll| will) let you (go|get back)|until next time|good chat)\b/i;
+
+/** Lower-case letters and digits only, so an opener the model speaks with
+ * different punctuation/spacing still matches the scenario's written text. */
+function normalizeForMatch(text) {
+  return String(text || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+/** Deterministic pseudo-random in [0, 1) -- so the confetti pieces are laid
+ * out once and stay put across re-renders instead of re-scattering. */
+function seeded(n) {
+  const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+const CONFETTI_COLORS = ["#4F8A8B", "#E4A34C", "#6C5B7B", "#C1666B", "#F2C94C", "#7FB77E"];
+
+/** Two "party poppers" -- one firing up and inward from each bottom corner.
+ * Each piece gets its own launch distance, drift, spin and delay. */
+function makeConfetti() {
+  const pieces = [];
+  for (let side = 0; side < 2; side++) {
+    for (let i = 0; i < 22; i++) {
+      const n = side * 100 + i + 1;
+      const round = seeded(n * 3) > 0.7;
+      const w = round ? 7 : 6 + Math.round(seeded(n * 5) * 5);
+      pieces.push({
+        id: n,
+        side: side === 0 ? "left" : "right",
+        dx: (side === 0 ? 1 : -1) * (60 + seeded(n * 7) * 220),
+        rise: 260 + seeded(n * 11) * 320,
+        fall: 40 + seeded(n * 13) * 120,
+        rot: (seeded(n * 17) - 0.5) * 900,
+        delay: seeded(n * 19) * 0.25,
+        dur: 1.9 + seeded(n * 23) * 0.9,
+        w,
+        h: round ? w : Math.max(4, Math.round(w * 0.55)),
+        round,
+        color: CONFETTI_COLORS[Math.floor(seeded(n * 29) * CONFETTI_COLORS.length)],
+      });
+    }
+  }
+  return pieces;
+}
+
+const CONFETTI_VISIBLE_MS = 4200;
+// How long to wait for the user's own speech transcription to land before
+// judging (it usually arrives after the character has started replying).
+const TRANSCRIPT_WAIT_STEP_MS = 200;
+const TRANSCRIPT_WAIT_STEPS = 12;
 
 /** Each body-language state's breathing range/tempo for the ring+bloom's
  * radius -- see stepWave() below for how the ring actually moves between
@@ -109,13 +159,16 @@ export default function VoiceCallScreen({
   scenarioId,
   npcName,
   voiceIntro,
+  opener,
+  practiceLabel,
   accentColor,
   accentContrast,
   onClose,
   previewMode = false,
   previewBodyState = null,
+  previewCelebrateKey = 0,
 }) {
-  const { resolvedMotion } = useAccessibility();
+  const { resolvedMotion, prefs, setPref } = useAccessibility();
   const [status, setStatus] = useState("idle"); // idle | connecting | connected | error | ended
   const [errorMessage, setErrorMessage] = useState("");
   const [muted, setMuted] = useState(false);
@@ -133,6 +186,11 @@ export default function VoiceCallScreen({
   // than auto-triggering the way text mode does, since unlike text mode
   // there's no mission-completion signal here to auto-trigger *from*.
   const [askingReflection, setAskingReflection] = useState(false);
+  // Set the first time the practice goal is judged reached (see
+  // scheduleGoalCheck) -- shows the celebration card and points the user at
+  // Hang up. Once true it stays true for the rest of the call.
+  const [goalReached, setGoalReached] = useState(false);
+  const [confettiRun, setConfettiRun] = useState(0); // > 0 while the confetti is showing
   // tick()/previewTick() keep re-scheduling themselves via rAF using the
   // same closure they started with, so they'd otherwise only ever see
   // bodyState as of whenever the loop began (a stale closure) -- this ref
@@ -145,7 +203,28 @@ export default function VoiceCallScreen({
   // translation. Never displayed during the call itself (this app's voice
   // mode is deliberately transcript-free while live); only ever read if the
   // user opts into a reflection after ending.
-  const transcriptRef = useRef([]);
+  //
+  // Kept as an ordered set of conversation items (id -> role/text) rather
+  // than a plain push-in-arrival-order list: the user's own speech is
+  // transcribed *after* the character has already started replying, so
+  // arrival order would put the reply before the line it answers. Item
+  // order comes from the conversation.item.added events instead. Everything
+  // before the character's opener is the out-of-character briefing, which
+  // shouldn't count as part of the roleplay (see getTranscript).
+  const itemsRef = useRef({ order: [], role: new Map(), text: new Map(), pendingUser: new Set() });
+  const roleplayStartRef = useRef(null); // id of the item where the opener was spoken
+  // Practice-goal tracking: `ready` = judged reached but maybe still waiting
+  // for the character to finish speaking before celebrating.
+  const goalRef = useRef({ reached: false, ready: false, checking: false, again: false });
+  const callIdRef = useRef(0);
+  const confettiTimerRef = useRef(null);
+  const confetti = useMemo(makeConfetti, []);
+  // Mirrors of props/context read from long-lived listeners (the data-channel
+  // handler and the rAF loops are bound once and would otherwise see stale
+  // values forever).
+  const motionReduceRef = useRef(resolvedMotion === "reduce");
+  const scenarioIdRef = useRef(scenarioId);
+  const openerRef = useRef(opener);
 
   const pcRef = useRef(null);
   const dcRef = useRef(null);
@@ -166,6 +245,112 @@ export default function VoiceCallScreen({
   useEffect(() => {
     bodyStateRef.current = bodyState;
   }, [bodyState]);
+
+  useEffect(() => {
+    motionReduceRef.current = resolvedMotion === "reduce";
+  }, [resolvedMotion]);
+
+  useEffect(() => {
+    scenarioIdRef.current = scenarioId;
+    openerRef.current = opener;
+  }, [scenarioId, opener]);
+
+  // ---- transcript bookkeeping (see itemsRef) ----
+
+  function noteItem(id, role) {
+    const items = itemsRef.current;
+    if (!id || items.role.has(id)) return;
+    items.order.push(id);
+    items.role.set(id, role);
+    if (role === "user") items.pendingUser.add(id);
+  }
+
+  function setItemText(id, role, text) {
+    noteItem(id, role);
+    itemsRef.current.text.set(id, text);
+  }
+
+  /** The call's spoken transcript in conversation order, as {role, content}.
+   * Starts at the character's opener when that was spotted, so the guide's
+   * briefing isn't treated as part of the roleplay. */
+  function getTranscript() {
+    const { order, role, text } = itemsRef.current;
+    const start = roleplayStartRef.current ? order.indexOf(roleplayStartRef.current) : 0;
+    return order
+      .slice(Math.max(0, start))
+      .map((id) => ({ role: role.get(id), content: (text.get(id) || "").trim() }))
+      .filter((m) => m.content);
+  }
+
+  /** Whether there was any real roleplay to reflect on. With the opener
+   * spotted, one user line is enough; without it the briefing is mixed in
+   * (it needs one "ready" from the user), so ask for a second. */
+  function hasRoleplay() {
+    const userLines = getTranscript().filter((m) => m.role === "user").length;
+    return userLines >= (roleplayStartRef.current ? 1 : 2);
+  }
+
+  // ---- practice-goal detection + celebration ----
+
+  function celebrate() {
+    setGoalReached(true);
+    if (motionReduceRef.current) return; // the card alone -- no confetti
+    setConfettiRun((n) => n + 1);
+    clearTimeout(confettiTimerRef.current);
+    confettiTimerRef.current = setTimeout(() => setConfettiRun(0), CONFETTI_VISIBLE_MS);
+  }
+
+  /** Celebrates once the goal has been judged reached AND the character has
+   * stopped speaking -- the judge usually answers while the last sentence is
+   * still playing, and confetti mid-sentence would talk over it. */
+  function maybeCelebrate() {
+    const g = goalRef.current;
+    if (!g.ready || g.reached || bodyStateRef.current === "speaking") return;
+    g.reached = true;
+    celebrate();
+  }
+
+  /** After each character turn: ask the server whether the practice goal has
+   * been reached. Runs in the background; a failed check just means we try
+   * again after the next turn. Overlapping requests collapse into "run once
+   * more when this one finishes" so the latest transcript is always judged. */
+  function scheduleGoalCheck() {
+    const g = goalRef.current;
+    if (g.reached || g.ready) return;
+    if (g.checking) {
+      g.again = true;
+      return;
+    }
+    g.checking = true;
+    const callId = callIdRef.current;
+    (async () => {
+      do {
+        g.again = false;
+        for (let i = 0; i < TRANSCRIPT_WAIT_STEPS && itemsRef.current.pendingUser.size > 0; i++) {
+          await new Promise((resolve) => setTimeout(resolve, TRANSCRIPT_WAIT_STEP_MS));
+        }
+        if (callId !== callIdRef.current) return; // call ended / restarted meanwhile
+        const transcript = getTranscript();
+        // Only judge once the roleplay has actually begun (not during the
+        // guide's briefing), and only once the character has the last word --
+        // otherwise the request it's answering hasn't been responded to yet
+        // by definition.
+        if (hasRoleplay() && transcript.length && transcript[transcript.length - 1].role === "assistant") {
+          try {
+            const { goalReached: reached } = await checkVoiceGoal(scenarioIdRef.current, transcript);
+            if (callId !== callIdRef.current) return;
+            if (reached) {
+              g.ready = true;
+              maybeCelebrate();
+            }
+          } catch {
+            // Best-effort -- try again after the next turn.
+          }
+        }
+      } while (g.again && !g.ready);
+      g.checking = false;
+    })();
+  }
 
   /** Real turn-detection events from the Realtime API's own server-side VAD
    * and response lifecycle -- this is what actually drives bodyState, not
@@ -192,9 +377,19 @@ export default function VoiceCallScreen({
         break;
       case "output_audio_buffer.started":
         setBodyState("speaking");
+        bodyStateRef.current = "speaking";
         break;
       case "output_audio_buffer.stopped":
         setBodyState("idle");
+        bodyStateRef.current = "idle";
+        maybeCelebrate();
+        break;
+      case "conversation.item.added":
+      case "conversation.item.created":
+        if (evt.item?.role === "user" || evt.item?.role === "assistant") noteItem(evt.item.id, evt.item.role);
+        break;
+      case "conversation.item.input_audio_transcription.failed":
+        itemsRef.current.pendingUser.delete(evt.item_id);
         break;
       case "response.done":
         // Safety net: a response that ends without ever producing audio
@@ -202,24 +397,37 @@ export default function VoiceCallScreen({
         // "thinking" forever.
         setBodyState((s) => (s === "thinking" ? "idle" : s));
         break;
-      case "response.output_audio_transcript.done":
+      case "response.output_audio_transcript.done": {
         // Recorded for a possible post-call reflection (see handleClose)
-        // and, separately, pattern-matched to catch the NPC signaling
-        // closure per its own instructions server-side
-        // (buildVoiceContinuityAddendum) -- no extra model call for either,
-        // just text this event already sends us for free.
-        if (evt.transcript && evt.transcript.trim()) {
-          transcriptRef.current.push({ role: "assistant", content: evt.transcript.trim() });
-        }
-        if (FAREWELL_PATTERN.test(evt.transcript || "")) {
-          setWrapUpCue(true);
+        // and for the goal check, and pattern-matched to catch the NPC
+        // signaling closure per its own instructions server-side
+        // (buildVoiceContinuityAddendum) -- the pattern match costs nothing
+        // extra; the goal check is one small request per character turn.
+        const said = evt.transcript && evt.transcript.trim();
+        if (said) {
+          setItemText(evt.item_id, "assistant", said);
+          if (roleplayStartRef.current === null) {
+            const opening = normalizeForMatch(openerRef.current).slice(0, 40);
+            if (opening && normalizeForMatch(said).includes(opening)) {
+              roleplayStartRef.current = evt.item_id;
+              // The guide's hand-off ("...is picking up now.") is spoken in the
+              // same turn as the opener; keep the roleplay transcript to the
+              // character's own words when the opener can be found verbatim.
+              const at = said.toLowerCase().indexOf(String(openerRef.current).slice(0, 24).toLowerCase());
+              if (at > 0) setItemText(evt.item_id, "assistant", said.slice(at));
+            }
+          }
+          if (FAREWELL_PATTERN.test(said)) setWrapUpCue(true);
+          scheduleGoalCheck();
         }
         break;
-      case "conversation.item.input_audio_transcription.completed":
-        if (evt.transcript && evt.transcript.trim()) {
-          transcriptRef.current.push({ role: "user", content: evt.transcript.trim() });
-        }
+      }
+      case "conversation.item.input_audio_transcription.completed": {
+        const heard = evt.transcript && evt.transcript.trim();
+        if (heard) setItemText(evt.item_id, "user", heard);
+        itemsRef.current.pendingUser.delete(evt.item_id);
         break;
+      }
       default:
         break;
     }
@@ -240,6 +448,16 @@ export default function VoiceCallScreen({
   function tick(timestamp) {
     const dt = Math.min(0.1, (timestamp - (lastFrameTimeRef.current ?? timestamp)) / 1000);
     lastFrameTimeRef.current = timestamp;
+
+    // Reduce motion: hold the ring still (dropping the vars lets the CSS
+    // defaults apply). The loop keeps running rather than stopping, so
+    // turning the setting back off mid-call picks the animation right up.
+    if (motionReduceRef.current) {
+      loopRef.current?.style.removeProperty("--amp");
+      loopRef.current?.style.removeProperty("--r");
+      rafRef.current = requestAnimationFrame(tick);
+      return;
+    }
 
     const userAmp = userAnalyserRef.current ? getAmplitude(userAnalyserRef.current, userBufferRef.current) : 0;
     const npcAmp = npcAnalyserRef.current ? getAmplitude(npcAnalyserRef.current, npcBufferRef.current) : 0;
@@ -320,9 +538,7 @@ export default function VoiceCallScreen({
       const answerSdp = await resp.text();
       await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
 
-      if (resolvedMotion !== "reduce") {
-        rafRef.current = requestAnimationFrame(tick);
-      }
+      rafRef.current = requestAnimationFrame(tick);
     } catch (err) {
       disconnect();
       setStatus("error");
@@ -353,7 +569,7 @@ export default function VoiceCallScreen({
     bodyStateRef.current = "ending";
     endingTimeoutRef.current = setTimeout(() => {
       disconnect();
-      if (transcriptRef.current.length > 0) {
+      if (hasRoleplay()) {
         setAskingReflection(true);
       } else {
         onClose(null);
@@ -363,7 +579,7 @@ export default function VoiceCallScreen({
 
   function respondToReflectionPrompt(wantsReflection) {
     setAskingReflection(false);
-    onClose(wantsReflection ? transcriptRef.current : null);
+    onClose(wantsReflection ? getTranscript() : null);
   }
 
   useEffect(() => {
@@ -377,7 +593,13 @@ export default function VoiceCallScreen({
     bodyStateRef.current = "idle";
     setWrapUpCue(false);
     setAskingReflection(false);
-    transcriptRef.current = [];
+    setGoalReached(false);
+    setConfettiRun(0);
+    clearTimeout(confettiTimerRef.current);
+    goalRef.current = { reached: false, ready: false, checking: false, again: false };
+    callIdRef.current += 1; // orphans any goal check still running from a previous call
+    itemsRef.current = { order: [], role: new Map(), text: new Map(), pendingUser: new Set() };
+    roleplayStartRef.current = null;
     waveRef.current = { min: 30, max: 40, period: 4.5, phase: 0 };
     lastFrameTimeRef.current = null;
     if (endingTimeoutRef.current) {
@@ -391,16 +613,17 @@ export default function VoiceCallScreen({
       function previewTick(timestamp) {
         const dt = Math.min(0.1, (timestamp - (lastFrameTimeRef.current ?? timestamp)) / 1000);
         lastFrameTimeRef.current = timestamp;
-        if (loopRef.current) {
+        if (motionReduceRef.current) {
+          loopRef.current?.style.removeProperty("--amp");
+          loopRef.current?.style.removeProperty("--r");
+        } else if (loopRef.current) {
           const t = (performance.now() - start) / 1000;
           loopRef.current.style.setProperty("--amp", fakeAmplitude(t).toFixed(3));
           loopRef.current.style.setProperty("--r", stepWave(waveRef.current, bodyStateRef.current, dt).toFixed(2));
         }
         rafRef.current = requestAnimationFrame(previewTick);
       }
-      if (resolvedMotion !== "reduce") {
-        rafRef.current = requestAnimationFrame(previewTick);
-      }
+      rafRef.current = requestAnimationFrame(previewTick);
       return () => {
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
@@ -410,6 +633,8 @@ export default function VoiceCallScreen({
     connect();
     return () => {
       disconnect();
+      callIdRef.current += 1;
+      clearTimeout(confettiTimerRef.current);
       if (endingTimeoutRef.current) {
         clearTimeout(endingTimeoutRef.current);
         endingTimeoutRef.current = null;
@@ -446,7 +671,21 @@ export default function VoiceCallScreen({
     return () => clearTimeout(timeoutId);
   }, [open, previewMode, previewBodyState]);
 
+  // Preview-only: VoiceCallPreview's "Celebrate" button bumps this key so the
+  // celebration can be seen (and iterated on) without a real call.
+  useEffect(() => {
+    if (!open || !previewMode || previewCelebrateKey < 1) return;
+    goalRef.current.reached = true;
+    celebrate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewCelebrateKey]);
+
   if (!open) return null;
+
+  const reduceMotionOn = resolvedMotion === "reduce";
+  // The OS-level "reduce motion" preference is already on and this app is
+  // following it -- there's nothing for this button to switch off.
+  const followingDevice = prefs.motion === "device" && reduceMotionOn;
 
   const statusText =
     status === "connecting"
@@ -506,6 +745,50 @@ export default function VoiceCallScreen({
       aria-label={`Live voice call with ${npcName}`}
       style={{ "--scenario-accent": accentColor, "--scenario-accent-contrast": accentContrast }}
     >
+      {/* A small always-there way to calm the screen mid-call -- the ring's
+          breathing and the celebration confetti are the two moving things
+          here, and reaching the full accessibility menu (with the call
+          screen covering the page) would be a detour when someone's
+          overwhelmed right now. Same setting as the menu's Pause
+          Animations tile. */}
+      <button
+        type="button"
+        className="voice-call__motion"
+        aria-pressed={reduceMotionOn}
+        disabled={followingDevice}
+        title={followingDevice ? "Your device is set to reduce motion" : reduceMotionOn ? "Turn motion back on" : "Calm the animations"}
+        onClick={() => setPref("motion", prefs.motion === "reduce" ? "device" : "reduce")}
+      >
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="7" />
+          <path d="M9.5 10v4M14.5 10v4" />
+        </svg>
+        Reduce motion
+      </button>
+
+      {confettiRun > 0 && (
+        <div key={confettiRun} className="voice-call__confetti" aria-hidden="true">
+          {confetti.map((p) => (
+            <span
+              key={p.id}
+              className={`voice-call__confetti-piece voice-call__confetti-piece--${p.side}`}
+              style={{
+                "--dx": `${p.dx}px`,
+                "--rise": `${p.rise}px`,
+                "--fall": `${p.fall}px`,
+                "--rot": `${p.rot}deg`,
+                "--delay": `${p.delay}s`,
+                "--dur": `${p.dur}s`,
+                "--c": p.color,
+                width: p.w,
+                height: p.h,
+                borderRadius: p.round ? "50%" : 1,
+              }}
+            />
+          ))}
+        </div>
+      )}
+
       <div className="voice-call__top">
         <p className="voice-call__name">{npcName}</p>
         <p className="voice-call__status" aria-live="polite">
@@ -520,10 +803,23 @@ export default function VoiceCallScreen({
             handleServerEvent) -- an explicit, unambiguous cue that this is a
             good stopping point, so the NPC verbally wrapping up is never the
             *only* signal the user gets that it's okay to end the call. */}
-        {wrapUpCue && (
-          <p className="voice-call__wrap-up" aria-live="polite">
-            This feels like a natural stopping point -- end the call whenever you're ready.
-          </p>
+        {goalReached ? (
+          <div className="voice-call__goal" role="status" aria-live="polite">
+            <p className="voice-call__goal-title">Nicely done</p>
+            <p className="voice-call__goal-text">
+              {practiceLabel ? `You practiced ${practiceLabel}, and it worked. ` : "You did what you came here to practice. "}
+              This is a good place to stop -- hang up whenever you're ready, or keep talking.
+            </p>
+            <button type="button" className="voice-call__goal-hangup" onClick={handleClose}>
+              Hang up
+            </button>
+          </div>
+        ) : (
+          wrapUpCue && (
+            <p className="voice-call__wrap-up" aria-live="polite">
+              This feels like a natural stopping point -- end the call whenever you're ready.
+            </p>
+          )
         )}
       </div>
 
@@ -595,7 +891,13 @@ export default function VoiceCallScreen({
             </svg>
           )}
         </button>
-        <button type="button" className="voice-call__icon-btn voice-call__icon-btn--end" onClick={handleClose} aria-label="End call" title="End call">
+        <button
+          type="button"
+          className={`voice-call__icon-btn voice-call__icon-btn--end${goalReached ? " voice-call__icon-btn--attention" : ""}`}
+          onClick={handleClose}
+          aria-label="End call"
+          title="End call"
+        >
           {/* A plain phone-handset glyph rotated 135deg -- the universal
               "decline/end call" shape (same silhouette as the red hangup
               icon on any phone dialer), rather than a custom mark that
