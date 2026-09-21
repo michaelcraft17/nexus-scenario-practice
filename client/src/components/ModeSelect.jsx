@@ -1,4 +1,21 @@
 import { SCENARIO_ACCENT_CONTRAST } from "./ChatScreen.jsx";
+import TutorialOverlay from "./TutorialOverlay.jsx";
+
+/** The walkthrough carries on past "Start scenario" -- this is the first
+ * place a newcomer meets the typed-vs-spoken choice, and the two option
+ * cards' one-line descriptions don't say what each actually involves. */
+const MODE_TUTORIAL_STEPS = [
+  {
+    target: ".mode-select__option:not(.mode-select__option--voice)",
+    title: "Type a Chat",
+    text: "Read the scene and type your replies at your own pace -- no timer. The Hint and \"Explain that\" buttons help if you're unsure what to say or what they meant.",
+  },
+  {
+    target: ".mode-select__option--voice",
+    title: "Talk Live",
+    text: "A real spoken conversation. A guide explains the scenario first, then the character picks up. It needs your microphone, and you can hang up any time. Not sure? Start by typing -- you can switch to Talk Live from the chat later.",
+  },
+];
 
 /**
  * Sits between picking a scenario and actually starting it -- lets the user
@@ -70,6 +87,8 @@ export default function ModeSelect({ scenario, onChooseMode, onBack }) {
           </button>
         </div>
       </div>
+
+      <TutorialOverlay storageKey="nexus-tutorial-mode" active steps={MODE_TUTORIAL_STEPS} />
     </div>
   );
 }

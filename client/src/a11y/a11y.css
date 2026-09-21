@@ -82,13 +82,13 @@
   display: none;
 }
 
-[data-contrast="dark"] :is(.picker__feedback-link, .tutorial-replay-button, .tutorial-replay-button *, .a11y-button, .picker__favorites-button, .chat-header__access),
-[data-contrast="light"] :is(.picker__feedback-link, .tutorial-replay-button, .tutorial-replay-button *, .a11y-button, .picker__favorites-button, .chat-header__access) {
+[data-contrast="dark"] :is(.picker__feedback-link, .tutorial-replay-button, .tutorial-replay-button *, .a11y-button, .picker__favorites-button, .chat-header__access, .chat-header__tutorial),
+[data-contrast="light"] :is(.picker__feedback-link, .tutorial-replay-button, .tutorial-replay-button *, .a11y-button, .picker__favorites-button, .chat-header__access, .chat-header__tutorial) {
   color: var(--color-text);
 }
 
-[data-contrast="dark"] :is(.picker__feedback-link, .tutorial-replay-button, .a11y-button, .picker__favorites-button, .chat-header__access),
-[data-contrast="light"] :is(.picker__feedback-link, .tutorial-replay-button, .a11y-button, .picker__favorites-button, .chat-header__access) {
+[data-contrast="dark"] :is(.picker__feedback-link, .tutorial-replay-button, .a11y-button, .picker__favorites-button, .chat-header__access, .chat-header__tutorial),
+[data-contrast="light"] :is(.picker__feedback-link, .tutorial-replay-button, .a11y-button, .picker__favorites-button, .chat-header__access, .chat-header__tutorial) {
   border-color: var(--color-text);
   background: var(--color-surface);
 }
