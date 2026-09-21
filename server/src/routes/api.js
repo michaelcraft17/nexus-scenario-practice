@@ -171,7 +171,7 @@ router.post("/realtime-session", async (req, res, next) => {
     const instructions =
       buildSceneAnchor(scenario, "advanced") +
       renderNpcBlueprint(npc) +
-      buildVoiceContinuityAddendum(scenario);
+      buildVoiceContinuityAddendum(scenario, npc);
 
     const session = await createRealtimeClientSecret({ instructions, voice: npc.voice });
 
