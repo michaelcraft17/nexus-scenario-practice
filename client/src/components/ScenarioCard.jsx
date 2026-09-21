@@ -21,7 +21,9 @@ export default function ScenarioCard({ scenario, onSelect }) {
         aria-pressed={favorite}
         aria-label={favorite ? `Remove ${scenario.title} from favorites` : `Add ${scenario.title} to favorites`}
       >
-        {favorite ? "★" : "☆"}
+        <svg viewBox="0 0 24 24" width="18" height="18" fill={favorite ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9l-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z" />
+        </svg>
       </button>
       <div className="scenario-card__body">
         <div className="scenario-card__title-row">

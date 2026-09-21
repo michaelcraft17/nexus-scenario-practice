@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { getReflectionHistory, clearReflectionHistory } from "../services/reflectionHistory.js";
+import { useTooltips } from "./useTooltips.js";
 
 const PREFS_KEY = "a11y_prefs";
 const FAVS_KEY = "a11y_favs";
@@ -7,10 +8,20 @@ const FAVS_KEY = "a11y_favs";
 const DEFAULT_PREFS = {
   colorScheme: "calm-earthy", // "calm-earthy" | "blue-yellow"
   theme: "device", // "device" | "light" | "dark"
-  textSize: "default", // "small" | "default" | "large" | "largest"
-  typeface: "default", // "default" | "dyslexia"
-  contrast: "default", // "default" | "high"
+  textSize: "default", // "small" | "default" | "large" | "largest" | "huge" | "giant"
+  typeface: "default", // "default" | "dyslexia" | "legible"
+  contrast: "default", // "default" | "high" | "invert" | "dark" | "light"
   motion: "device", // "device" | "reduce"
+  // The tile-menu features below (see tiles.jsx for each one's steps).
+  links: "default", // "default" | "on"
+  spacing: "default", // "default" | "1" | "2" | "3"
+  lineHeight: "default", // "default" | "1" | "2" | "3"
+  textAlign: "default", // "default" | "left" | "right" | "center" | "justify"
+  saturation: "default", // "default" | "low" | "high" | "mono"
+  cursor: "default", // "default" | "black" | "mask" | "guide"
+  hideImages: "default", // "default" | "on"
+  tooltips: "default", // "default" | "on"
+  oversized: false, // bigger menu
 };
 
 // CSS `zoom` scales everything uniformly (layout included, not just font
@@ -20,8 +31,15 @@ const DEFAULT_PREFS = {
 // feedback that the baseline text felt too small everywhere, not just for
 // users who'd go looking for the "Large" option -- while keeping the same
 // relative spacing between tiers, so "Small" is still the smallest option
-// and "Largest" is still the largest, just all raised together.
-const TEXT_ZOOM = { small: 1, default: 1.15, large: 1.3, largest: 1.45 };
+// and "Largest" is still the largest, just all raised together. "Huge" and
+// "Giant" extend the range for the Bigger Text tile; "small" is no longer
+// offered in the menu but is still honored if it was stored earlier.
+const TEXT_ZOOM = { small: 1, default: 1.15, large: 1.3, largest: 1.45, huge: 1.6, giant: 1.75 };
+
+// Saturation is a page-wide filter on <html> (a filter on <body> would break
+// position:fixed), combined with the Invert contrast step's filter.
+const INVERT_FILTER = "invert(1) hue-rotate(180deg)";
+const SATURATION_FILTERS = { low: "saturate(.5)", high: "saturate(2)", mono: "grayscale(1)" };
 
 export const COLOR_SCHEME_OPTIONS = [
   { value: "calm-earthy", label: "Calm & earthy" },
@@ -31,24 +49,6 @@ export const THEME_OPTIONS = [
   { value: "device", label: "Match device" },
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
-];
-export const TEXT_SIZE_OPTIONS = [
-  { value: "small", label: "Small" },
-  { value: "default", label: "Default" },
-  { value: "large", label: "Large" },
-  { value: "largest", label: "Largest" },
-];
-export const TYPEFACE_OPTIONS = [
-  { value: "default", label: "Default" },
-  { value: "dyslexia", label: "Dyslexia-friendly" },
-];
-export const CONTRAST_OPTIONS = [
-  { value: "default", label: "Default" },
-  { value: "high", label: "Higher contrast" },
-];
-export const MOTION_OPTIONS = [
-  { value: "device", label: "Match device" },
-  { value: "reduce", label: "Reduce motion" },
 ];
 export const SPEECH_RATE_OPTIONS = [
   { value: 0.75, label: "Slow" },
@@ -76,6 +76,35 @@ function loadFavorites() {
   }
 }
 
+const MAX_CHUNK_CHARS = 200;
+
+/** Screens register either a string or an array of items (one per scenario
+ * card / chat message -- preferred, since it keeps natural pauses between
+ * items). Anything longer than one breath is further split on sentence
+ * boundaries so no single utterance runs long enough to be cut off. */
+function toSpeechChunks(content) {
+  const items = Array.isArray(content) ? content : [content];
+  const chunks = [];
+  for (const item of items) {
+    const text = String(item ?? "").replace(/\s+/g, " ").trim();
+    if (!text) continue;
+    if (text.length <= MAX_CHUNK_CHARS) {
+      chunks.push(text);
+      continue;
+    }
+    let current = "";
+    for (const sentence of text.match(/[^.!?]+[.!?]+["')\]]*\s*|[^.!?]+$/g) ?? [text]) {
+      if (current && (current + sentence).length > MAX_CHUNK_CHARS) {
+        chunks.push(current.trim());
+        current = "";
+      }
+      current += sentence;
+    }
+    if (current.trim()) chunks.push(current.trim());
+  }
+  return chunks;
+}
+
 function resolveTheme(theme) {
   if (theme !== "device") return theme;
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
@@ -93,7 +122,8 @@ const AccessibilityContext = createContext(null);
 
 /**
  * One consolidated prefs object (colorScheme, theme, textSize, typeface,
- * contrast, motion), persisted to localStorage under a11y_prefs, plus
+ * contrast, motion, plus the tile-menu features -- see DEFAULT_PREFS and
+ * tiles.jsx), persisted to localStorage under a11y_prefs, plus
  * favorites persisted separately under a11y_favs. Applies the resolved
  * state to `<html>` as data-* attributes (and `zoom` for text size) so
  * index.css can style off them directly -- this component owns state and
@@ -115,6 +145,30 @@ export function AccessibilityProvider({ children }) {
   // itself here -- avoids lifting chat/picker state up to this provider
   // just so read-aloud can see it.
   const readableContentRef = useRef(null);
+  // Whether any screen currently has content registered -- state (not just
+  // the ref above) so the panel can grey out Play instead of silently
+  // doing nothing.
+  const [canReadAloud, setCanReadAloud] = useState(false);
+
+  // Read-aloud speaks one chunk at a time and chains them, rather than
+  // handing the browser one giant utterance: Chrome silently cuts long
+  // utterances off after ~15s, which a whole conversation easily exceeds.
+  // The chain is driven from refs, not state, because each utterance's
+  // onend callback is bound once and would otherwise read stale rate/voice
+  // values. speechTokenRef invalidates callbacks from a superseded or
+  // stopped read (cancel() fires onend/onerror on the old utterance in some
+  // browsers, which would otherwise start the next chunk after a Stop).
+  const speechTokenRef = useRef(0);
+  const speechQueueRef = useRef([]);
+  const speechRateRef = useRef(1);
+  const voicesRef = useRef([]);
+  const voiceURIRef = useRef("");
+
+  useEffect(() => {
+    speechRateRef.current = speechRate;
+    voicesRef.current = voices;
+    voiceURIRef.current = voiceURI;
+  }, [speechRate, voices, voiceURI]);
 
   useEffect(() => {
     localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
@@ -144,11 +198,27 @@ export function AccessibilityProvider({ children }) {
 
   useEffect(() => {
     const root = document.documentElement;
+    // The dark/light contrast steps are themselves a dark or a light look,
+    // so they pin data-theme (letting every existing [data-theme="dark"]
+    // rule apply as the base, then a11y.css overrides the palette) rather
+    // than following the theme preference.
+    const effectiveTheme = prefs.contrast === "dark" || prefs.contrast === "light" ? prefs.contrast : resolvedTheme;
     root.setAttribute("data-color-scheme", prefs.colorScheme);
-    root.setAttribute("data-theme", resolvedTheme);
+    root.setAttribute("data-theme", effectiveTheme);
     root.setAttribute("data-contrast", prefs.contrast);
     root.setAttribute("data-typeface", prefs.typeface);
     root.setAttribute("data-motion", resolvedMotion);
+    // Tile-menu features -- a11y.css keys off these.
+    root.setAttribute("data-links", prefs.links);
+    root.setAttribute("data-spacing", prefs.spacing);
+    root.setAttribute("data-line-height", prefs.lineHeight);
+    root.setAttribute("data-text-align", prefs.textAlign);
+    root.setAttribute("data-cursor", prefs.cursor);
+    root.setAttribute("data-hide-images", prefs.hideImages);
+    const filters = [];
+    if (prefs.contrast === "invert") filters.push(INVERT_FILTER);
+    if (SATURATION_FILTERS[prefs.saturation]) filters.push(SATURATION_FILTERS[prefs.saturation]);
+    root.style.filter = filters.join(" ");
     const zoomValue = TEXT_ZOOM[prefs.textSize] ?? 1;
     root.style.zoom = String(zoomValue);
     // `zoom` scales the *rendered* size of everything, but viewport units
@@ -160,7 +230,23 @@ export function AccessibilityProvider({ children }) {
     // at the true viewport size. See .chat-screen in index.css, the one
     // place in this app that currently needs this.
     root.style.setProperty("--zoom-factor", String(zoomValue));
-  }, [prefs.colorScheme, prefs.contrast, prefs.typeface, prefs.textSize, resolvedTheme, resolvedMotion]);
+  }, [prefs, resolvedTheme, resolvedMotion]);
+
+  useTooltips(prefs.tooltips === "on");
+
+  // Ctrl+U toggles the menu (the same shortcut the UserWay menu uses). Note
+  // this shadows View Source in Chrome/Firefox on Windows and Linux; on a
+  // Mac, View Source is Cmd+Option+U so it does not collide.
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.ctrlKey && !e.metaKey && !e.altKey && e.key?.toLowerCase() === "u") {
+        e.preventDefault();
+        setPanelOpen((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   // Voice list loads asynchronously in most browsers.
   useEffect(() => {
@@ -177,6 +263,15 @@ export function AccessibilityProvider({ children }) {
     setPrefsState((prev) => ({ ...prev, [key]: value }));
   }, []);
 
+  // Stable identities: the panel's Escape/focus effect depends on
+  // closePanel, and a fresh function each render would re-run it (and steal
+  // focus back to the close button) on every unrelated context update.
+  const openPanel = useCallback(() => setPanelOpen(true), []);
+  const closePanel = useCallback(() => setPanelOpen(false), []);
+  const togglePanel = useCallback(() => setPanelOpen((open) => !open), []);
+
+  const resetAllPrefs = useCallback(() => setPrefsState({ ...DEFAULT_PREFS }), []);
+
   const isFavorite = useCallback((scenarioId) => favorites.includes(scenarioId), [favorites]);
 
   const toggleFavorite = useCallback((scenarioId) => {
@@ -187,16 +282,39 @@ export function AccessibilityProvider({ children }) {
 
   /** Screens call this (in a useEffect, re-registering when their content
    * changes) to make their content the one "Read aloud" reads. */
-  const registerReadableContent = useCallback((getText) => {
-    readableContentRef.current = getText;
+  const registerReadableContent = useCallback((getContent) => {
+    readableContentRef.current = getContent;
+    setCanReadAloud(true);
     return () => {
-      if (readableContentRef.current === getText) readableContentRef.current = null;
+      if (readableContentRef.current === getContent) {
+        readableContentRef.current = null;
+        setCanReadAloud(false);
+      }
     };
   }, []);
 
   const stopSpeech = useCallback(() => {
+    speechTokenRef.current += 1;
     window.speechSynthesis?.cancel();
     setSpeechState("idle");
+  }, []);
+
+  const speakFrom = useCallback((index, token) => {
+    if (token !== speechTokenRef.current) return;
+    const queue = speechQueueRef.current;
+    if (index >= queue.length) {
+      setSpeechState("idle");
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(queue[index]);
+    utterance.rate = speechRateRef.current;
+    const voice = voicesRef.current.find((v) => v.voiceURI === voiceURIRef.current);
+    if (voice) utterance.voice = voice;
+    utterance.onend = () => speakFrom(index + 1, token);
+    utterance.onerror = () => {
+      if (token === speechTokenRef.current) setSpeechState("idle");
+    };
+    window.speechSynthesis.speak(utterance);
   }, []);
 
   const playSpeech = useCallback(() => {
@@ -206,18 +324,14 @@ export function AccessibilityProvider({ children }) {
       setSpeechState("speaking");
       return;
     }
-    const text = readableContentRef.current?.() ?? "";
-    if (!text.trim()) return;
+    const queue = toSpeechChunks(readableContentRef.current?.());
+    if (queue.length === 0) return;
+    const token = ++speechTokenRef.current;
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = speechRate;
-    const voice = voices.find((v) => v.voiceURI === voiceURI);
-    if (voice) utterance.voice = voice;
-    utterance.onend = () => setSpeechState("idle");
-    utterance.onerror = () => setSpeechState("idle");
-    window.speechSynthesis.speak(utterance);
+    speechQueueRef.current = queue;
     setSpeechState("speaking");
-  }, [speechState, speechRate, voices, voiceURI]);
+    speakFrom(0, token);
+  }, [speechState, speakFrom]);
 
   const pauseSpeech = useCallback(() => {
     if (speechState !== "speaking") return;
@@ -263,9 +377,12 @@ export function AccessibilityProvider({ children }) {
     isFavorite,
     toggleFavorite,
     panelOpen,
-    openPanel: () => setPanelOpen(true),
-    closePanel: () => setPanelOpen(false),
+    openPanel,
+    closePanel,
+    togglePanel,
+    resetAllPrefs,
     registerReadableContent,
+    canReadAloud,
     speechState,
     speechRate,
     setSpeechRate,

@@ -4,6 +4,7 @@ import ScenarioPicker from "./components/ScenarioPicker.jsx";
 import ModeSelect from "./components/ModeSelect.jsx";
 import ChatScreen from "./components/ChatScreen.jsx";
 import AccessibilityPanel from "./components/AccessibilityPanel.jsx";
+import ReadingAid from "./components/ReadingAid.jsx";
 import VoiceCallPreview from "./components/VoiceCallPreview.jsx";
 
 // Dev-only art-style sandbox for the live-call screen, e.g.
@@ -75,6 +76,7 @@ export default function App() {
           onSelect={handleSelect}
         />
       )}
+      <ReadingAid />
       <AccessibilityPanel />
     </>
   );
