@@ -146,3 +146,19 @@ export function startRealtimeSession(scenarioId) {
     body: JSON.stringify({ scenarioId }),
   });
 }
+
+/**
+ * Ask whether a live voice call's user has reached the scenario's practice
+ * goal yet (the server judges it against the scenario's authored success
+ * condition). Called after each character turn; see VoiceCallScreen.
+ * @param {string} scenarioId
+ * @param {{role: "user"|"assistant", content: string}[]} messages - The
+ *   call's roleplay transcript so far, in order.
+ * @returns {Promise<{goalReached: boolean}>}
+ */
+export function checkVoiceGoal(scenarioId, messages) {
+  return request("/voice-progress", {
+    method: "POST",
+    body: JSON.stringify({ scenarioId, messages }),
+  });
+}

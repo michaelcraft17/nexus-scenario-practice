@@ -139,3 +139,33 @@ export function buildNarratorUpdateRequest({ aiRole, contextMessages, missions, 
     messages: [{ role: "user", content: userContent }],
   };
 }
+
+const VOICE_GOAL_SYSTEM_PROMPT = ({ aiRole, teachingPoint, milestone }) => `You are quietly checking progress in a spoken social-skills practice conversation. You are not part of the roleplay.
+
+${NON_CONFORMITY_FRAMING}
+
+The person is practicing: ${teachingPoint}
+The goal counts as reached when: ${milestone}
+
+You will be given a transcript of the call. "You" is the person practicing; ${aiRole} is the other character in the roleplay. The transcript may begin with an out-of-character guide briefing the person before the roleplay starts -- ignore anything that isn't part of the roleplay itself.
+
+Decide whether, as of the END of the transcript, the goal has actually been reached: the person really did what the goal describes AND the character has already responded to it. Be strict about that: if the transcript's final line is from the person (so the character hasn't replied to it yet), the goal has NOT been reached. Likewise only hinting, complaining without making a request, an attempt still in progress, or the character not having responded yet all mean it has NOT been reached. "The character has responded" means it actually engaged with what the person asked or said -- agreed, adjusted something, offered an alternative, or asked about it. Brushing it off, deferring it ("hold that thought", "later"), or carrying on as if nothing was said does NOT count. Don't hold the person to anything beyond the stated goal, and don't judge how they phrased it.
+
+Reply with JSON only, in exactly this shape: {"goalReached": true} or {"goalReached": false}`;
+
+/**
+ * Judge request for a live voice call: has the practice goal been reached
+ * yet? Uses the scenario's first mission stage's `advanceWhen` as the
+ * definition of success -- the same authored condition text mode's Narrator
+ * advances on -- so voice and text agree on what "done" means. Run as its
+ * own small call (not by asking the voice model to self-report, which
+ * proved unreliable: in testing it kept the conversation going instead of
+ * flagging success).
+ */
+export function buildVoiceGoalRequest({ aiRole, teachingPoint, milestone, messages }) {
+  const transcript = renderTranscript(messages, aiRole);
+  return {
+    system: VOICE_GOAL_SYSTEM_PROMPT({ aiRole, teachingPoint, milestone }),
+    messages: [{ role: "user", content: `Transcript so far:\n\n${transcript}\n\nHas the goal been reached? Answer in JSON.` }],
+  };
+}

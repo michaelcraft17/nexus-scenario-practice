@@ -35,7 +35,10 @@ const BODY_STATE_LABELS = {
 const controlBarStyle = {
   position: "fixed",
   top: "max(16px, env(safe-area-inset-top))",
-  right: 16,
+  // Left, not right: the call screen's own Reduce motion pill lives top-right.
+  left: 16,
+  flexWrap: "wrap",
+  maxWidth: "calc(100vw - 210px)",
   zIndex: 50,
   display: "flex",
   gap: 8,
@@ -54,6 +57,7 @@ const buttonStyle = {
 export default function VoiceCallPreview() {
   const [index, setIndex] = useState(0);
   const [bodyStateIndex, setBodyStateIndex] = useState(0);
+  const [celebrateKey, setCelebrateKey] = useState(0);
   const character = DEMO_CHARACTERS[index];
   const bodyState = BODY_STATES[bodyStateIndex];
 
@@ -67,6 +71,8 @@ export default function VoiceCallPreview() {
         open
         previewMode
         previewBodyState={bodyState}
+        previewCelebrateKey={celebrateKey}
+        practiceLabel="self-advocacy, even mid-lesson"
         scenarioId="preview"
         npcName={character.name}
         accentColor={character.color}
@@ -80,6 +86,9 @@ export default function VoiceCallPreview() {
           style={buttonStyle}
         >
           State: {BODY_STATE_LABELS[bodyState]}
+        </button>
+        <button type="button" onClick={() => setCelebrateKey((k) => k + 1)} style={buttonStyle}>
+          Celebrate
         </button>
         <button type="button" onClick={() => setIndex((i) => (i + 1) % DEMO_CHARACTERS.length)} style={buttonStyle}>
           Next color ({character.name})

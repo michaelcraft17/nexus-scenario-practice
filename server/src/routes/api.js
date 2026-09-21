@@ -7,6 +7,7 @@ import {
   generateReflection,
   generateHint,
   generateNarratorUpdate,
+  judgeVoiceGoal,
 } from "../engine/dialogueEngine.js";
 import { computeConversationBalance } from "../engine/conversationStats.js";
 import { buildSceneAnchor, renderNpcBlueprint, buildVoiceContinuityAddendum } from "../engine/npcPromptBuilder.js";
@@ -176,6 +177,31 @@ router.post("/realtime-session", async (req, res, next) => {
     const session = await createRealtimeClientSecret({ instructions, voice: npc.voice });
 
     res.json({ ...session, npcName: npc.name });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** Live voice calls ask this after each character turn: has the user reached
+ * the scenario's practice goal yet? The client celebrates (and nudges the
+ * user to hang up) the first time it's true. Only the most recent turns are
+ * judged -- the goal moment is recent by definition, and this keeps the
+ * request small however long the call runs. */
+router.post("/voice-progress", async (req, res, next) => {
+  try {
+    const { scenarioId, messages } = req.body ?? {};
+
+    const scenario = getById(scenarioId);
+    if (!scenario) {
+      return res.status(404).json({ error: "Unknown scenario." });
+    }
+
+    if (!isValidMessages(messages)) {
+      return res.status(400).json({ error: "messages must be a non-empty array of {role, content}." });
+    }
+
+    const goalReached = await judgeVoiceGoal(getAiRoleForScenario(scenario), scenario, messages.slice(-16));
+    res.json({ goalReached });
   } catch (err) {
     next(err);
   }

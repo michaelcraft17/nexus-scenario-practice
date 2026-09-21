@@ -11,6 +11,7 @@ import {
   buildReflectionRequest,
   buildHintRequest,
   buildNarratorUpdateRequest,
+  buildVoiceGoalRequest,
 } from "./prompts.js";
 
 /**
@@ -172,4 +173,24 @@ export async function generateNarratorUpdate(aiRole, contextMessages, missions, 
     activeStageId: typeof result.activeStageId === "string" ? result.activeStageId : currentStageId,
     completedObjectiveIds: Array.isArray(result.completedObjectiveIds) ? result.completedObjectiveIds : [],
   };
+}
+
+/**
+ * Has the user reached this scenario's practice goal during a live voice
+ * call? The client asks after each character turn (see VoiceCallScreen) and
+ * celebrates the first time this says yes.
+ * @param {string} aiRole - Display label for the character in the scene.
+ * @param {object} scenario - Needs `teachingPoint` and `missions`.
+ * @param {{role: "user"|"assistant", content: string}[]} messages - The
+ *   call's spoken transcript so far, in order.
+ * @returns {Promise<boolean>}
+ */
+export async function judgeVoiceGoal(aiRole, scenario, messages) {
+  // The first mission stage's advanceWhen is the authored definition of
+  // success; fall back to the teaching point for a scenario without one.
+  const teachingPoint = scenario.teachingPoint.replace(/[.\s]+$/, "");
+  const milestone = (scenario.missions?.[0]?.advanceWhen || teachingPoint).replace(/[.\s]+$/, "");
+  const { system, messages: requestMessages } = buildVoiceGoalRequest({ aiRole, teachingPoint, milestone, messages });
+  const result = await completeJson({ system, messages: requestMessages, maxTokens: 60 });
+  return result.goalReached === true;
 }
