@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { startRealtimeSession, checkVoiceGoal } from "../services/api.js";
 import { useAccessibility } from "../a11y/AccessibilityContext.jsx";
 import "./VoiceCallGoal.css";
+import HoverWords from "./HoverWords.jsx";
 
 /** Roughly maps a stream's RMS loudness to 0..1 -- typical spoken-voice RMS
  * sits well under 1 (silence is near 0, a raised voice maybe 0.15-0.25), so
@@ -720,7 +721,7 @@ export default function VoiceCallScreen({
         style={{ "--scenario-accent": accentColor, "--scenario-accent-contrast": accentContrast }}
       >
         <div className="voice-call__ask">
-          <p className="voice-call__ask-title">Want a reflection on this conversation?</p>
+          <p className="voice-call__ask-title"><HoverWords text="Want a reflection on this conversation?" /></p>
           <p className="voice-call__ask-text">
             A warm look back at how it went -- same as text chats get, just based on what was actually said out loud.
           </p>
@@ -790,7 +791,7 @@ export default function VoiceCallScreen({
       )}
 
       <div className="voice-call__top">
-        <p className="voice-call__name">{npcName}</p>
+        <p className="voice-call__name"><HoverWords text={npcName} /></p>
         <p className="voice-call__status" aria-live="polite">
           {statusText}
         </p>
@@ -798,7 +799,7 @@ export default function VoiceCallScreen({
             voice mode has to text mode's NarratorIntro, since there's no
             transcript here to establish context otherwise. Fades away once
             the call actually starts so it doesn't compete with the ring. */}
-        {status === "connecting" && voiceIntro && <p className="voice-call__intro">{voiceIntro}</p>}
+        {status === "connecting" && voiceIntro && <p className="voice-call__intro"><HoverWords text={voiceIntro} /></p>}
         {/* Persists for the rest of the call once triggered (see
             handleServerEvent) -- an explicit, unambiguous cue that this is a
             good stopping point, so the NPC verbally wrapping up is never the

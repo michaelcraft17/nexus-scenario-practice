@@ -1,5 +1,6 @@
 import { SCENARIO_ACCENT_CONTRAST } from "./ChatScreen.jsx";
 import TutorialOverlay from "./TutorialOverlay.jsx";
+import HoverWords from "./HoverWords.jsx";
 
 /** The walkthrough carries on past "Start scenario" -- this is the first
  * place a newcomer meets the typed-vs-spoken choice, and the two option
@@ -52,7 +53,7 @@ export default function ModeSelect({ scenario, onChooseMode, onBack }) {
       <div className="mode-select__content">
         <div className="mode-select__dot" aria-hidden="true" />
         <h1 className="mode-select__title">{scenario.title}</h1>
-        <p className="mode-select__intro">{scenario.preview}</p>
+        <p className="mode-select__intro"><HoverWords text={scenario.preview} /></p>
         {scenario.practiceLabel && (
           <div className="mode-select__practice">Practice: {scenario.practiceLabel}</div>
         )}
@@ -66,8 +67,10 @@ export default function ModeSelect({ scenario, onChooseMode, onBack }) {
             onClick={() => onChooseMode("text")}
           >
             <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M21 12a8 8 0 1 1-3.4-6.5" />
-              <path d="M21 4v5h-5" />
+              {/* A speech bubble with lines of text -- reading and typing
+                  messages, at your own pace. */}
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              <path d="M7.5 8h9M7.5 12h6" />
             </svg>
             <span className="mode-select__option-title">Type a Chat</span>
             <span className="mode-select__option-desc">Read and type replies at your own pace.</span>

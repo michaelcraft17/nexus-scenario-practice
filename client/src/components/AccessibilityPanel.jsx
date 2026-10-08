@@ -153,6 +153,38 @@ export default function AccessibilityPanel() {
           />
         </div>
 
+        <div className="a11y-menu__row">
+          <span id="a11y-word-magnifier-label">Word Magnifier</span>
+          <button
+            type="button"
+            role="switch"
+            className="a11y-switch"
+            aria-checked={!!prefs.wordMagnifier}
+            aria-labelledby="a11y-word-magnifier-label"
+            aria-describedby="a11y-word-magnifier-hint"
+            onClick={() => setPref("wordMagnifier", !prefs.wordMagnifier)}
+          />
+          <span id="a11y-word-magnifier-hint" className="visually-hidden">
+            Enlarges the word under your mouse on the scenario cards, and the words beside it a little.
+          </span>
+        </div>
+
+        <div className="a11y-menu__row">
+          <span id="a11y-narrator-font-label">Easier Narrator Font</span>
+          <button
+            type="button"
+            role="switch"
+            className="a11y-switch"
+            aria-checked={!!prefs.easierNarratorFont}
+            aria-labelledby="a11y-narrator-font-label"
+            aria-describedby="a11y-narrator-font-hint"
+            onClick={() => setPref("easierNarratorFont", !prefs.easierNarratorFont)}
+          />
+          <span id="a11y-narrator-font-hint" className="visually-hidden">
+            Shows the Narrator's calligraphy-style italic text in the plain, easier-to-read font instead.
+          </span>
+        </div>
+
         <div className="a11y-tiles">
           {A11Y_TILES.map((tile) => {
             const current = prefs[tile.key];

@@ -50,7 +50,7 @@ const buttonStyle = {
   border: "1px solid rgba(42, 38, 32, 0.15)",
   background: "rgba(255, 255, 255, 0.8)",
   color: "#2a2620",
-  fontSize: "0.8rem",
+  fontSize: "calc(0.8rem * var(--text-scale, 1))",
   fontWeight: 600,
 };
 

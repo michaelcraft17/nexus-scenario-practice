@@ -22,18 +22,23 @@ const DEFAULT_PREFS = {
   hideImages: "default", // "default" | "on"
   tooltips: "default", // "default" | "on"
   oversized: false, // bigger menu
+  wordMagnifier: true, // the word under the mouse (and its neighbours) grows -- see HoverWords.jsx
+  easierNarratorFont: false, // all Narrator text in the app's plain sans instead of its italic Garamond (Accessibility menu); off by default
+  explanationFont: "calligraphy", // "calligraphy" | "plain" -- just the "Explain that" answers (see NarratorFontToggle.jsx)
 };
 
-// CSS `zoom` scales everything uniformly (layout included, not just font
-// size) -- the right tool here since the app uses hardcoded px throughout
-// rather than a relative type scale. Every value shifted up a tier from the
-// original small/default/large/largest = 0.9/1/1.15/1.3 -- per direct
-// feedback that the baseline text felt too small everywhere, not just for
-// users who'd go looking for the "Large" option -- while keeping the same
-// relative spacing between tiers, so "Small" is still the smallest option
-// and "Largest" is still the largest, just all raised together. "Huge" and
-// "Giant" extend the range for the Bigger Text tile; "small" is no longer
+// Each text size's overall size relative to the original 1x design. The
+// tiers were shifted up from the original small/default/large/largest =
+// 0.9/1/1.15/1.3 -- per direct feedback that the baseline text felt too
+// small everywhere -- keeping the same relative spacing between tiers. "Huge"
+// and "Giant" extend the range for the Bigger Text tile; "small" is no longer
 // offered in the menu but is still honored if it was stored earlier.
+//
+// Only the baseline (Small = 1, everything else = the Default 1.15) is applied
+// as page-wide CSS `zoom`, so the default look is unchanged. The steps above
+// Default go into --text-scale instead, which multiplies every font-size and
+// nothing else -- so Bigger Text enlarges the words without blowing up
+// images, icons, avatars and spacing along with them.
 const TEXT_ZOOM = { small: 1, default: 1.15, large: 1.3, largest: 1.45, huge: 1.6, giant: 1.75 };
 
 // Saturation is a page-wide filter on <html> (a filter on <body> would break
@@ -60,7 +65,12 @@ export const SPEECH_RATE_OPTIONS = [
 function loadPrefs() {
   try {
     const raw = localStorage.getItem(PREFS_KEY);
-    return raw ? { ...DEFAULT_PREFS, ...JSON.parse(raw) } : { ...DEFAULT_PREFS };
+    if (!raw) return { ...DEFAULT_PREFS };
+    // "narratorFont" was an earlier development form of easierNarratorFont;
+    // drop it so a value saved while testing doesn't leave the Narrator in
+    // the plain font -- the setting starts off.
+    const { narratorFont, ...saved } = JSON.parse(raw);
+    return { ...DEFAULT_PREFS, ...saved };
   } catch {
     return { ...DEFAULT_PREFS };
   }
@@ -215,12 +225,17 @@ export function AccessibilityProvider({ children }) {
     root.setAttribute("data-text-align", prefs.textAlign);
     root.setAttribute("data-cursor", prefs.cursor);
     root.setAttribute("data-hide-images", prefs.hideImages);
+    root.setAttribute("data-word-magnifier", prefs.wordMagnifier ? "on" : "off");
+    root.setAttribute("data-narrator-font", prefs.easierNarratorFont ? "plain" : "calligraphy");
+    root.setAttribute("data-explanation-font", prefs.explanationFont === "plain" ? "plain" : "calligraphy");
     const filters = [];
     if (prefs.contrast === "invert") filters.push(INVERT_FILTER);
     if (SATURATION_FILTERS[prefs.saturation]) filters.push(SATURATION_FILTERS[prefs.saturation]);
     root.style.filter = filters.join(" ");
-    const zoomValue = TEXT_ZOOM[prefs.textSize] ?? 1;
+    const targetSize = TEXT_ZOOM[prefs.textSize] ?? 1;
+    const zoomValue = Math.min(targetSize, TEXT_ZOOM.default);
     root.style.zoom = String(zoomValue);
+    root.style.setProperty("--text-scale", String(targetSize / zoomValue));
     // `zoom` scales the *rendered* size of everything, but viewport units
     // (vh/dvh) don't know about zoom and still resolve against the real
     // viewport -- so `height: 100dvh` becomes `900px` pre-zoom, then renders

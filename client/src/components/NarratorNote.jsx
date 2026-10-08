@@ -1,3 +1,5 @@
+import HoverWords from "./HoverWords.jsx";
+
 /**
  * A proactive aside from the Narrator, interspersed in the message list
  * after a notable exchange -- distinct from a character bubble (no speaker
@@ -23,7 +25,7 @@ export default function NarratorNote({ text, variant = "subtext" }) {
           Mission Updated
         </p>
       )}
-      <p>{text}</p>
+      <p><HoverWords text={text} /></p>
     </div>
   );
 }

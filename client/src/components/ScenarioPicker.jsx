@@ -6,6 +6,7 @@ import ReflectionPanel from "./ReflectionPanel.jsx";
 import TutorialOverlay from "./TutorialOverlay.jsx";
 import { useAccessibility } from "../a11y/AccessibilityContext.jsx";
 import { getReflectionHistory } from "../services/reflectionHistory.js";
+import HoverWords from "./HoverWords.jsx";
 
 /** querySelector always returns the first match, so each target here
  * naturally lands on the leftmost/first scenario card -- one representative
@@ -26,11 +27,28 @@ const PICKER_TUTORIAL_STEPS = [
     title: "Start when you're ready",
     text: "Tap here to begin -- you'll choose between typing or talking live next.",
   },
+  {
+    // Opens the menu itself for a moment rather than just pointing at the
+    // button -- seeing what's inside is what makes people come back to it.
+    target: ".a11y-menu",
+    opensAccessibilityMenu: true,
+    placement: "left",
+    title: "Make it comfortable",
+    text: "The Accessibility menu has bigger text, calmer colors, reduced motion, read-aloud and more. Open it any time from the Accessibility button, or press Ctrl + U.",
+  },
+  {
+    target: ".picker__feedback-link",
+    title: "Tell us what you think",
+    text: "Something confusing, or an idea? Share Feedback opens a short form -- it helps us shape Nexus.",
+  },
 ];
 
 export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
-  const { registerReadableContent, stopSpeech, favorites } = useAccessibility();
+  const { registerReadableContent, stopSpeech, favorites, resolvedMotion } = useAccessibility();
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  // The side-rail dot last clicked; its card gets scrolled to and briefly
+  // lit up once it's on the page (see the effect below).
+  const [jumpTarget, setJumpTarget] = useState(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyEntries, setHistoryEntries] = useState([]);
   const [selectedEntry, setSelectedEntry] = useState(null);
@@ -40,6 +58,30 @@ export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
   // scenarios; the stars on the cards are what feed it.
   const favoriteCount = scenarios.filter((s) => favorites.includes(s.id)).length;
   const visibleScenarios = showFavoritesOnly ? scenarios.filter((s) => favorites.includes(s.id)) : scenarios;
+
+  // A rail dot takes you to its scenario's card. If the Favorites filter is
+  // hiding that card, the filter comes off first and the jump happens once
+  // the card has rendered. Focus lands on the card's Start button, so a
+  // keyboard user arrives where they can act on it.
+  function jumpToScenario(id) {
+    if (!visibleScenarios.some((s) => s.id === id)) setShowFavoritesOnly(false);
+    setJumpTarget({ id, at: Date.now() });
+  }
+
+  useEffect(() => {
+    if (!jumpTarget) return undefined;
+    const card = document.querySelector(`.scenario-card[data-scenario="${jumpTarget.id}"]`);
+    if (!card) return undefined;
+    // Focus before scrolling: focusing mid-way through a smooth scroll
+    // cancels it, even with preventScroll.
+    card.querySelector(".scenario-card__difficulty-button")?.focus({ preventScroll: true });
+    card.scrollIntoView({ block: "center", behavior: resolvedMotion === "reduce" ? "auto" : "smooth" });
+    card.classList.remove("scenario-card--jumped");
+    void card.offsetWidth; // restart the glow if the same dot is clicked again
+    card.classList.add("scenario-card--jumped");
+    const timer = setTimeout(() => card.classList.remove("scenario-card--jumped"), 1600);
+    return () => clearTimeout(timer);
+  }, [jumpTarget, showFavoritesOnly, resolvedMotion]);
 
   // "Read aloud" on this screen reads the list of scenario cards -- the
   // picker's "resource list" equivalent -- as currently shown (so, only the
@@ -93,20 +135,29 @@ export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
     <div className="picker">
       <div className="picker__background" aria-hidden="true" />
 
-      {/* Desktop-only decorative rail (hidden below 1180px via CSS) --
-          fills the empty gutters either side of the centered content column
-          with the same four scenario accent colors used on the cards below,
-          rather than leaving them visually flat. Purely decorative. */}
+      {/* Desktop-only rail (hidden below 1180px via CSS) -- fills the empty
+          gutters either side of the centered content column. The lines are
+          decoration; the dots, one per scenario in its accent color, jump
+          to that scenario's card. */}
       <div className="picker__rails" aria-hidden="true">
         <div className="picker__rail picker__rail--left" />
         <div className="picker__rail picker__rail--right" />
-        <div className="picker__rail-dots">
-          <span className="picker__rail-dot" style={{ background: "#4F8A8B" }} />
-          <span className="picker__rail-dot" style={{ background: "#E4A34C" }} />
-          <span className="picker__rail-dot" style={{ background: "#6C5B7B" }} />
-          <span className="picker__rail-dot" style={{ background: "#C1666B" }} />
-        </div>
       </div>
+      {scenarios.length > 0 && (
+        <nav className="picker__rail-dots" aria-label="Jump to a scenario">
+          {scenarios.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              className="picker__rail-dot"
+              style={{ "--dot-color": s.color }}
+              onClick={() => jumpToScenario(s.id)}
+              aria-label={`Go to ${s.title}`}
+              title={s.title}
+            />
+          ))}
+        </nav>
+      )}
 
       <div className="picker__content">
         <div className="picker__left">
@@ -183,9 +234,7 @@ export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
           </p>
           <p>Practice everyday conversations in a low-stakes, judgment-free space. Pick a scenario to start.</p>
           <p className="picker__framing">
-            You're playing as a neurodivergent person navigating everyday
-            situations -- the goal is to understand your needs, not to act
-            "normal."
+            <HoverWords text={'You\'re playing as a neurodivergent person navigating everyday situations -- the goal is to understand your needs, not to act "normal."'} />
           </p>
         </header>
 

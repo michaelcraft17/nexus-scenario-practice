@@ -1,0 +1,1131 @@
+/* Text-chat layout: compact header, a translucent conversation panel over the
+   scenario's watercolor, and a practice-focus side card on wide screens.
+   Every rule is scoped under .chat-screen--v2 so it outranks the older
+   single-class chat rules in index.css (including their 1220px desktop
+   block) without touching any other screen. */
+
+.chat-screen--v2 {
+  --v2-accent: color-mix(in srgb, var(--scenario-accent, var(--color-primary)) 88%, #000);
+  --v2-panel: rgba(255, 255, 252, 0.35);
+  --v2-panel-border: rgba(255, 255, 252, 0.6);
+  --v2-line: #e5e6df;
+  --v2-muted: #656c70;
+  --v2-bubble: rgba(255, 255, 252, 0.86);
+  --v2-bubble-border: rgba(228, 224, 216, 0.8);
+  --v2-user-bubble: rgba(228, 238, 235, 0.9);
+  --v2-text: #292c32;
+}
+
+/* ---------- Header ---------- */
+
+.chat-screen--v2 .chat-header {
+  position: relative;
+  background: rgba(251, 251, 248, 0.9);
+  border-bottom: 1px solid rgba(210, 216, 205, 0.65);
+  padding-top: env(safe-area-inset-top);
+}
+
+.chat-screen--v2 .chat-header__row {
+  display: grid;
+  /* Side groups never shrink below their buttons; at bigger text sizes the
+     title takes what's left and wraps rather than running into them. */
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 58px;
+  padding: 0 24px;
+}
+
+.chat-screen--v2 .chat-header__group {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.chat-screen--v2 .chat-header__group--right {
+  justify-content: flex-end;
+}
+
+.chat-screen--v2 .chat-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 10px;
+  font-size: calc(20px * var(--text-scale, 1));
+  font-weight: 650;
+  letter-spacing: -1px;
+  flex-shrink: 0;
+}
+
+.chat-screen--v2 .chat-header__logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.chat-screen--v2 .chat-header__logo--dark,
+[data-theme="dark"] .chat-screen--v2 .chat-header__logo--light {
+  display: none;
+}
+
+[data-theme="dark"] .chat-screen--v2 .chat-header__logo--dark {
+  display: block;
+}
+
+.chat-screen--v2 .chat-header__title {
+  flex: none;
+  min-width: 0;
+  padding: 4px 0;
+  white-space: normal;
+  overflow-wrap: break-word;
+  text-align: center;
+  line-height: 1.25;
+  font-size: calc(16px * var(--text-scale, 1));
+  font-weight: 650;
+  letter-spacing: -0.2px;
+}
+
+.chat-screen--v2 .chat-header__exit,
+.chat-screen--v2 .chat-header__tutorial,
+.chat-screen--v2 .chat-header__voice,
+.chat-screen--v2 .chat-header__hint,
+.chat-screen--v2 .chat-header__access {
+  min-height: 32px;
+  min-width: 32px;
+  padding: 0 12px;
+  font-size: calc(12px * var(--text-scale, 1));
+  gap: 5px;
+}
+
+.chat-screen--v2 .chat-header__fullscreen {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: rgba(38, 34, 51, 0.06);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.chat-screen--v2 .chat-header__fullscreen:hover {
+  background: rgba(38, 34, 51, 0.11);
+}
+
+[data-theme="dark"] .chat-screen--v2 .chat-header__fullscreen {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+[data-contrast="high"] .chat-screen--v2 .chat-header__fullscreen {
+  background: var(--color-tint);
+  color: var(--color-primary);
+}
+
+.chat-screen--v2 .chat-header__exit {
+  width: 32px;
+  padding: 0;
+  font-size: calc(15px * var(--text-scale, 1));
+}
+
+/* ---------- Layout ---------- */
+
+.chat-screen--v2 .chat-v2__layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 275px;
+  gap: 24px;
+  width: 100%;
+  /* The conversation takes the whole window -- just a thin margin so the
+     panel's rounded edge still reads. */
+  padding: 8px 10px 10px;
+}
+
+.chat-screen--v2 .chat-v2__panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--v2-panel);
+  border: 1px solid var(--v2-panel-border);
+  border-radius: 16px;
+  box-shadow: 0 10px 40px #36493d08;
+}
+
+/* "Text practice", under the scenario title in the header. */
+.chat-screen--v2 .chat-v2__mode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+  font-size: calc(11.5px * var(--text-scale, 1));
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--v2-muted);
+}
+
+.chat-screen--v2 .chat-v2__dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: #719884;
+}
+
+/* Status dot breathes while the reply is being written. */
+.chat-screen--v2 .chat-v2__mode.is-typing .chat-v2__dot {
+  animation: v2-dot-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes v2-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.7); }
+}
+
+/* ---------- Conversation ---------- */
+
+.chat-screen--v2 .chat-screen__scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.chat-screen--v2 .chat-screen__messages {
+  width: auto;
+  max-width: none;
+  margin: 0;
+  padding: 16px 28px 12px;
+  gap: 10px;
+}
+
+.chat-screen--v2 .chat-v2__begins {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: calc(11px * var(--text-scale, 1));
+  color: #727873;
+}
+
+/* Sized like the live app's bubbles: up to 65% of the column, never wider
+   than 490px, hugging short messages. */
+@media (min-width: 600px) {
+  .chat-screen--v2 .bubble-row {
+    max-width: min(65%, 490px);
+  }
+}
+
+.chat-screen--v2 .bubble {
+  padding: 12px 16px;
+  line-height: 1.45;
+}
+
+.chat-screen--v2 .bubble__text {
+  white-space: pre-wrap;
+  font-size: calc(15.5px * var(--text-scale, 1));
+}
+
+/* A small pill under the reply -- an aid to reach for, not a call to action. */
+.chat-screen--v2 .bubble__explain-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+  padding: 2px 11px 2px 8px;
+  font-size: calc(11.5px * var(--text-scale, 1));
+}
+
+/* On a light accent (the amber of The Unexpected Conversation) a solid
+   button needs near-black text to stay readable, which clashes with the
+   gold -- so there it's a soft gold pill with deep amber text instead. */
+html:not([data-contrast="high"]):not([data-contrast="invert"]) .chat-screen--v2[data-light-accent] .bubble__explain-button {
+  background: color-mix(in srgb, var(--scenario-accent) 20%, #ffffff);
+  border-color: var(--scenario-accent);
+  color: #7a4a0c;
+}
+
+html:not([data-contrast="high"]):not([data-contrast="invert"]) .chat-screen--v2[data-light-accent] .bubble__explain-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--scenario-accent) 34%, #ffffff);
+}
+
+html[data-theme="dark"]:not([data-contrast="high"]):not([data-contrast="invert"]) .chat-screen--v2[data-light-accent] .bubble__explain-button {
+  background: color-mix(in srgb, var(--scenario-accent) 18%, var(--color-surface));
+  color: var(--scenario-accent);
+}
+
+/* A small caps label, not a heading -- the message should carry the weight. */
+.chat-screen--v2 .bubble__speaker {
+  font-size: calc(11.5px * var(--text-scale, 1));
+  letter-spacing: 0.08em;
+}
+
+/* The character's bubbles carry who they are: initial, name, role. */
+.chat-screen--v2 .bubble__speaker--npc {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 6px;
+}
+
+.chat-screen--v2 .bubble__avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ece8df;
+  color: #695f50;
+  font: 400 calc(12.5px * var(--text-scale, 1)) / 1 Georgia, serif;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.chat-screen--v2 .bubble__role {
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--v2-muted);
+}
+
+.chat-screen--v2 .bubble__role::before {
+  content: "·";
+  margin-right: 7px;
+}
+
+[data-theme="dark"] .chat-screen--v2 .bubble__avatar {
+  background: var(--color-tint);
+  color: var(--color-text);
+}
+
+.chat-screen--v2 .bubble-row--assistant .bubble {
+  background: var(--v2-bubble);
+  border: 1px solid var(--v2-bubble-border);
+  border-radius: 4px 14px 14px 14px;
+}
+
+.chat-screen--v2 .bubble-row--user .bubble {
+  background: var(--v2-user-bubble);
+  color: var(--v2-text);
+  border-radius: 14px 4px 14px 14px;
+}
+
+.chat-screen--v2 .bubble-row--user .bubble__speaker {
+  text-align: right;
+}
+
+/* The Narrator's voice (EB Garamond) runs small next to the sans dialogue,
+   so its on-demand explanations and mid-conversation asides get a size up. */
+.chat-screen--v2 .bubble__explanation {
+  font-size: calc(20px * var(--narrator-size, 1) * var(--text-scale, 1));
+  line-height: 1.55;
+}
+
+.chat-screen--v2 .narrator-box--note p {
+  font-size: calc(19px * var(--narrator-size, 1) * var(--text-scale, 1));
+  line-height: 1.55;
+}
+
+/* The Narrator's opening, full width -- a lot of text, so it gets the column. */
+.chat-screen--v2 .narrator-card {
+  padding: 12px 22px 10px 20px;
+  background: rgba(215, 233, 233, 0.82);
+  border-left: 3px solid var(--color-narrator-accent);
+  border-radius: 4px 14px 14px 14px;
+}
+
+.chat-screen--v2 .narrator-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Folded to one line once the user has replied (NarratorIntro's compact
+   prop): label, the scene title cut off with an ellipsis, and a toggle. */
+.chat-screen--v2 .narrator-card--compact {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 7px 16px 7px 14px;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  border: none;
+  border-left: 3px solid var(--color-narrator-accent);
+  animation: v2-bubble-in 0.3s ease-out both;
+}
+
+.chat-screen--v2 .narrator-card--compact .narrator-card__label {
+  flex-shrink: 0;
+}
+
+.chat-screen--v2 .narrator-card__summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--font-narrator);
+  font-size: calc(17px * var(--narrator-size, 1) * var(--text-scale, 1));
+  color: #2c5859;
+}
+
+.chat-screen--v2 .narrator-card__toggle {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-size: calc(12px * var(--text-scale, 1));
+  font-weight: 600;
+  color: #326c68;
+  cursor: pointer;
+}
+
+.chat-screen--v2 .narrator-card--compact:hover .narrator-card__toggle,
+.chat-screen--v2 button.narrator-card__toggle:hover {
+  background: rgba(47, 122, 125, 0.12);
+}
+
+[data-motion="reduce"] .chat-screen--v2 .narrator-card--compact {
+  animation: none;
+}
+
+[data-theme="dark"] .chat-screen--v2 .narrator-card__summary,
+[data-theme="dark"] .chat-screen--v2 .narrator-card__toggle {
+  color: var(--color-narrator-accent);
+}
+
+.chat-screen--v2 .narrator-card__label {
+  font-size: calc(11px * var(--text-scale, 1));
+  font-weight: 650;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: #2f6a6c;
+}
+
+.chat-screen--v2 .narrator-card p {
+  margin: 7px 0;
+  font-family: var(--font-narrator);
+  font-style: italic;
+  font-size: calc(19.5px * var(--narrator-size, 1) * var(--text-scale, 1));
+  line-height: 1.55;
+  color: #34403c;
+}
+
+.chat-screen--v2 .narrator-card .narrator-card__setting {
+  margin: 8px 0 6px;
+  font-style: normal;
+  font-weight: 600;
+  font-size: calc(19px * var(--narrator-size, 1) * var(--text-scale, 1));
+  line-height: 1.45;
+  color: #2c5859;
+}
+
+.chat-screen--v2 .narrator-card__more {
+  margin-top: 4px;
+}
+
+.chat-screen--v2 .narrator-card__more summary {
+  cursor: pointer;
+  font-size: calc(12px * var(--text-scale, 1));
+  font-weight: 600;
+  color: #326c68;
+}
+
+/* The fuller context is a few paragraphs to read through, so it's set in
+   upright Lora (--font-reading) rather than the italic Garamond used for
+   the short lines above it. */
+.chat-screen--v2 .narrator-card__more p {
+  font-family: var(--font-reading);
+  font-style: normal;
+  font-size: calc(16px * var(--text-scale, 1));
+  line-height: 1.65;
+}
+
+/* ---------- Composer ---------- */
+
+.chat-screen--v2 .chat-v2__composer {
+  flex-shrink: 0;
+  padding: 12px 25px 16px;
+  border-top: 1px solid var(--v2-line);
+  background: rgba(255, 255, 252, 0.25);
+}
+
+.chat-screen--v2 .response-options,
+.chat-screen--v2 .hint-bar,
+.chat-screen--v2 .chat-screen__error {
+  width: auto;
+  max-width: none;
+  margin: 0 0 10px;
+}
+
+.chat-screen--v2 .response-options__chips {
+  padding: 0;
+}
+
+.chat-screen--v2 .response-options__chip {
+  max-width: 47%;
+  min-height: 44px;
+  padding: 9px 14px;
+  border-radius: 23px;
+  background: rgba(255, 255, 255, 0.94);
+  font-size: calc(13px * var(--text-scale, 1));
+  line-height: 1.4;
+}
+
+.chat-screen--v2 .response-options__chip:hover {
+  background: #f1f7f3;
+  border-color: #93aaa0;
+}
+
+.chat-screen--v2 .chat-v2__hint-link {
+  display: block;
+  margin: 0 0 10px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  font-size: calc(12px * var(--text-scale, 1));
+  font-weight: 500;
+  color: #315e53;
+}
+
+.chat-screen--v2 .chat-v2__hint-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.chat-screen--v2 .chat-screen__input {
+  width: auto;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.chat-screen--v2 .chat-screen__input textarea {
+  min-height: 46px;
+  max-height: 180px;
+  padding: 11px 18px;
+  border: 1px solid #e0ddd5;
+  border-radius: 23px;
+  background: rgba(255, 255, 255, 0.96);
+  font-size: calc(15px * var(--text-scale, 1));
+  line-height: 1.45;
+}
+
+.chat-screen--v2 .chat-screen__input textarea::placeholder {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-screen--v2 .chat-screen__input textarea:focus {
+  outline: none;
+  border-color: var(--v2-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--v2-accent) 18%, transparent);
+}
+
+.chat-screen--v2 .chat-screen__input button {
+  min-height: 46px;
+  padding: 0 26px;
+  background: var(--v2-accent);
+  font-size: calc(15px * var(--text-scale, 1));
+}
+
+.chat-screen--v2 .chat-v2__keyhint {
+  margin: 6px 0 0 19px;
+  font-size: calc(11px * var(--text-scale, 1));
+  color: var(--v2-muted);
+}
+
+/* ---------- Practice focus side card ---------- */
+
+.chat-screen--v2 .practice-focus__card {
+  position: relative;
+  overflow: hidden;
+  padding: 22px;
+  background: linear-gradient(155deg, rgba(249, 250, 240, 0.96), rgba(249, 248, 239, 0.91));
+  border-radius: 12px;
+  color: var(--v2-text);
+}
+
+/* A soft watercolor wash in the corner. */
+.chat-screen--v2 .practice-focus__card::before {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  width: 170px;
+  height: 145px;
+  right: -55px;
+  top: -50px;
+  border-radius: 47% 53% 65% 35%;
+  background: radial-gradient(ellipse, #b4d0bc50 0%, #ccddc335 45%, transparent 72%);
+  transform: rotate(-25deg);
+}
+
+/* ---------- Hiding the practice focus ----------
+   On wide layouts the chat and the practice focus are one surface: no gap
+   between them, just a hairline seam, with the hide/show arrow sitting on
+   that seam. Hidden, the column folds to a slim bar that keeps the mission
+   count; the same arrow (now pointing left) brings it back. */
+
+@media (min-width: 1001px) {
+  .chat-screen--v2 .chat-v2__layout {
+    column-gap: 0;
+    transition: grid-template-columns 0.28s ease;
+  }
+
+  .chat-screen--v2 .chat-v2__panel {
+    border-right: 0;
+    border-radius: 16px 0 0 16px;
+  }
+}
+
+.chat-screen--v2 .chat-v2__layout--focus-collapsed {
+  grid-template-columns: minmax(0, 1fr) 46px;
+}
+
+[data-motion="reduce"] .chat-screen--v2 .chat-v2__layout {
+  transition: none;
+}
+
+.chat-screen--v2 .practice-focus {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--v2-panel);
+  border: 1px solid var(--v2-panel-border);
+  border-left: 1px solid var(--v2-line);
+  border-radius: 0 16px 16px 0;
+  box-shadow: 0 10px 40px #36493d08;
+}
+
+.chat-screen--v2 .practice-focus__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.chat-screen--v2 .practice-focus__toggle {
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid #cfd8ca;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #3f5a4c;
+  box-shadow: 0 2px 8px rgba(40, 60, 45, 0.16);
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.chat-screen--v2 .practice-focus__toggle:hover {
+  border-color: #8fa894;
+  box-shadow: 0 3px 12px rgba(40, 60, 45, 0.24);
+}
+
+.chat-screen--v2 .practice-focus__toggle:focus-visible {
+  outline: 3px solid var(--scenario-accent, #34594f);
+  outline-offset: 2px;
+}
+
+.chat-screen--v2 .practice-focus__rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  height: 100%;
+  padding: 18px 0;
+  border-radius: 0 16px 16px 0;
+  color: #34594f;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.chat-screen--v2 .practice-focus__rail:hover {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.chat-screen--v2 .practice-focus__rail-count {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(245, 230, 189, 0.85);
+  color: #5c4a1f;
+  font-size: calc(11px * var(--text-scale, 1));
+  font-weight: 700;
+}
+
+/* The folded bar's target-and-arrow emblem (see TargetMark). */
+.chat-screen--v2 .practice-focus__mark {
+  display: block;
+  flex-shrink: 0;
+  width: calc(34px * var(--text-scale, 1));
+  height: calc(34px * var(--text-scale, 1));
+  overflow: visible;
+  filter: drop-shadow(0 2px 3px rgba(90, 53, 32, 0.2));
+}
+
+.chat-screen--v2 .practice-focus__mark-wash {
+  fill: #e6c2a6;
+  opacity: 0.55;
+}
+
+.chat-screen--v2 .practice-focus__mark-arrow {
+  transition: transform 0.25s ease;
+}
+
+/* Hovering the bar re-fires the arrow: it pulls back a touch. */
+.chat-screen--v2 .practice-focus__rail:hover .practice-focus__mark-arrow {
+  transform: translate(2px, -2px);
+}
+
+[data-motion="reduce"] .chat-screen--v2 .practice-focus__mark-arrow {
+  transition: none;
+}
+
+html[data-theme="dark"] .chat-screen--v2 .practice-focus__toggle {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+html:is([data-contrast="high"], [data-contrast="dark"], [data-contrast="light"]) .chat-screen--v2 .practice-focus__toggle {
+  background: var(--color-surface);
+  border: 2px solid var(--color-text);
+  color: var(--color-text);
+}
+
+html:is([data-contrast="high"], [data-contrast="dark"], [data-contrast="light"]) .chat-screen--v2 .practice-focus__rail-count {
+  background: none;
+  color: var(--color-text);
+}
+
+.chat-screen--v2 .practice-focus__eyebrow {
+  position: relative;
+  font-size: calc(11px * var(--text-scale, 1));
+  font-weight: 650;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: #74673f;
+}
+
+.chat-screen--v2 .practice-focus__heading {
+  position: relative;
+  margin: 10px 0 12px;
+  font: 500 calc(23px * var(--text-scale, 1))/1.3 Georgia, serif;
+  color: #34594f;
+}
+
+.chat-screen--v2 .practice-focus__lead {
+  position: relative;
+  margin: 0;
+  font-size: calc(13px * var(--text-scale, 1));
+  line-height: 1.7;
+  color: var(--v2-muted);
+}
+
+.chat-screen--v2 .practice-focus__mission {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #d9dfcf;
+}
+
+.chat-screen--v2 .practice-focus__mission-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: calc(11px * var(--text-scale, 1));
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #86682a;
+}
+
+.chat-screen--v2 .practice-focus__mission-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-screen--v2 .practice-focus__mission-count {
+  letter-spacing: 0.5px;
+  color: #6e5a2c;
+}
+
+.chat-screen--v2 .practice-focus__bar {
+  display: flex;
+  gap: 4px;
+  margin: 9px 0 12px;
+}
+
+.chat-screen--v2 .practice-focus__bar i {
+  flex: 1;
+  height: 4px;
+  border-radius: 4px;
+  background: #e4e5d9;
+  transition: background-color 0.3s;
+}
+
+.chat-screen--v2 .practice-focus__bar i.is-on {
+  background: #7fa58f;
+}
+
+.chat-screen--v2 .practice-focus__objectives {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-screen--v2 .practice-focus__objective {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 9px 10px 9px 13px;
+  border-left: 3px solid transparent;
+  border-radius: 4px 10px 10px 4px;
+  font-size: calc(13px * var(--text-scale, 1));
+  line-height: 1.5;
+  color: #59645d;
+  transition: background-color 0.3s;
+}
+
+.chat-screen--v2 .practice-focus__check {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border: 1.5px solid #a3ae9f;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #fff;
+  font-size: calc(12px * var(--text-scale, 1));
+  line-height: 1;
+}
+
+.chat-screen--v2 .practice-focus__objective--current {
+  background: rgba(245, 230, 189, 0.7);
+  border-left-color: #c9a24a;
+  color: #3b3624;
+  font-weight: 600;
+}
+
+.chat-screen--v2 .practice-focus__objective--current .practice-focus__check {
+  border-color: #8a6a1f;
+}
+
+.chat-screen--v2 .practice-focus__objective--done {
+  color: #6c7a71;
+}
+
+.chat-screen--v2 .practice-focus__objective--done .practice-focus__check {
+  background: #6f9a83;
+  border-color: #6f9a83;
+}
+
+.chat-screen--v2 .practice-focus__objective--done .practice-focus__check::after {
+  content: "✓";
+}
+
+.chat-screen--v2 .practice-focus__complete {
+  margin: 12px 0 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: rgba(216, 232, 224, 0.75);
+  color: #2f5f55;
+  font-size: calc(12.5px * var(--text-scale, 1));
+  line-height: 1.5;
+}
+
+/* Its own frosted backing rather than sitting bare on the scenario photo --
+   some backgrounds (Ms. Alvarez's classroom) are dark enough behind here
+   to swallow plain text. */
+.chat-screen--v2 .practice-focus__note {
+  margin-top: 12px;
+  padding: 14px 18px 16px;
+  font-size: calc(13px * var(--text-scale, 1));
+  line-height: 1.7;
+  color: #3f4b43;
+  background: rgba(251, 251, 245, 0.86);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+}
+
+.chat-screen--v2 .practice-focus__note strong {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #424f45;
+}
+
+/* The side card replaces the floating mission badge on wide layouts. */
+@media (min-width: 1001px) {
+  .chat-screen--v2 .mission-badge {
+    display: none;
+  }
+}
+
+@media (max-width: 1000px) {
+  .chat-screen--v2 .chat-v2__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .chat-screen--v2 .practice-focus {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .chat-screen--v2 .chat-header__brand-name {
+    display: none;
+  }
+
+  .chat-screen--v2 .chat-header__brand {
+    margin-right: 4px;
+  }
+}
+
+@media (max-width: 640px) {
+  .chat-screen--v2 .chat-header__row {
+    grid-template-columns: 1fr auto;
+    row-gap: 2px;
+    height: auto;
+    padding: 8px 14px 6px;
+  }
+
+  .chat-screen--v2 .chat-header__title {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    text-align: center;
+    font-size: calc(15px * var(--text-scale, 1));
+  }
+
+  .chat-screen--v2 .chat-v2__layout {
+    padding: 10px;
+  }
+
+  .chat-screen--v2 .chat-v2__panel {
+    border-radius: 12px;
+  }
+
+  .chat-screen--v2 .chat-screen__messages {
+    padding: 12px 14px 10px;
+  }
+
+  .chat-screen--v2 .chat-v2__composer {
+    padding: 10px 12px 12px;
+  }
+
+  .chat-screen--v2 .response-options__chip {
+    max-width: 100%;
+  }
+
+  .chat-screen--v2 .chat-screen__input button {
+    padding: 0 18px;
+  }
+}
+
+@media (max-width: 430px) {
+  .chat-screen--v2 .chat-header__voice,
+  .chat-screen--v2 .chat-header__tutorial {
+    width: 32px;
+    padding: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-screen--v2 .practice-focus__bar i,
+  .chat-screen--v2 .practice-focus__objective {
+    transition: none;
+  }
+}
+
+/* ---------- Dark theme ---------- */
+
+[data-theme="dark"] .chat-screen--v2 {
+  --v2-panel: rgba(36, 32, 48, 0.72);
+  --v2-panel-border: var(--color-border);
+  --v2-line: var(--color-border);
+  --v2-muted: var(--color-text-muted);
+  --v2-bubble: var(--color-surface);
+  --v2-bubble-border: var(--color-border);
+  --v2-user-bubble: #2c3d3c;
+  --v2-text: var(--color-text);
+}
+
+[data-theme="dark"] .chat-screen--v2 .chat-header {
+  background: rgba(26, 23, 33, 0.9);
+  border-bottom-color: var(--color-border);
+}
+
+[data-theme="dark"] .chat-screen--v2 .chat-v2__composer {
+  background: transparent;
+}
+
+[data-theme="dark"] .chat-screen--v2 .narrator-card {
+  background: var(--color-narrator-tint);
+}
+
+[data-theme="dark"] .chat-screen--v2 .narrator-card p,
+[data-theme="dark"] .chat-screen--v2 .narrator-card__label,
+[data-theme="dark"] .chat-screen--v2 .narrator-card__more summary {
+  color: var(--color-text-muted);
+}
+
+[data-theme="dark"] .chat-screen--v2 .narrator-card .narrator-card__setting {
+  color: var(--color-narrator-accent);
+}
+
+[data-theme="dark"] .chat-screen--v2 .chat-screen__input textarea,
+[data-theme="dark"] .chat-screen--v2 .response-options__chip {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+[data-theme="dark"] .chat-screen--v2 .chat-v2__hint-link {
+  color: var(--color-narrator-accent);
+}
+
+[data-theme="dark"] .chat-screen--v2 .practice-focus__card,
+[data-theme="dark"] .chat-screen--v2 .practice-focus__note {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+[data-theme="dark"] .chat-screen--v2 .practice-focus__heading {
+  color: var(--color-narrator-accent);
+}
+
+[data-theme="dark"] .chat-screen--v2 .practice-focus__lead,
+[data-theme="dark"] .chat-screen--v2 .practice-focus__objective,
+[data-theme="dark"] .chat-screen--v2 .practice-focus__note,
+[data-theme="dark"] .chat-screen--v2 .practice-focus__note strong {
+  color: var(--color-text-muted);
+}
+
+[data-theme="dark"] .chat-screen--v2 .practice-focus__objective--current {
+  background: var(--color-mission-tint);
+  color: var(--color-text);
+}
+
+/* ---------- High contrast ---------- */
+
+[data-contrast="high"] .chat-screen--v2 .chat-v2__panel,
+[data-contrast="high"] .chat-screen--v2 .practice-focus,
+[data-contrast="high"] .chat-screen--v2 .practice-focus__card,
+[data-contrast="high"] .chat-screen--v2 .practice-focus__note {
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+}
+
+[data-contrast="high"] .chat-screen--v2 .bubble-row--assistant .bubble,
+[data-contrast="high"] .chat-screen--v2 .bubble-row--user .bubble {
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  color: var(--color-text);
+}
+
+[data-contrast="high"] .chat-screen--v2 .chat-screen__input button {
+  background: var(--color-primary);
+}
+
+/* ---------- Typing indicator ---------- */
+
+/* While the AI writes its reply: a small bubble with the speaker's name and
+   three dots that rise in a wave. It fades up into place, matching the way
+   a new message arrives. */
+.chat-screen--v2 .chat-v2__typing-row {
+  animation: v2-bubble-in 0.28s ease-out both;
+}
+
+.chat-screen--v2 .bubble--typing {
+  width: auto;
+  min-width: 0;
+  padding: 10px 16px 12px;
+}
+
+/* Sized in em off the bubble's text, so the dots grow with Bigger Text. */
+.chat-screen--v2 .chat-v2__typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32em;
+  height: 0.9em;
+  padding-top: 0.3em;
+  font-size: calc(16px * var(--text-scale, 1));
+}
+
+.chat-screen--v2 .chat-v2__typing-dots i {
+  width: 0.45em;
+  height: 0.45em;
+  border-radius: 50%;
+  background: var(--v2-accent, #4f8a8b);
+  opacity: 0.35;
+  animation: v2-typing-wave 1.2s ease-in-out infinite;
+}
+
+.chat-screen--v2 .chat-v2__typing-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.chat-screen--v2 .chat-v2__typing-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes v2-typing-wave {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+  30% { transform: translateY(-0.32em); opacity: 1; }
+}
+
+@keyframes v2-bubble-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Reduce motion: no wave or pulse -- the dots just sit there, fully visible. */
+[data-motion="reduce"] .chat-screen--v2 .chat-v2__typing-dots i,
+[data-motion="reduce"] .chat-screen--v2 .chat-v2__mode.is-typing .chat-v2__dot {
+  animation: none;
+  opacity: 0.8;
+}
+
+[data-contrast="high"] .chat-screen--v2 .chat-v2__typing-dots i {
+  background: currentColor;
+}
+
+/* ---------- Reply arrival ---------- */
+
+/* The reply grows out of the typing bubble from its top-left corner -- the
+   animation itself is in MessageBubble.jsx (growFrom). */
+.chat-screen--v2 .bubble--arriving {
+  transform-origin: top left;
+}
+
+/* "Mission Updated" and the Narrator's aside rise in gently when their turn
+   comes, a beat after the reply (see scheduleReveals in ChatScreen.jsx). */
+.chat-screen--v2 .narrator-box--note {
+  animation: v2-bubble-in 0.4s ease-out both;
+}

@@ -11,6 +11,38 @@ const EDGE_INSET = 6;
 const MAX_CORNER_RADIUS = 28;
 const CALLOUT_WIDTH = 280;
 const CALLOUT_MARGIN = 16;
+// The ripples that pulse out from the spotlight: how far each travels, and
+// how many are in flight at once.
+const WAVE_SPREAD = 18;
+const WAVE_COUNT = 3;
+const WAVE_SECONDS = 2.1;
+// Room left between a side-placed callout and its target, for the wavy
+// pointer (and the ripples) to show in.
+const SIDE_GAP = 76;
+
+/**
+ * A gently wavy line from (x1, y1) to (x2, y2) -- the callout's pointer. The
+ * wave fades out toward both ends (a sine envelope), so it leaves the callout
+ * cleanly and the arrowhead at the target end still points straight in.
+ */
+function wavyPath(x1, y1, x2, y2) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const length = Math.hypot(dx, dy);
+  if (length < 1) return `M ${x1} ${y1} L ${x2} ${y2}`;
+  const nx = -dy / length;
+  const ny = dx / length;
+  const amplitude = Math.min(6, length / 10);
+  const waves = Math.max(1, Math.round(length / 26));
+  const points = [];
+  const samples = Math.max(12, Math.round(length / 3));
+  for (let i = 0; i <= samples; i += 1) {
+    const t = i / samples;
+    const offset = amplitude * Math.sin(Math.PI * t) * Math.sin(2 * Math.PI * waves * t);
+    points.push(`${(x1 + dx * t + nx * offset).toFixed(1)} ${(y1 + dy * t + ny * offset).toFixed(1)}`);
+  }
+  return `M ${points.join(" L ")}`;
+}
 
 /**
  * A dashed-circle-and-arrow coach-mark walkthrough -- spotlights one real
@@ -22,9 +54,15 @@ const CALLOUT_MARGIN = 16;
  *
  * Only ever shows once per storageKey (persisted in localStorage) unless
  * explicitly replayed -- see each caller's own "?" replay trigger.
+ *
+ * Step options beyond target/title/text:
+ *   opensAccessibilityMenu -- opens the Accessibility menu for this step
+ *     (and closes it again on the way out), so the walkthrough can show it.
+ *   placement: "left" -- put the callout beside the target rather than
+ *     above/below it; for tall targets like that full-height menu.
  */
 export default function TutorialOverlay({ steps, storageKey, active }) {
-  const { resolvedMotion } = useAccessibility();
+  const { resolvedMotion, openPanel, closePanel } = useAccessibility();
   const [stepIndex, setStepIndex] = useState(0);
   const [dismissed, setDismissed] = useState(() => {
     try {
@@ -44,6 +82,13 @@ export default function TutorialOverlay({ steps, storageKey, active }) {
 
   const running = active && !dismissed;
   const step = steps[stepIndex];
+
+  const opensMenu = running && Boolean(step?.opensAccessibilityMenu);
+  useEffect(() => {
+    if (!opensMenu) return undefined;
+    openPanel();
+    return () => closePanel();
+  }, [opensMenu, stepIndex, openPanel, closePanel]);
 
   // Polls for the target element rather than assuming it's already in the
   // DOM -- scenario cards/mission badge/etc. all depend on data that loads
@@ -65,6 +110,15 @@ export default function TutorialOverlay({ steps, storageKey, active }) {
         // the ring visibly travels into place along with it.
         el.scrollIntoView({ block: "center", behavior: resolvedMotion === "reduce" ? "auto" : "smooth" });
         setRect(el.getBoundingClientRect());
+        // Follow a target that's still sliding into place (the
+        // Accessibility menu animates in) for a moment after it appears.
+        const settleUntil = performance.now() + 500;
+        const follow = () => {
+          if (cancelled) return;
+          setRect(el.getBoundingClientRect());
+          if (performance.now() < settleUntil) requestAnimationFrame(follow);
+        };
+        requestAnimationFrame(follow);
       } else {
         setTimeout(measure, 150);
       }
@@ -138,15 +192,20 @@ export default function TutorialOverlay({ steps, storageKey, active }) {
   // known). Then: prefer whichever side has room for the whole callout, and
   // always clamp so it stays fully on screen whatever side it ends up on.
   const calloutH = calloutHeight || 200;
+  const placeLeft = step.placement === "left" && hlLeft - SIDE_GAP >= CALLOUT_WIDTH + CALLOUT_MARGIN;
   const roomBelow = viewport.height - (cy + ry);
-  const placeBelow = roomBelow > calloutH + 18 || cy - ry < calloutH + 18;
-  const calloutTopRaw = placeBelow
-    ? Math.max(CALLOUT_MARGIN, Math.min(cy + ry + 18, viewport.height - calloutH - CALLOUT_MARGIN))
-    : undefined;
+  const placeBelow = placeLeft || roomBelow > calloutH + 18 || cy - ry < calloutH + 18;
+  const calloutTopRaw = placeLeft
+    ? Math.max(CALLOUT_MARGIN, Math.min(viewport.height * 0.38 - calloutH / 2, viewport.height - calloutH - CALLOUT_MARGIN))
+    : placeBelow
+      ? Math.max(CALLOUT_MARGIN, Math.min(cy + ry + 18, viewport.height - calloutH - CALLOUT_MARGIN))
+      : undefined;
   const calloutBottomRaw = placeBelow
     ? undefined
     : Math.max(CALLOUT_MARGIN, Math.min(viewport.height - (cy - ry) + 18, viewport.height - calloutH - CALLOUT_MARGIN));
-  const calloutLeftRaw = Math.max(CALLOUT_MARGIN, Math.min(cx - CALLOUT_WIDTH / 2, viewport.width - CALLOUT_WIDTH - CALLOUT_MARGIN));
+  const calloutLeftRaw = placeLeft
+    ? hlLeft - SIDE_GAP - CALLOUT_WIDTH
+    : Math.max(CALLOUT_MARGIN, Math.min(cx - CALLOUT_WIDTH / 2, viewport.width - CALLOUT_WIDTH - CALLOUT_MARGIN));
 
   // getBoundingClientRect() (what `rect`/cx/cy/rx/ry above come from) reports
   // true post-zoom screen pixels. But this app runs with `zoom` set on
@@ -173,13 +232,29 @@ export default function TutorialOverlay({ steps, storageKey, active }) {
   //    confirmed empirically: the ring landed ~130px too low on a 900px
   //    screen before this was added, invisibly below the fold).
 
-  const arrowStartX = calloutLeftRaw + CALLOUT_WIDTH / 2;
-  const arrowStartY = placeBelow ? (calloutTopRaw ?? 0) - 2 : viewport.height - (calloutBottomRaw ?? 0) + 2;
-  const arrowEndY = placeBelow ? cy + ry : cy - ry;
+  let arrowStartX = calloutLeftRaw + CALLOUT_WIDTH / 2;
+  let arrowStartY = placeBelow ? (calloutTopRaw ?? 0) - 2 : viewport.height - (calloutBottomRaw ?? 0) + 2;
+  let arrowEndY = placeBelow ? cy + ry : cy - ry;
   // Land the arrow on the frame's edge as directly below/above the callout as
   // the frame allows, rather than swooping to the middle of a wide frame.
-  const arrowEndX = Math.min(Math.max(arrowStartX, hlLeft + cornerRadius), hlRight - cornerRadius);
-  const arrowMidY = (arrowStartY + arrowEndY) / 2;
+  let arrowEndX = Math.min(Math.max(arrowStartX, hlLeft + cornerRadius), hlRight - cornerRadius);
+  if (placeLeft) {
+    // Beside the target: from the callout's right edge straight across.
+    arrowStartX = calloutLeftRaw + CALLOUT_WIDTH + 2;
+    arrowStartY = (calloutTopRaw ?? 0) + Math.min(calloutH / 2, 60);
+    arrowEndX = hlLeft - 4;
+    arrowEndY = Math.min(Math.max(arrowStartY, hlTop + cornerRadius), hlBottom - cornerRadius);
+  }
+  // On a narrow screen a tall target (the Accessibility menu) leaves no room
+  // beside or around it, so the callout ends up sitting on it -- no pointer
+  // then; it would just dangle off the callout's edge.
+  const calloutTopEdge = calloutTopRaw ?? viewport.height - (calloutBottomRaw ?? 0) - calloutH;
+  const calloutOnTarget =
+    calloutLeftRaw < hlRight &&
+    calloutLeftRaw + CALLOUT_WIDTH > hlLeft &&
+    calloutTopEdge < hlBottom &&
+    calloutTopEdge + calloutH > hlTop;
+  const animateWaves = resolvedMotion !== "reduce";
 
   return (
     <div className="tutorial-overlay" role="dialog" aria-modal="true" aria-label="Getting started walkthrough">
@@ -201,7 +276,7 @@ export default function TutorialOverlay({ steps, storageKey, active }) {
             <rect x={hlLeft} y={hlTop} width={hlRight - hlLeft} height={hlBottom - hlTop} rx={cornerRadius} fill="black" />
           </mask>
           <marker id={`${storageKey}-arrowhead`} markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
-            <path d="M0,0 L8,4 L0,8" fill="none" stroke="var(--color-primary)" strokeWidth="1.6" />
+            <path d="M0,0 L8,4 L0,8" fill="none" stroke="var(--tutorial-accent, var(--color-primary))" strokeWidth="1.6" />
           </marker>
         </defs>
         <rect
@@ -220,19 +295,77 @@ export default function TutorialOverlay({ steps, storageKey, active }) {
           height={hlBottom - hlTop}
           rx={cornerRadius}
           fill="none"
-          stroke="var(--color-primary)"
+          stroke="var(--tutorial-accent, var(--color-primary))"
           strokeWidth="2.5"
           strokeDasharray="7 7"
           className="tutorial-overlay__ring"
         />
-        <path
-          d={`M ${arrowStartX} ${arrowStartY} Q ${arrowStartX} ${arrowMidY} ${arrowEndX} ${arrowEndY}`}
-          fill="none"
-          stroke="var(--color-primary)"
-          strokeWidth="2"
-          strokeDasharray="5 6"
-          markerEnd={`url(#${storageKey}-arrowhead)`}
-        />
+        {/* Waves: rounded frames that ripple out from the spotlight and
+            fade, like rings on water, to draw the eye to it. A single
+            still ring stands in for them with reduced motion. */}
+        {animateWaves
+          ? Array.from({ length: WAVE_COUNT }, (_, i) => (
+              <rect
+                key={i}
+                className="tutorial-overlay__wave"
+                x={hlLeft}
+                y={hlTop}
+                width={hlRight - hlLeft}
+                height={hlBottom - hlTop}
+                rx={cornerRadius}
+                fill="none"
+                stroke="var(--tutorial-accent, var(--color-primary))"
+                opacity="0"
+              >
+                {[
+                  ["x", hlLeft, hlLeft - WAVE_SPREAD],
+                  ["y", hlTop, hlTop - WAVE_SPREAD],
+                  ["width", hlRight - hlLeft, hlRight - hlLeft + WAVE_SPREAD * 2],
+                  ["height", hlBottom - hlTop, hlBottom - hlTop + WAVE_SPREAD * 2],
+                  ["rx", cornerRadius, cornerRadius + WAVE_SPREAD],
+                  ["opacity", 0.75, 0],
+                  ["stroke-width", 3, 0.6],
+                ].map(([attr, from, to]) => (
+                  <animate
+                    key={attr}
+                    attributeName={attr}
+                    values={`${from};${to}`}
+                    dur={`${WAVE_SECONDS}s`}
+                    begin={`${(i * WAVE_SECONDS) / WAVE_COUNT}s`}
+                    repeatCount="indefinite"
+                    calcMode="spline"
+                    keySplines="0.2 0.6 0.35 1"
+                    keyTimes="0;1"
+                  />
+                ))}
+              </rect>
+            ))
+          : (
+              <rect
+                x={hlLeft - WAVE_SPREAD / 2}
+                y={hlTop - WAVE_SPREAD / 2}
+                width={hlRight - hlLeft + WAVE_SPREAD}
+                height={hlBottom - hlTop + WAVE_SPREAD}
+                rx={cornerRadius + WAVE_SPREAD / 2}
+                fill="none"
+                stroke="var(--tutorial-accent, var(--color-primary))"
+                strokeWidth="1.2"
+                opacity="0.45"
+              />
+            )}
+        {!calloutOnTarget && (
+          <path
+            className="tutorial-overlay__pointer"
+            d={wavyPath(arrowStartX, arrowStartY, arrowEndX, arrowEndY)}
+            fill="none"
+            stroke="var(--tutorial-accent, var(--color-primary))"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray="5 6"
+            markerEnd={`url(#${storageKey}-arrowhead)`}
+          />
+        )}
       </svg>
 
       <div

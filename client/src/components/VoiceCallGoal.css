@@ -24,7 +24,7 @@
   border: 1.5px solid color-mix(in srgb, #2a2620 40%, transparent);
   background: transparent;
   color: #2a2620;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--text-scale, 1));
   font-weight: 600;
   white-space: nowrap;
 }
@@ -72,13 +72,13 @@
 
 .voice-call__goal-title {
   margin: 0 0 var(--space-1);
-  font-size: 1.1rem;
+  font-size: calc(1.1rem * var(--text-scale, 1));
   font-weight: 700;
 }
 
 .voice-call__goal-text {
   margin: 0 0 var(--space-3);
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--text-scale, 1));
   line-height: 1.45;
 }
 
@@ -90,7 +90,7 @@
   border-radius: 999px;
   background: var(--scenario-accent-contrast);
   color: var(--scenario-accent);
-  font-size: 0.95rem;
+  font-size: calc(0.95rem * var(--text-scale, 1));
   font-weight: 700;
 }
 

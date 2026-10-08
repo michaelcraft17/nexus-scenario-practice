@@ -6,12 +6,29 @@
   --space-4: 16px;
   --space-5: 24px;
   --font-sans: "Work Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Longer narration meant to be read through (the chat's "Read full
+     context"): Lora keeps the calligraphic feel but with larger, more open
+     upright letters than EB Garamond's italic, so a few paragraphs stay
+     comfortable to read. */
+  --font-reading: "Lora", Georgia, "Iowan Old Style", serif;
   --font-narrator: "EB Garamond", Georgia, "Iowan Old Style", "Palatino Linotype", serif;
   --border-width: 1px;
   /* Set in JS (AccessibilityContext) alongside root.style.zoom, matching
      whatever text-size zoom is active -- 1 here is just the fallback for
      the instant before that effect runs on first paint. */
   --zoom-factor: 1;
+  /* Bigger Text multiplier, also set in AccessibilityContext. Every
+     font-size in the app is written as calc(size * var(--text-scale)) so
+     only the text grows -- images, icons and spacing stay put. */
+  --text-scale: 1;
+
+  /* Accessibility's own color -- a soft lavender-violet, the same on every screen
+     and in the menu, so the button is easy to spot. White on --a11y-violet
+     is ~6:1; the dark-theme pair below is the lighter partner for dark
+     backgrounds. */
+  --a11y-violet: #6a55a0;
+  --a11y-violet-tint: rgba(106, 85, 160, 0.13);
+  --a11y-violet-soft: #f4f1f9;
 
   /* Narrator = blue/green (sampled from the logo's teal hand), Mission =
      yellow -- fixed brand colors for these two voices/systems,
@@ -172,6 +189,7 @@
 [data-typeface="dyslexia"] {
   --font-sans: "OpenDyslexic", Verdana, Tahoma, "Trebuchet MS", sans-serif;
   --font-narrator: "OpenDyslexic", Verdana, Tahoma, "Trebuchet MS", sans-serif;
+  --font-reading: "OpenDyslexic", Verdana, Tahoma, "Trebuchet MS", sans-serif;
 }
 
 [data-typeface="dyslexia"] body {
@@ -204,9 +222,20 @@ body,
 body {
   margin: 0;
   font-family: var(--font-sans);
+  font-size: calc(16px * var(--text-scale, 1));
   color: var(--color-text);
   background: var(--color-bg);
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Read by screen readers, not shown on screen. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 button {
@@ -290,21 +319,86 @@ input {
     right: max(48px, calc(50% - 660px));
   }
 
-  .picker__rail-dots {
-    position: fixed;
-    left: max(28px, calc(50% - 680px));
-    top: 340px;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-  }
+}
 
-  .picker__rail-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    opacity: 0.8;
+/* Each dot is a 28px button (a comfortable click target) drawing a small
+   colored dot that grows on hover/focus. Shown only where the rail is
+   (1180px and up). */
+.picker__rail-dots {
+  display: none;
+  position: fixed;
+  z-index: 2;
+  left: max(18px, calc(50% - 690px));
+  top: 330px;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.picker__rail-dot {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.picker__rail-dot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--dot-color);
+  opacity: 0.8;
+  transition: transform 150ms ease, opacity 150ms ease, box-shadow 150ms ease;
+}
+
+.picker__rail-dot:hover::before,
+.picker__rail-dot:focus-visible::before {
+  opacity: 1;
+  transform: scale(1.6);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dot-color) 25%, transparent);
+}
+
+.picker__rail-dot:focus-visible {
+  outline: 2px solid var(--color-focus, var(--color-primary));
+  outline-offset: 1px;
+}
+
+@media (min-width: 1180px) {
+  .picker__rail-dots {
+    display: flex;
   }
+}
+
+/* The card a dot just jumped to glows in its own accent for a moment, so
+   it's obvious where you landed. */
+.scenario-card--jumped {
+  animation: scenario-card-jumped 1.6s ease-out;
+}
+
+@keyframes scenario-card-jumped {
+  0%,
+  35% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--scenario-accent, var(--color-primary)) 70%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 4px transparent;
+  }
+}
+
+[data-motion="reduce"] .picker__rail-dot::before {
+  transition: none;
+}
+
+[data-motion="reduce"] .scenario-card--jumped {
+  animation: none;
+  outline: 3px solid var(--scenario-accent, var(--color-primary));
 }
 
 .picker__a11y {
@@ -355,7 +449,7 @@ input {
   border: 1.5px solid #96702c;
   background: rgba(228, 163, 76, 0.14);
   color: #96702c;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
   font-weight: 500;
   text-decoration: none;
   white-space: nowrap;
@@ -447,7 +541,7 @@ input {
   align-items: center;
   justify-content: center;
   margin: 0;
-  font-size: 3.4rem;
+  font-size: calc(3.4rem * var(--text-scale, 1));
   font-weight: 800;
   letter-spacing: -0.01em;
   color: #ffffff;
@@ -467,7 +561,7 @@ input {
 
 [data-contrast="high"] .picker__hero-title {
   position: static;
-  font-size: 1.75rem;
+  font-size: calc(1.75rem * var(--text-scale, 1));
   color: var(--color-text);
   text-shadow: none;
 }
@@ -480,8 +574,9 @@ input {
 }
 
 .picker__framing {
-  font-style: italic;
   font-family: var(--font-narrator);
+  font-style: italic;
+  font-size: calc(17.5px * var(--narrator-size, 1) * var(--text-scale, 1));
   color: var(--color-narrator-accent);
   line-height: 1.6;
   max-width: 32em;
@@ -497,7 +592,7 @@ input {
 .picker__tagline {
   margin: 0;
   color: var(--color-text-muted);
-  font-size: 1rem;
+  font-size: calc(1rem * var(--text-scale, 1));
   line-height: 1.5;
   max-width: 32em;
 }
@@ -553,7 +648,7 @@ input {
   }
 
   .picker__hero-title {
-    font-size: 4.25rem;
+    font-size: calc(4.25rem * var(--text-scale, 1));
   }
 
   /* The plain description line is redundant with the framing sentence at
@@ -643,7 +738,7 @@ input {
 
 .scenario-card__title {
   margin: 0;
-  font-size: 18px;
+  font-size: calc(18px * var(--text-scale, 1));
   font-weight: 600;
   line-height: 1.25;
 }
@@ -660,7 +755,7 @@ input {
   padding: 12px 14px;
   font-family: var(--font-narrator);
   font-style: italic;
-  font-size: 14.5px;
+  font-size: calc(17.5px * var(--narrator-size, 1) * var(--text-scale, 1));
   line-height: 1.55;
   color: var(--scenario-text, var(--color-text));
 }
@@ -674,26 +769,69 @@ input {
   border-radius: 999px;
   background: var(--scenario-tint-strong, var(--color-tint));
   color: var(--scenario-badge-text, var(--color-primary));
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--text-scale, 1));
   font-weight: 600;
 }
 
 /* Whichever line the mouse is over grows slightly, settling back the
    moment it leaves -- transform (not font-size) so it never reflows its
-   siblings, just a quiet "this is what you're looking at" nudge. */
+   siblings, just a quiet "this is what you're looking at" nudge. Not the
+   scene box (.scenario-card__intro): it spans the card's full width, so
+   growing it pushed its tint into the card's border -- its words magnify
+   one at a time instead (.hover-word below). */
 .scenario-card__title,
-.scenario-card__intro,
 .scenario-card__practice {
   transition: transform 150ms ease;
   transform-origin: left center;
 }
 
 .scenario-card__title:hover,
-.scenario-card__intro:hover,
 .scenario-card__practice:hover {
   transform: scale(1.045);
   position: relative;
   z-index: 1;
+}
+
+/* And within that line, the single word under the mouse grows a little
+   more (see HoverWords.jsx), so you can follow the text word by word.
+   Again a transform, so neighbouring words and lines never shift. */
+.hover-word {
+  display: inline-block;
+  transition: transform 140ms ease;
+  transform-origin: center 70%;
+}
+
+/* Only while the Word Magnifier switch in the Accessibility menu is on
+   (data-word-magnifier, set by AccessibilityContext). A soft backing in the
+   card's own tint, so the enlarged word sits cleanly over the edges of its
+   neighbours instead of colliding with them. */
+[data-word-magnifier="on"] .hover-word:hover {
+  position: relative;
+  z-index: 2;
+  transform: scale(1.08);
+  border-radius: 4px;
+  background: var(--scenario-tint-strong, var(--color-tint));
+  box-shadow: 0 0 0 2px var(--scenario-tint-strong, var(--color-tint));
+}
+
+/* The words either side of it grow a little too, like a magnifying glass
+   tapering off, so the eye has a soft lead-in and lead-out. (Sibling
+   selectors skip the plain-text spaces between the word spans.) */
+[data-word-magnifier="on"] .hover-word:hover + .hover-word,
+[data-word-magnifier="on"] .hover-word:has(+ .hover-word:hover) {
+  position: relative;
+  z-index: 1;
+  transform: scale(1.035);
+}
+
+/* Narration (the Narrator card and asides, "Explain that") sits on the
+   Narrator's blue-green tint, not a scenario tint -- back its hovered word
+   with a slightly deeper shade of that instead of the lavender default. */
+.narrator-card,
+.narrator-box,
+.bubble--narrator,
+.bubble__explanation {
+  --scenario-tint-strong: color-mix(in srgb, var(--color-narrator-accent) 16%, var(--color-narrator-tint));
 }
 
 /* Matches the app's own resolved-motion setting (AccessibilityContext),
@@ -702,7 +840,8 @@ input {
    "Reduce motion" toggle, not just the OS-level preference. */
 [data-motion="reduce"] .scenario-card__title,
 [data-motion="reduce"] .scenario-card__intro,
-[data-motion="reduce"] .scenario-card__practice {
+[data-motion="reduce"] .scenario-card__practice,
+[data-motion="reduce"] .hover-word {
   transition: none;
 }
 
@@ -724,7 +863,7 @@ input {
   border-radius: 999px;
   padding: 11px 0;
   min-height: 44px;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
   font-weight: 600;
   text-align: center;
   box-shadow: 0 3px 0 color-mix(in srgb, var(--scenario-accent) 78%, black);
@@ -932,7 +1071,7 @@ input {
   border-radius: 999px;
   min-width: 40px;
   min-height: 40px;
-  font-size: 1.1rem;
+  font-size: calc(1.1rem * var(--text-scale, 1));
   flex-shrink: 0;
 }
 
@@ -944,7 +1083,7 @@ input {
   flex: 1;
   text-align: center;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: calc(0.95rem * var(--text-scale, 1));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -963,7 +1102,7 @@ input {
   min-width: 40px;
   min-height: 40px;
   font-weight: 600;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--text-scale, 1));
   flex-shrink: 0;
 }
 
@@ -985,7 +1124,7 @@ input {
   min-width: 40px;
   min-height: 40px;
   font-weight: 600;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--text-scale, 1));
   flex-shrink: 0;
   white-space: nowrap;
 }
@@ -1012,7 +1151,7 @@ input {
   min-width: 40px;
   min-height: 40px;
   font-weight: 600;
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--text-scale, 1));
   flex-shrink: 0;
   white-space: nowrap;
 }
@@ -1066,21 +1205,21 @@ input {
    .a11y-button: Accessibility should look identical everywhere so it's
    instantly recognizable regardless of which scenario is active. */
 .chat-header__access {
-  background: rgba(108, 91, 123, 0.14);
-  color: #6c5b7b;
+  background: var(--a11y-violet-tint);
+  color: var(--a11y-violet);
   border: none;
   border-radius: 999px;
   padding: 0 var(--space-2);
   min-width: 40px;
   min-height: 40px;
   font-weight: 600;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--text-scale, 1));
   flex-shrink: 0;
 }
 
 [data-theme="dark"] .chat-header__access {
-  background: rgba(138, 118, 163, 0.22);
-  color: #b3a0c7;
+  background: rgba(176, 158, 214, 0.2);
+  color: #c8badf;
 }
 
 [data-contrast="high"] .chat-header__hint,
@@ -1125,7 +1264,7 @@ input {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  font-size: 0.68rem;
+  font-size: calc(0.68rem * var(--text-scale, 1));
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1134,7 +1273,7 @@ input {
 
 .mission-badge__progress {
   margin-left: auto;
-  font-size: 0.68rem;
+  font-size: calc(0.68rem * var(--text-scale, 1));
 }
 
 .mission-badge__next {
@@ -1142,7 +1281,7 @@ input {
   align-items: flex-start;
   gap: 8px;
   margin-top: var(--space-1);
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--text-scale, 1));
   font-weight: 600;
   line-height: 1.3;
 }
@@ -1164,7 +1303,7 @@ input {
 
 .mission-badge__text {
   margin: 0 0 var(--space-2);
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--text-scale, 1));
   line-height: 1.5;
   color: var(--color-text-muted);
 }
@@ -1182,14 +1321,14 @@ input {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--text-scale, 1));
   line-height: 1.4;
   color: var(--color-text);
 }
 
 .mission-badge__checkbox {
   flex-shrink: 0;
-  font-size: 1rem;
+  font-size: calc(1rem * var(--text-scale, 1));
   line-height: 1.4;
 }
 
@@ -1207,7 +1346,7 @@ input {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--text-scale, 1));
   line-height: 1.5;
 }
 
@@ -1223,7 +1362,7 @@ input {
 .hint-bar__close {
   background: none;
   border: none;
-  font-size: 1.25rem;
+  font-size: calc(1.25rem * var(--text-scale, 1));
   line-height: 1;
   color: inherit;
   opacity: 0.6;
@@ -1261,7 +1400,7 @@ input {
   color: var(--color-text);
   border-radius: 20px;
   padding: 10px 16px;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--text-scale, 1));
   line-height: 1.3;
   min-height: 40px;
   max-width: 320px;
@@ -1299,7 +1438,7 @@ input {
   margin: 0;
   font-family: var(--font-narrator);
   font-style: italic;
-  color: var(--color-text-muted);
+  color: var(--color-text);
   line-height: 1.6;
 }
 
@@ -1314,7 +1453,7 @@ input {
 }
 
 .narrator-box--note p {
-  font-size: 0.85rem;
+  font-size: calc(1.15rem * var(--narrator-size, 1) * var(--text-scale, 1));
 }
 
 .narrator-box--mission {
@@ -1330,7 +1469,7 @@ input {
   font-style: normal !important;
   font-weight: 700;
   color: var(--color-mission-accent) !important;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--text-scale, 1));
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -1418,7 +1557,7 @@ input {
   margin: 0;
   font-family: var(--font-narrator);
   font-style: italic;
-  color: var(--color-text-muted);
+  color: var(--color-text);
   line-height: 1.6;
 }
 
@@ -1427,7 +1566,7 @@ input {
 }
 
 .bubble__speaker {
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--text-scale, 1));
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -1449,7 +1588,7 @@ input {
   color: var(--scenario-accent-contrast, var(--color-primary-contrast));
   border-radius: 999px;
   padding: var(--space-1) var(--space-3);
-  font-size: 0.78rem;
+  font-size: calc(0.78rem * var(--text-scale, 1));
   font-weight: 600;
   min-height: 32px;
 }
@@ -1474,9 +1613,9 @@ input {
   padding: var(--space-3);
   font-family: var(--font-narrator);
   font-style: italic;
-  font-size: 0.9rem;
+  font-size: calc(1.12rem * var(--narrator-size, 1) * var(--text-scale, 1));
   line-height: 1.6;
-  color: var(--color-text-muted);
+  color: var(--color-text);
 }
 
 .bubble__explanation--error {
@@ -1490,7 +1629,7 @@ input {
   color: var(--color-danger);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius);
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--text-scale, 1));
 }
 
 /* No enclosing panel/border -- the textarea and Send button each carry
@@ -1518,7 +1657,7 @@ input {
   border-radius: 20px;
   padding: var(--space-3) var(--space-4);
   font-family: inherit;
-  font-size: 1rem;
+  font-size: calc(1rem * var(--text-scale, 1));
   line-height: 1.4;
   min-height: 44px;
   max-height: 160px;
@@ -1619,14 +1758,14 @@ input {
   .chat-header__exit {
     min-width: 48px;
     min-height: 48px;
-    font-size: 25px;
+    font-size: calc(25px * var(--text-scale, 1));
   }
 
   /* 30px at full desktop width, easing down as the window narrows: the row
      now holds Back, Tutorial, Talk Live, Hint and Accessibility, and a fixed
      30px clipped the longest scenario titles at ~1300px wide. */
   .chat-header__title {
-    font-size: clamp(22px, 1.9vw, 30px);
+    font-size: calc(clamp(22px, 1.9vw, 30px) * var(--text-scale, 1));
   }
 
   .chat-header__hint,
@@ -1635,32 +1774,32 @@ input {
   .chat-header__access {
     padding: 14px 24px;
     min-height: 48px;
-    font-size: 16px;
+    font-size: calc(16px * var(--text-scale, 1));
   }
 
   .bubble__speaker {
-    font-size: 1.125rem;
+    font-size: calc(1.125rem * var(--text-scale, 1));
   }
 
   .bubble--narrator p,
   .bubble__text {
-    font-size: 16.5px;
+    font-size: calc(17.5px * var(--text-scale, 1));
   }
 
   .bubble__explain-button {
     padding: 4px 10px;
-    font-size: 13px;
+    font-size: calc(13px * var(--text-scale, 1));
   }
 
   .chat-screen__input textarea {
     padding: 13px 18px;
-    font-size: 15px;
+    font-size: calc(15px * var(--text-scale, 1));
   }
 
   .chat-screen__input button {
     padding: 0 32px;
     min-height: 52px;
-    font-size: 17px;
+    font-size: calc(17px * var(--text-scale, 1));
   }
 }
 
@@ -1717,24 +1856,24 @@ input {
   border-radius: 999px;
   min-height: 44px;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: calc(0.95rem * var(--text-scale, 1));
 }
 
 .reflection-panel__header h2 {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: calc(1.15rem * var(--text-scale, 1));
 }
 
 .reflection-panel__subtitle {
   margin: var(--space-1) 0 0;
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--text-scale, 1));
   color: var(--color-text-muted);
 }
 
 .reflection-panel__close {
   background: none;
   border: none;
-  font-size: 1.5rem;
+  font-size: calc(1.5rem * var(--text-scale, 1));
   line-height: 1;
   color: var(--color-text-muted);
   min-height: 44px;
@@ -1749,7 +1888,7 @@ input {
 
 .reflection-panel__loading-note {
   margin-top: var(--space-2) !important;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--text-scale, 1));
   color: var(--color-text-muted);
 }
 
@@ -1802,7 +1941,7 @@ input {
 .voice-call__name {
   margin: 0;
   font-family: var(--font-narrator);
-  font-size: 1.7rem;
+  font-size: calc(1.7rem * var(--text-scale, 1));
   font-weight: 500;
   letter-spacing: 0.01em;
   color: #2a2620;
@@ -1810,7 +1949,7 @@ input {
 
 .voice-call__status {
   margin: var(--space-2) 0 0;
-  font-size: 0.72rem;
+  font-size: calc(0.72rem * var(--text-scale, 1));
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1826,7 +1965,7 @@ input {
   max-width: 30em;
   font-family: var(--font-narrator);
   font-style: italic;
-  font-size: 0.92rem;
+  font-size: calc(1.12rem * var(--text-scale, 1));
   line-height: 1.5;
   color: #4a4438;
 }
@@ -1841,7 +1980,7 @@ input {
   border-radius: var(--radius);
   background: color-mix(in srgb, var(--scenario-accent) 14%, transparent);
   color: color-mix(in srgb, var(--scenario-accent) 80%, #2a2620);
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--text-scale, 1));
   font-weight: 600;
   line-height: 1.45;
 }
@@ -1868,14 +2007,14 @@ input {
 .voice-call__ask-title {
   margin: 0;
   font-family: var(--font-narrator);
-  font-size: 1.3rem;
+  font-size: calc(1.3rem * var(--text-scale, 1));
   font-weight: 500;
   color: #2a2620;
 }
 
 .voice-call__ask-text {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--text-scale, 1));
   line-height: 1.5;
   color: #6b6355;
 }
@@ -1894,7 +2033,7 @@ input {
   min-height: 48px;
   border-radius: 999px;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: calc(0.95rem * var(--text-scale, 1));
 }
 
 .voice-call__ask-skip {
@@ -2277,7 +2416,7 @@ input {
   border-radius: 999px;
   min-width: 40px;
   min-height: 40px;
-  font-size: 1.1rem;
+  font-size: calc(1.1rem * var(--text-scale, 1));
 }
 
 [data-theme="dark"] .mode-select__back {
@@ -2309,7 +2448,7 @@ input {
 
 .mode-select__title {
   margin: 0;
-  font-size: 1.4rem;
+  font-size: calc(1.4rem * var(--text-scale, 1));
   font-weight: 700;
 }
 
@@ -2320,7 +2459,7 @@ input {
   padding: 12px 14px;
   font-family: var(--font-narrator);
   font-style: italic;
-  font-size: 14.5px;
+  font-size: calc(17.5px * var(--narrator-size, 1) * var(--text-scale, 1));
   line-height: 1.55;
 }
 
@@ -2333,14 +2472,14 @@ input {
   border-radius: 999px;
   background: color-mix(in srgb, var(--scenario-accent) 18%, var(--color-tint));
   color: var(--scenario-accent, var(--color-primary));
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--text-scale, 1));
   font-weight: 600;
 }
 
 .mode-select__prompt {
   margin: var(--space-4) 0 0;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: calc(0.95rem * var(--text-scale, 1));
 }
 
 .mode-select__options {
@@ -2381,13 +2520,13 @@ input {
 }
 
 .mode-select__option-title {
-  font-size: 1rem;
+  font-size: calc(1rem * var(--text-scale, 1));
   font-weight: 700;
   color: var(--color-text);
 }
 
 .mode-select__option-desc {
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--text-scale, 1));
   color: var(--color-text-muted);
   line-height: 1.4;
 }
@@ -2423,12 +2562,12 @@ input {
 
 .reflection-history__item-title {
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: calc(0.9rem * var(--text-scale, 1));
 }
 
 .reflection-history__item-date {
   flex-shrink: 0;
-  font-size: 0.75rem;
+  font-size: calc(0.75rem * var(--text-scale, 1));
   color: var(--color-text-muted);
 }
 
@@ -2442,7 +2581,7 @@ input {
 
 .reflection-section h3 {
   margin: 0 0 var(--space-2);
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--text-scale, 1));
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--color-text-muted);
@@ -2466,7 +2605,7 @@ input {
 }
 
 .reflection-style-label {
-  font-size: 1.05rem;
+  font-size: calc(1.05rem * var(--text-scale, 1));
   font-weight: 700;
   color: var(--color-primary);
   margin-bottom: var(--space-1) !important;
@@ -2491,7 +2630,7 @@ input {
 
 .reflection-balance__label {
   margin-top: var(--space-2) !important;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--text-scale, 1));
   color: var(--color-text-muted);
 }
 
@@ -2510,13 +2649,13 @@ input {
      next to it (was a borderless solid fill) -- purple values reused from
      the "too-much-happening" scenario's own light-purple/dark-text pairing
      elsewhere in the app, same construction as those other three pills. */
-  border: 1.5px solid #4d4058;
-  background: rgba(108, 91, 123, 0.14);
-  color: #4d4058;
+  border: 1.5px solid var(--a11y-violet);
+  background: var(--a11y-violet-tint);
+  color: var(--a11y-violet);
   border-radius: 999px;
   padding: 10px 18px;
   min-height: 44px;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
   font-weight: 500;
   white-space: nowrap;
 }
@@ -2526,9 +2665,9 @@ input {
    "too-much-happening" scenario's own dark-theme override uses for its
    equivalent light-purple/dark-text pairing. */
 [data-theme="dark"] .a11y-button {
-  border-color: #cbb9dc;
-  background: rgba(179, 160, 199, 0.14);
-  color: #cbb9dc;
+  border-color: #c8badf;
+  background: rgba(176, 158, 214, 0.2);
+  color: #c8badf;
 }
 
 [data-contrast="high"] .a11y-button {
@@ -2552,7 +2691,7 @@ input {
   border-radius: 999px;
   padding: 10px 18px;
   min-height: 44px;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
   font-weight: 500;
   white-space: nowrap;
 }
@@ -2579,7 +2718,7 @@ input {
   border-radius: 999px;
   padding: 10px 18px;
   min-height: 44px;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
   font-weight: 500;
   white-space: nowrap;
 }
@@ -2597,7 +2736,7 @@ input {
   border-radius: 999px;
   background: #7a591f;
   color: #ffffff;
-  font-size: 12px;
+  font-size: calc(12px * var(--text-scale, 1));
   font-weight: 700;
   line-height: 20px;
   text-align: center;
@@ -2658,7 +2797,7 @@ input {
   border: 1.5px solid var(--color-primary);
   background: transparent;
   color: var(--color-primary);
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
   font-weight: 600;
 }
 
@@ -2667,7 +2806,7 @@ input {
 }
 
 .a11y-field__label {
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--text-scale, 1));
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -2676,7 +2815,7 @@ input {
 }
 
 .a11y-field__hint {
-  font-size: 0.8rem;
+  font-size: calc(0.8rem * var(--text-scale, 1));
   color: var(--color-text-muted);
   margin: 0 0 var(--space-2);
   line-height: 1.4;
@@ -2699,7 +2838,7 @@ input {
   border-radius: 999px;
   padding: var(--space-2) var(--space-3);
   min-height: 40px;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--text-scale, 1));
   font-weight: 600;
 }
 
@@ -2726,7 +2865,7 @@ input {
   border: var(--border-width) solid var(--color-border);
   background: var(--color-bg);
   color: var(--color-text);
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--text-scale, 1));
   min-height: 40px;
 }
 
@@ -2746,7 +2885,7 @@ input {
 
 .a11y-confirm__text {
   margin: 0 0 var(--space-2);
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--text-scale, 1));
   line-height: 1.4;
   color: var(--color-text);
 }
@@ -2768,7 +2907,7 @@ input {
   padding: var(--space-3);
   min-height: 44px;
   text-align: left;
-  font-size: 0.82rem;
+  font-size: calc(0.82rem * var(--text-scale, 1));
   font-weight: 600;
   color: var(--color-text);
   background: var(--color-bg);
@@ -2817,7 +2956,7 @@ input {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.1rem;
+  font-size: calc(1.1rem * var(--text-scale, 1));
   color: #ffffff;
   line-height: 1;
 }
@@ -2832,7 +2971,7 @@ input {
 .tutorial-overlay {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 90; /* above the Accessibility menu (80), which one step opens */
 }
 
 .tutorial-overlay__svg {
@@ -2860,7 +2999,7 @@ input {
 
 .tutorial-overlay__count {
   margin: 0 0 var(--space-1);
-  font-size: 0.7rem;
+  font-size: calc(0.7rem * var(--text-scale, 1));
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2869,13 +3008,13 @@ input {
 
 .tutorial-overlay__title {
   margin: 0 0 var(--space-1);
-  font-size: 1rem;
+  font-size: calc(1rem * var(--text-scale, 1));
   font-weight: 700;
 }
 
 .tutorial-overlay__text {
   margin: 0 0 var(--space-3);
-  font-size: 0.88rem;
+  font-size: calc(0.88rem * var(--text-scale, 1));
   line-height: 1.5;
   color: var(--color-text-muted);
 }
@@ -2902,7 +3041,7 @@ input {
   background: none;
   border: none;
   color: var(--color-text-muted);
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--text-scale, 1));
   font-weight: 600;
   padding: var(--space-2) 0;
 }
@@ -2914,7 +3053,7 @@ input {
   border-radius: 999px;
   padding: var(--space-2) var(--space-4);
   min-height: 40px;
-  font-size: 0.85rem;
+  font-size: calc(0.85rem * var(--text-scale, 1));
   font-weight: 700;
 }
 
@@ -2937,7 +3076,7 @@ input {
   border: 1.5px solid #6b6b6b;
   background: rgba(107, 107, 107, 0.12);
   color: #5c5c5c;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
   font-weight: 600;
   white-space: nowrap;
 }
@@ -2954,4 +3093,138 @@ input {
 
 .scenario-card__favorite--active {
   color: var(--color-accent);
+}
+
+/* The tutorial's pointer is a wavy dashed line whose dashes drift toward
+   the spotlight, so it reads as "this way" at a glance. */
+.tutorial-overlay__pointer {
+  animation: tutorial-pointer-flow 1.2s linear infinite;
+}
+
+@keyframes tutorial-pointer-flow {
+  to {
+    stroke-dashoffset: -22;
+  }
+}
+
+[data-motion="reduce"] .tutorial-overlay__pointer {
+  animation: none;
+}
+
+/* ---------- Tutorial: a cheerful skin ----------
+   Sunny yellow callouts with pink and peach glows in the corners, a
+   raspberry Next button, and bright pink waves and pointer -- a friendly,
+   playful "here's a tip!" rather than a stern system dialog. The corner
+   glows have a fixed reach, so they fade out before the bottom and the
+   solid yellow there matches
+   the sticky Skip / Next row (.tutorial-overlay__nav) exactly. High
+   contrast and invert keep the plain theme-colored look further down. */
+.tutorial-overlay {
+  --tutorial-accent: #ff6b9d;
+  --tutorial-bg: #fff3c4;
+  --tutorial-ink: #3b1f4a;
+  --tutorial-ink-soft: #5a3b52;
+  --tutorial-button: #c92a68;
+  --tutorial-button-hover: #a91f55;
+  --tutorial-button-ink: #ffffff;
+}
+
+.tutorial-overlay .tutorial-overlay__callout {
+  background:
+    radial-gradient(circle 150px at 100% 0%, #ffc8dd 0, rgba(255, 200, 221, 0) 100%),
+    radial-gradient(circle 120px at 0% 0%, #ffdcae 0, rgba(255, 220, 174, 0) 100%),
+    var(--tutorial-bg);
+  color: var(--tutorial-ink);
+  border: 2px solid #ffb3cf;
+  border-radius: 20px;
+  box-shadow: 0 14px 34px rgba(201, 42, 104, 0.28), 0 0 0 5px rgba(255, 243, 196, 0.35);
+}
+
+.tutorial-overlay .tutorial-overlay__count {
+  color: var(--tutorial-button);
+}
+
+/* A little sparkle beside "2 of 5" -- decoration only, so the alt text
+   after the slash is empty and screen readers skip it. */
+.tutorial-overlay .tutorial-overlay__count::before {
+  content: "✨" / "";
+  margin-right: 5px;
+}
+
+.tutorial-overlay .tutorial-overlay__title {
+  color: var(--tutorial-ink);
+}
+
+.tutorial-overlay .tutorial-overlay__text {
+  color: var(--tutorial-ink-soft);
+}
+
+.tutorial-overlay .tutorial-overlay__nav {
+  background: var(--tutorial-bg);
+}
+
+.tutorial-overlay .tutorial-overlay__skip {
+  color: var(--tutorial-ink-soft);
+}
+
+.tutorial-overlay .tutorial-overlay__next {
+  background: var(--tutorial-button);
+  color: var(--tutorial-button-ink);
+  box-shadow: 0 3px 0 #8f1a48;
+  transition: transform 120ms ease, background 120ms ease, box-shadow 120ms ease;
+}
+
+.tutorial-overlay .tutorial-overlay__next:hover {
+  background: var(--tutorial-button-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 0 #8f1a48;
+}
+
+.tutorial-overlay .tutorial-overlay__next:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #8f1a48;
+}
+
+[data-motion="reduce"] .tutorial-overlay .tutorial-overlay__next {
+  transition: none;
+  transform: none;
+}
+
+html[data-theme="dark"] .tutorial-overlay {
+  --tutorial-bg: #3a2342;
+  --tutorial-ink: #fff1f6;
+  --tutorial-ink-soft: #f1d3e2;
+  --tutorial-button: #ff8fb5;
+  --tutorial-button-hover: #ffa8c6;
+  --tutorial-button-ink: #3b1f4a;
+}
+
+html[data-theme="dark"] .tutorial-overlay .tutorial-overlay__callout {
+  background:
+    radial-gradient(circle 150px at 100% 0%, rgba(255, 107, 157, 0.38) 0, rgba(255, 107, 157, 0) 100%),
+    radial-gradient(circle 120px at 0% 0%, rgba(255, 190, 110, 0.28) 0, rgba(255, 190, 110, 0) 100%),
+    var(--tutorial-bg);
+  border-color: #8a3d68;
+}
+
+html[data-theme="dark"] .tutorial-overlay .tutorial-overlay__count {
+  color: #ffb3cf;
+}
+
+html[data-contrast="high"] .tutorial-overlay,
+html[data-contrast="invert"] .tutorial-overlay {
+  --tutorial-accent: var(--color-primary);
+  --tutorial-bg: var(--color-surface);
+  --tutorial-ink: var(--color-text);
+  --tutorial-ink-soft: var(--color-text-muted);
+  --tutorial-button: var(--color-primary);
+  --tutorial-button-hover: var(--color-primary);
+  --tutorial-button-ink: var(--color-primary-contrast);
+}
+
+html[data-contrast="high"] .tutorial-overlay .tutorial-overlay__callout,
+html[data-contrast="invert"] .tutorial-overlay .tutorial-overlay__callout {
+  background: var(--tutorial-bg);
+  border-color: var(--color-text);
+  box-shadow: none;
 }
