@@ -1,4 +1,5 @@
 import { useAccessibility } from "../a11y/AccessibilityContext.jsx";
+import HoverWords from "./HoverWords.jsx";
 
 export default function ScenarioCard({ scenario, onSelect }) {
   const { isFavorite, toggleFavorite } = useAccessibility();
@@ -28,13 +29,19 @@ export default function ScenarioCard({ scenario, onSelect }) {
       <div className="scenario-card__body">
         <div className="scenario-card__title-row">
           <span className="scenario-card__dot" aria-hidden="true" />
-          <h2 className="scenario-card__title">{scenario.title}</h2>
+          <h2 className="scenario-card__title">
+            <HoverWords text={scenario.title} />
+          </h2>
         </div>
 
-        <p className="scenario-card__intro">{scenario.preview}</p>
+        <p className="scenario-card__intro">
+          <HoverWords text={scenario.preview} />
+        </p>
 
         {scenario.practiceLabel && (
-          <div className="scenario-card__practice">Practice: {scenario.practiceLabel}</div>
+          <div className="scenario-card__practice">
+            <HoverWords text={`Practice: ${scenario.practiceLabel}`} />
+          </div>
         )}
 
         <div className="scenario-card__difficulty">
