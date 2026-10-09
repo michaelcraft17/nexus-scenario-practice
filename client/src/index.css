@@ -453,12 +453,67 @@ input {
   font-weight: 500;
   text-decoration: none;
   white-space: nowrap;
+  position: relative;
+}
+
+/* An occasional nudge: two amber rings ripple out from the pill, then it
+   rests for several seconds before the next pair. The rings are drawn with
+   box-shadow on pseudo-elements so the pill itself never moves or changes
+   size. Pause Animations ([data-motion="reduce"], which also follows the
+   device's reduced-motion setting) removes them entirely, below. */
+.picker__feedback-link::before,
+.picker__feedback-link::after {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  border-radius: inherit;
+  pointer-events: none;
+  animation: feedback-wave 7s ease-out 2s infinite;
+}
+
+.picker__feedback-link::after {
+  animation-delay: 2.45s;
+}
+
+@keyframes feedback-wave {
+  0% {
+    box-shadow: 0 0 0 0 rgba(150, 112, 44, 0.5);
+  }
+  18% {
+    box-shadow: 0 0 0 14px rgba(150, 112, 44, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgba(150, 112, 44, 0);
+  }
+}
+
+[data-motion="reduce"] .picker__feedback-link::before,
+[data-motion="reduce"] .picker__feedback-link::after {
+  animation: none;
+  content: none;
 }
 
 [data-contrast="high"] .picker__feedback-link {
   background: var(--color-bg);
   border-color: var(--color-border);
   color: var(--color-text);
+}
+
+[data-contrast="high"] .picker__feedback-link::before,
+[data-contrast="high"] .picker__feedback-link::after {
+  animation-name: feedback-wave-contrast;
+}
+
+@keyframes feedback-wave-contrast {
+  0% {
+    box-shadow: 0 0 0 0 var(--color-text);
+    opacity: 0.6;
+  }
+  18%,
+  100% {
+    box-shadow: 0 0 0 14px var(--color-text);
+    opacity: 0;
+  }
 }
 
 .picker__header {
