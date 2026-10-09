@@ -195,6 +195,7 @@ export default function AccessibilityPanel() {
                 key={tile.key}
                 type="button"
                 className="a11y-tile"
+                data-tile={tile.key}
                 aria-pressed={on}
                 style={tone ? { "--tc": tone } : undefined}
                 aria-label={multiStep ? `${label}${on ? `, step ${stepIndex + 1} of ${tile.steps.length}` : ", off"}` : label}
