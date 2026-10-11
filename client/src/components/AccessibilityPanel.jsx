@@ -5,7 +5,7 @@ import {
   THEME_OPTIONS,
   SPEECH_RATE_OPTIONS,
 } from "../a11y/AccessibilityContext.jsx";
-import { A11Y_TILES, describeTile, nextTileValue, ResetIcon, CloseIcon } from "../a11y/tiles.jsx";
+import { A11Y_TILES, ROW_ICONS, describeTile, nextTileValue, ResetIcon, CloseIcon } from "../a11y/tiles.jsx";
 
 function OptionGroup({ label, options, value, onChange }) {
   return (
@@ -142,7 +142,10 @@ export default function AccessibilityPanel() {
 
       <div className="a11y-menu__body">
         <div className="a11y-menu__row">
-          <span id="a11y-oversized-label">Oversized Widget</span>
+          <span id="a11y-oversized-label" className="a11y-menu__row-label" data-row="oversized">
+            <span className="a11y-menu__row-icon">{ROW_ICONS.oversized}</span>
+            Oversized Widget
+          </span>
           <button
             type="button"
             role="switch"
@@ -154,7 +157,10 @@ export default function AccessibilityPanel() {
         </div>
 
         <div className="a11y-menu__row">
-          <span id="a11y-word-magnifier-label">Word Magnifier</span>
+          <span id="a11y-word-magnifier-label" className="a11y-menu__row-label" data-row="wordMagnifier">
+            <span className="a11y-menu__row-icon">{ROW_ICONS.wordMagnifier}</span>
+            Word Magnifier
+          </span>
           <button
             type="button"
             role="switch"
@@ -170,7 +176,10 @@ export default function AccessibilityPanel() {
         </div>
 
         <div className="a11y-menu__row">
-          <span id="a11y-narrator-font-label">Easier Narrator Font</span>
+          <span id="a11y-narrator-font-label" className="a11y-menu__row-label" data-row="narratorFont">
+            <span className="a11y-menu__row-icon">{ROW_ICONS.narratorFont}</span>
+            Easier Narrator Font
+          </span>
           <button
             type="button"
             role="switch"

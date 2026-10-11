@@ -138,7 +138,8 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 275px;
+  --focus-width: 275px;
+  grid-template-columns: minmax(0, 1fr) var(--focus-width);
   gap: 24px;
   width: 100%;
   /* The conversation takes the whole window -- just a thin margin so the
@@ -488,12 +489,12 @@ html[data-theme="dark"]:not([data-contrast="high"]):not([data-contrast="invert"]
 
 .chat-screen--v2 .chat-v2__hint-link {
   display: block;
-  margin: 0 0 10px;
-  padding: 2px 0;
+  margin: 0 0 8px;
+  padding: 6px 0;
   border: 0;
   background: none;
-  font-size: calc(12px * var(--text-scale, 1));
-  font-weight: 500;
+  font-size: calc(15px * var(--text-scale, 1));
+  font-weight: 600;
   color: #315e53;
 }
 
@@ -616,6 +617,25 @@ html[data-theme="dark"]:not([data-contrast="high"]):not([data-contrast="invert"]
   overflow-x: hidden;
   overflow-y: auto;
   padding: 16px;
+}
+
+/* Opening from the slim bar, the column grows over 0.28s. Without this the
+   content would lay out in the narrow column and re-wrap on every frame as
+   it widens. Instead it holds its final width (column minus the 1px borders
+   and 16px padding each side) from the first frame, clipped by the
+   overflow-x above, so the growing column just reveals it. No fill-mode: once
+   the hold ends the content follows the column again. */
+@media (min-width: 1001px) {
+  .chat-screen--v2 .practice-focus__scroll > * {
+    animation: practice-focus-hold 0.3s;
+  }
+}
+
+@keyframes practice-focus-hold {
+  from,
+  to {
+    width: calc(var(--focus-width) - 34px);
+  }
 }
 
 .chat-screen--v2 .practice-focus__toggle {
@@ -881,6 +901,66 @@ html:is([data-contrast="high"], [data-contrast="dark"], [data-contrast="light"])
   color: #424f45;
 }
 
+/* Rotating reminder of the tools around the chat (Explain that, hints, the
+   Access menu), under the scenario's own tip. Each new tip fades in; the
+   global reduce-motion rule removes the fade. */
+.chat-screen--v2 .practice-focus__app-tip {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(63, 75, 67, 0.22);
+}
+
+.chat-screen--v2 .practice-focus__app-tip-text {
+  margin: 0;
+  min-height: calc(3 * 1.7em);
+  animation: practice-tip-in 0.5s ease-out both;
+}
+
+.chat-screen--v2 .practice-focus__app-tip-text b {
+  font-weight: 600;
+  color: #315e53;
+}
+
+.chat-screen--v2 .practice-focus__app-tip-next {
+  margin-top: 6px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  font-size: calc(12px * var(--text-scale, 1));
+  font-weight: 600;
+  color: #315e53;
+}
+
+.chat-screen--v2 .practice-focus__app-tip-next:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@keyframes practice-tip-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+}
+
+[data-theme="dark"] .chat-screen--v2 .practice-focus__app-tip {
+  border-top-color: var(--color-border);
+}
+
+[data-theme="dark"] .chat-screen--v2 .practice-focus__app-tip-text b,
+[data-theme="dark"] .chat-screen--v2 .practice-focus__app-tip-next {
+  color: var(--color-narrator-accent);
+}
+
+[data-contrast="high"] .chat-screen--v2 .practice-focus__app-tip {
+  border-top: var(--border-width) solid var(--color-border);
+}
+
+[data-contrast="high"] .chat-screen--v2 .practice-focus__app-tip-text b,
+[data-contrast="high"] .chat-screen--v2 .practice-focus__app-tip-next {
+  color: var(--color-text);
+}
+
 /* The side card replaces the floating mission badge on wide layouts. */
 @media (min-width: 1001px) {
   .chat-screen--v2 .mission-badge {
@@ -1128,4 +1208,73 @@ html:is([data-contrast="high"], [data-contrast="dark"], [data-contrast="light"])
    comes, a beat after the reply (see scheduleReveals in ChatScreen.jsx). */
 .chat-screen--v2 .narrator-box--note {
   animation: v2-bubble-in 0.4s ease-out both;
+}
+
+/* ---------- Leaving a session ----------
+   Back to the scenario picker: the whole screen fades out while its
+   contents sink back a touch (ChatScreen waits LEAVE_MS before unmounting).
+   Opacity only on the root -- a transform there would re-anchor the
+   position: fixed overlays inside it (reflection, voice call). Switched off
+   by the global reduce-motion rule, and ChatScreen skips the wait then. */
+.chat-screen--leaving {
+  pointer-events: none;
+  animation: chat-screen-leave 0.32s ease-in forwards;
+}
+
+.chat-screen--leaving > :not(.chat-screen__background) {
+  animation: chat-screen-sink 0.32s ease-in forwards;
+}
+
+@keyframes chat-screen-leave {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes chat-screen-sink {
+  to {
+    transform: translateY(10px) scale(0.985);
+  }
+}
+
+/* The picker, arriving back after a session: a soft fade up to meet the
+   fade-out above (App sets this only on the way back from a session). */
+.picker--fade-in {
+  animation: picker-fade-in 0.35s ease-out both;
+}
+
+@keyframes picker-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---------- Reply chips while the side column slides ----------
+   Opening or hiding Practice Focus resizes the chat column over 0.28s, and
+   the chips would re-wrap at every in-between width. They fade out as the
+   slide starts, stay hidden while it runs, then settle back in one after
+   another at the new width (ChatScreen clears the class after
+   RESIZE_FADE_MS; it's never set under Reduce motion). */
+.chat-v2__layout--resizing .response-options__chip {
+  animation: response-chip-reflow 0.48s ease both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+
+@keyframes response-chip-reflow {
+  0% {
+    opacity: 1;
+    transform: none;
+  }
+  18% {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  60% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
 }

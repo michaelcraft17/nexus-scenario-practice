@@ -51,8 +51,8 @@ function FullscreenButton() {
 
 /**
  * One compact row in three parts -- brand, exit, tutorial replay and live-call
- * on the left; the scenario title centered; hint and accessibility on the
- * right. No manual Reflection trigger anymore -- the Reflection auto-opens
+ * on the left; the scenario title centered; hint, accessibility and full
+ * screen (outermost) on the right. No manual Reflection trigger anymore -- the Reflection auto-opens
  * once the whole mission is complete instead (see ChatScreen.jsx).
  * Icon-only buttons keep their full-text meaning in `aria-label`/`title` for
  * anyone not able to rely on the icon alone.
@@ -111,8 +111,8 @@ export default function ChatHeader({ scenario, onExit, onHint, onTalkLive, onTut
           <button className="chat-header__hint" onClick={onHint} aria-label="Need a hint?" title="Need a hint?">
             Hint
           </button>
-          <FullscreenButton />
           <AccessibilityButton className="chat-header__access" iconOnly />
+          <FullscreenButton />
         </div>
       </div>
     </header>

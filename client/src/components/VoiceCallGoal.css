@@ -1,20 +1,43 @@
 /* ==========================================================================
    Live-call extras: the "goal reached" celebration + hang-up nudge, and the
-   small Reduce motion toggle. Loaded by VoiceCallScreen.jsx. The call
-   screen's base look lives in index.css (.voice-call*); this only adds to it.
+   top-right Transcript + Reduce motion toggles. Loaded by VoiceCallScreen.jsx.
+   The call screen's base look lives in index.css (.voice-call*); this only
+   adds to it. The transcript panel itself is in VoiceTranscript.css.
 
    Anything that animates here is switched off by the global reduce-motion
    rule ([data-motion="reduce"] * in index.css sets animation/transition
    durations to ~0), and the confetti isn't rendered at all under it.
    ========================================================================== */
 
-/* ---------- Reduce motion toggle ---------- */
+/* ---------- Top-right toggles: Transcript + Reduce motion ---------- */
 
-.voice-call__motion {
+.voice-call__corner {
   position: absolute;
   top: max(12px, env(safe-area-inset-top));
   right: var(--space-3);
-  z-index: 2;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  max-width: calc(100% - 2 * var(--space-3));
+}
+
+/* Phones: no room beside the centred name, so the toggles sit in the
+   column's flow above it instead of floating over it (and wrap onto a
+   second row at large text sizes without colliding with anything). The
+   matching smaller top padding is in index.css, next to .voice-call. */
+@media (max-width: 599.98px) {
+  .voice-call__corner {
+    position: static;
+    align-self: stretch;
+    justify-content: center;
+    max-width: none;
+    margin-bottom: calc(10px - var(--space-5));
+  }
+}
+
+.voice-call__pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -29,18 +52,30 @@
   white-space: nowrap;
 }
 
-.voice-call__motion[aria-pressed="true"] {
+.voice-call__pill[aria-pressed="true"] {
   background: #2a2620;
   border-color: #2a2620;
   color: #faf6f0;
 }
 
-.voice-call__motion:disabled {
+.voice-call__pill:disabled {
   cursor: default;
   opacity: 0.75;
 }
 
-.voice-call__motion:focus-visible,
+/* The call screen's own fixed-light colors don't apply in high contrast
+   (.voice-call switches to the theme's tokens there), so neither do these. */
+[data-contrast="high"] .voice-call__pill {
+  border: var(--border-width) solid var(--color-text);
+  color: var(--color-text);
+}
+
+[data-contrast="high"] .voice-call__pill[aria-pressed="true"] {
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+
+.voice-call__pill:focus-visible,
 .voice-call__goal-hangup:focus-visible {
   outline: 3px solid #2a2620;
   outline-offset: 2px;

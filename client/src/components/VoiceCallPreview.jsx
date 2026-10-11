@@ -14,10 +14,10 @@ import VoiceCallScreen from "./VoiceCallScreen.jsx";
  * them live.
  */
 const DEMO_CHARACTERS = [
-  { name: "Priya", color: "#4F8A8B" },
-  { name: "Dana", color: "#E4A34C" },
-  { name: "Marcus", color: "#6C5B7B" },
-  { name: "Ms. Alvarez", color: "#C1666B" },
+  { name: "Priya", role: "Manager", color: "#4F8A8B" },
+  { name: "Dana", role: "Cashier", color: "#E4A34C" },
+  { name: "Marcus", role: "Stylist", color: "#6C5B7B" },
+  { name: "Ms. Alvarez", role: "Teacher", color: "#C1666B" },
 ];
 
 // null means "let VoiceCallScreen auto-cycle through the whole vocabulary"
@@ -75,6 +75,7 @@ export default function VoiceCallPreview() {
         practiceLabel="self-advocacy, even mid-lesson"
         scenarioId="preview"
         npcName={character.name}
+        npcRole={character.role}
         accentColor={character.color}
         accentContrast="#ffffff"
         onClose={exitPreview}

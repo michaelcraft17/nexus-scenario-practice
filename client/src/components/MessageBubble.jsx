@@ -5,6 +5,90 @@ import NarratorFontToggle from "./NarratorFontToggle.jsx";
 const GROW_MS = 380;
 const GROW_EASING = "cubic-bezier(0.2, 0.8, 0.2, 1)";
 
+const FLY_MS = 460;
+
+/**
+ * Your own message leaving the text box: a small copy of the bubble starts
+ * over the box you typed in, then rises and swells into the bubble's real
+ * place in the conversation. The copy is fixed-position over the whole
+ * screen (the real bubble sits in a scrolling area that would clip it on
+ * the way up), and it re-reads the real bubble's position every frame, so
+ * it still lands right while the conversation scrolls down to make room.
+ * The real bubble stays hidden until the copy arrives.
+ * Returns a cleanup that ends the flight early.
+ */
+function flyFrom(bubble, from) {
+  const host = bubble.closest(".chat-screen") || document.body;
+  const target = bubble.getBoundingClientRect();
+  if (!target.width || !target.height) return undefined;
+
+  const ghostRow = document.createElement("div");
+  ghostRow.className = `${bubble.parentElement.className} bubble-flight`;
+  ghostRow.setAttribute("aria-hidden", "true");
+  const ghost = bubble.cloneNode(true);
+  ghostRow.appendChild(ghost);
+  Object.assign(ghostRow.style, {
+    position: "fixed",
+    left: "0",
+    top: "0",
+    margin: "0",
+    padding: "0",
+    display: "block",
+    width: `${target.width}px`,
+    height: `${target.height}px`,
+    zIndex: "60",
+    pointerEvents: "none",
+    transformOrigin: "center",
+  });
+  Object.assign(ghost.style, { width: "100%", height: "100%", maxWidth: "none", margin: "0", animation: "none" });
+  host.appendChild(ghostRow);
+
+  // The page is zoomed (html zoom), so CSS px and on-screen px differ --
+  // measure the ratio once and convert every position through it.
+  const k = ghostRow.getBoundingClientRect().width / target.width || 1;
+  ghostRow.style.width = `${target.width / k}px`;
+  ghostRow.style.height = `${target.height / k}px`;
+
+  // Start: a small bubble over the right-hand part of the text box, where
+  // your own messages end up.
+  const startX = from.left + from.width * 0.7;
+  const startY = from.top + from.height / 2;
+  const s0 = Math.max(0.3, Math.min(0.55, (from.height * 0.9) / target.height));
+  const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+  const easeOutBack = (t) => 1 + 2.2 * Math.pow(t - 1, 3) + 1.2 * Math.pow(t - 1, 2);
+
+  bubble.style.visibility = "hidden";
+  const begin = performance.now();
+  let timer = 0;
+  let done = false;
+
+  function finish() {
+    if (done) return;
+    done = true;
+    clearTimeout(timer);
+    ghostRow.remove();
+    bubble.style.visibility = "";
+  }
+
+  function frame() {
+    const t = Math.min(1, (performance.now() - begin) / FLY_MS);
+    const to = bubble.getBoundingClientRect();
+    const toX = to.left + to.width / 2;
+    const toY = to.top + to.height / 2;
+    const e = easeOut(t);
+    const x = startX + (toX - startX) * e;
+    const y = startY + (toY - startY) * e;
+    const scale = s0 + (1 - s0) * easeOutBack(t);
+    ghostRow.style.transform = `translate(${(x - to.width / 2) / k}px, ${(y - to.height / 2) / k}px) scale(${scale})`;
+    ghostRow.style.opacity = String(0.7 + 0.3 * Math.min(1, t * 2));
+    if (t >= 1) finish();
+    else timer = setTimeout(frame, 16);
+  }
+
+  frame();
+  return finish;
+}
+
 /**
  * A reply arriving from the typing indicator: the bubble starts at the
  * typing bubble's size and grows to its own, then the words fade in. Scale
@@ -55,6 +139,13 @@ export default function MessageBubble({ message, npcName, npcRole, onExplain, sh
     if (!message.arriveFrom || !bubbleRef.current?.animate) return;
     const bubble = bubbleRef.current;
     growFrom(bubble, [...bubble.children, explainRef.current].filter(Boolean), message.arriveFrom);
+  }, []);
+
+  // Mount only: your own message flies up out of the text box (ChatScreen
+  // measured the box just before sending).
+  useLayoutEffect(() => {
+    if (!message.launchFrom || !bubbleRef.current) return undefined;
+    return flyFrom(bubbleRef.current, message.launchFrom);
   }, []);
   const [status, setStatus] = useState("idle"); // idle | loading | done | error
   const [explanation, setExplanation] = useState("");

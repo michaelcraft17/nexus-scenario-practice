@@ -23,6 +23,9 @@ export default function App() {
   // null means a scenario is chosen but the mode isn't yet, which is what
   // routes to ModeSelect below instead of straight into ChatScreen.
   const [startMode, setStartMode] = useState(null);
+  // True right after leaving a session, so the picker fades in to meet the
+  // session's fade-out (see ChatScreen's leaveSession).
+  const [returning, setReturning] = useState(false);
 
   useEffect(() => {
     fetchScenarios()
@@ -37,11 +40,13 @@ export default function App() {
     setActiveScenario(scenario);
     setActiveDifficulty(difficulty);
     setStartMode(null);
+    setReturning(false);
   }
 
   function handleExit() {
     setActiveScenario(null);
     setStartMode(null);
+    setReturning(true);
   }
 
   // After all hooks (not before) -- an early return here is fine since
@@ -49,7 +54,14 @@ export default function App() {
   // instance's whole lifetime, so the hooks above always run in the same
   // order across its renders either way.
   if (VOICE_PREVIEW) {
-    return <VoiceCallPreview />;
+    // The call screen has its own Accessibility button, so the menu it opens
+    // needs to be here too.
+    return (
+      <>
+        <VoiceCallPreview />
+        <AccessibilityPanel />
+      </>
+    );
   }
 
   return (
@@ -73,6 +85,7 @@ export default function App() {
         <ScenarioPicker
           scenarios={scenarios}
           loadError={loadError}
+          fadeIn={returning}
           onSelect={handleSelect}
         />
       )}

@@ -24,6 +24,12 @@ function makeId() {
   return `m${nextId++}`;
 }
 
+/** Matches .chat-v2__layout--resizing's chip fade in chat-v2.css. */
+const RESIZE_FADE_MS = 560;
+
+/** Matches .chat-screen--leaving's fade in chat-v2.css. */
+const LEAVE_MS = 320;
+
 /** Matches chat-v2.css's breakpoint for showing the practice-focus side card. */
 const WIDE_LAYOUT_QUERY = "(min-width: 1001px)";
 
@@ -162,9 +168,22 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
   // take the width. Remembered across scenarios.
   const [focusCollapsed, setFocusCollapsed] = useState(readFocusCollapsed);
 
+  // While the side column slides open/shut, the chat column changes width
+  // every frame and the reply chips would re-wrap with it in visible jumps.
+  // This flag fades them out for the slide and back in at the new width
+  // (chat-v2.css, .chat-v2__layout--resizing).
+  const [layoutResizing, setLayoutResizing] = useState(false);
+  const resizeTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(resizeTimerRef.current), []);
+
   function toggleFocusCollapsed() {
     const next = !focusCollapsed;
     setFocusCollapsed(next);
+    if (resolvedMotion !== "reduce" && window.matchMedia(WIDE_LAYOUT_QUERY).matches) {
+      clearTimeout(resizeTimerRef.current);
+      setLayoutResizing(true);
+      resizeTimerRef.current = setTimeout(() => setLayoutResizing(false), RESIZE_FADE_MS);
+    }
     try {
       localStorage.setItem(FOCUS_COLLAPSED_KEY, next ? "1" : "0");
     } catch {
@@ -293,7 +312,14 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
     // lands above this message rather than after it.
     flushReveals();
 
-    const userMessage = { id: makeId(), role: "user", content: text };
+    // Your message flies up out of the text box into the conversation (see
+    // MessageBubble's flyFrom), so note where the box is before it clears.
+    const box = inputRef.current?.getBoundingClientRect();
+    const launchFrom =
+      box && resolvedMotion !== "reduce"
+        ? { left: box.left, top: box.top, width: box.width, height: box.height }
+        : null;
+    const userMessage = { id: makeId(), role: "user", content: text, launchFrom };
     const updated = [...messages, userMessage];
     setMessages(updated);
     setInputValue("");
@@ -419,9 +445,25 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
 
   const showResponseOptions = userTurnCount === 0 && !sending;
 
+  // Back to the scenario picker: the session fades away first instead of
+  // vanishing in one frame. Under Reduce motion it leaves straight away.
+  const [leaving, setLeaving] = useState(false);
+  const leaveTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(leaveTimerRef.current), []);
+  function leaveSession() {
+    if (leaving) return;
+    if (resolvedMotion === "reduce") {
+      onExit();
+      return;
+    }
+    setLeaving(true);
+    leaveTimerRef.current = setTimeout(onExit, LEAVE_MS);
+  }
+
   return (
     <div
-      className="chat-screen chat-screen--v2"
+      className={`chat-screen chat-screen--v2${leaving ? " chat-screen--leaving" : ""}`}
+      aria-busy={leaving || undefined}
       data-light-accent={scenario.id in SCENARIO_ACCENT_CONTRAST ? "" : undefined}
       style={{
         "--scenario-accent": scenario.color,
@@ -436,14 +478,18 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
 
       <ChatHeader
         scenario={scenario}
-        onExit={onExit}
+        onExit={leaveSession}
         onHint={handleHint}
         onTalkLive={() => setVoiceOpen(true)}
         onTutorial={replayTutorial}
         typing={sending}
       />
 
-      <div className={`chat-v2__layout${focusCollapsed ? " chat-v2__layout--focus-collapsed" : ""}`}>
+      <div
+        className={`chat-v2__layout${focusCollapsed ? " chat-v2__layout--focus-collapsed" : ""}${
+          layoutResizing ? " chat-v2__layout--resizing" : ""
+        }`}
+      >
         <section className="chat-v2__panel" aria-label="Practice conversation">
           <div className="chat-screen__scroll" ref={scrollRef}>
             <div className="chat-screen__messages">
@@ -570,13 +616,14 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
         errorMessage={reflection.errorMessage}
         npcName={npcName}
         onClose={() => setReflection((r) => ({ ...r, open: false }))}
-        onFinish={onExit}
+        onFinish={leaveSession}
       />
 
       <VoiceCallScreen
         open={voiceOpen}
         scenarioId={scenario.id}
         npcName={npcName}
+        npcRole={npcRole}
         voiceIntro={scenario.voiceIntro}
         opener={scenario.opener}
         practiceLabel={scenario.practiceLabel}

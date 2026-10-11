@@ -10,11 +10,12 @@ export default function ResponseOptions({ options, onPick }) {
   return (
     <div className="response-options">
       <div className="response-options__chips" aria-label="Suggested replies">
-        {options.map((option) => (
+        {options.map((option, i) => (
           <button
             key={option.id}
             type="button"
             className="response-options__chip"
+            style={{ "--i": i }}
             onClick={() => onPick(option.text)}
           >
             {option.text}

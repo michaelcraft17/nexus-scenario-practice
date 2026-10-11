@@ -193,3 +193,30 @@ export const CloseIcon = () => (
     <path d="M6 6l12 12M18 6L6 18" />
   </svg>
 );
+
+/** Icons for the three switch rows above the tile grid, drawn like the
+ * tiles' own: Oversized Widget (a box with arrows pushing its corners out),
+ * Word Magnifier (a magnifying glass over a letter), Easier Narrator Font
+ * (the Narrator's calligraphy pen nib). */
+export const ROW_ICONS = {
+  oversized: tileSvg(
+    <>
+      <rect x="11" y="11" width="10" height="10" rx="2" />
+      <path d="M4 10V4h6M4 4l5 5M28 10V4h-6M28 4l-5 5M4 22v6h6M4 28l5-5M28 22v6h-6M28 28l-5-5" />
+    </>
+  ),
+  wordMagnifier: tileSvg(
+    <>
+      <circle cx="13.5" cy="13.5" r="9.5" />
+      <path d="M20.5 20.5l7.5 7.5" strokeWidth="3" />
+      <path d="M9.5 18l4-9 4 9M11 14.8h5" strokeWidth="1.8" />
+    </>
+  ),
+  narratorFont: tileSvg(
+    <>
+      <path d="M16 29L8.5 15 12.5 4h7l4 11z" />
+      <path d="M16 29V17.5" />
+      <circle cx="16" cy="15" r="1.8" />
+    </>
+  ),
+};

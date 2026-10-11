@@ -370,6 +370,70 @@ input {
   outline-offset: 1px;
 }
 
+/* Answering a click on its card (ScenarioPicker's pingRailDot): the dot
+   swells and a ring of its color ripples out, twice. Under Reduce motion it
+   just stays enlarged with a soft halo for the same moment instead. */
+.picker__rail-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--dot-color);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.picker__rail-dot--ping::before {
+  animation: rail-dot-swell 1.1s ease-out;
+}
+
+.picker__rail-dot--ping::after {
+  animation: rail-dot-ripple 0.55s ease-out 2;
+}
+
+@keyframes rail-dot-swell {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  18% {
+    transform: scale(2.1);
+    opacity: 1;
+  }
+  45% {
+    transform: scale(1.5);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+}
+
+@keyframes rail-dot-ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(3.4);
+    opacity: 0;
+  }
+}
+
+[data-motion="reduce"] .picker__rail-dot--ping::before {
+  opacity: 1;
+  transform: scale(1.6);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dot-color) 30%, transparent);
+}
+
+[data-motion="reduce"] .picker__rail-dot--ping::after {
+  animation: none;
+}
+
 @media (min-width: 1180px) {
   .picker__rail-dots {
     display: flex;
@@ -1985,6 +2049,14 @@ input {
   color: var(--color-text);
 }
 
+/* Phones: the Transcript/Reduce motion toggles sit in the column's flow
+   above the name (see VoiceCallGoal.css), so they take over this space. */
+@media (max-width: 599.98px) {
+  .voice-call {
+    padding-top: max(12px, env(safe-area-inset-top));
+  }
+}
+
 .voice-call__top {
   flex-shrink: 0;
 }
@@ -2543,6 +2615,7 @@ input {
   gap: var(--space-3);
   width: 100%;
   margin-top: var(--space-2);
+  padding-bottom: 4px; /* room for the options' ledge */
 }
 
 .mode-select__option {
@@ -2552,16 +2625,67 @@ input {
   align-items: center;
   gap: var(--space-2);
   background: var(--color-tint);
-  border: var(--border-width) solid var(--color-border);
+  border: 0;
   border-radius: var(--radius);
   padding: var(--space-4) var(--space-3);
   color: var(--color-text-muted);
+  /* Same physical press as the picker's Start scenario button: no outline,
+     just a solid ledge underneath that the card sinks onto while held
+     (:active covers mouse, touch and keyboard). The ledge picks up the hover
+     color too. */
+  --option-ledge: color-mix(in srgb, var(--color-border) 55%, var(--color-text-muted));
+  box-shadow: 0 4px 0 var(--option-ledge);
+  transform: translateY(0);
+  transition:
+    transform 100ms ease-out,
+    box-shadow 100ms ease-out,
+    background-color 160ms ease-out;
+}
+
+/* Dark surfaces: the light-theme mix comes out lighter than the card and
+   reads as a highlight, so sink the resting ledge toward black instead. */
+[data-theme="dark"] .mode-select__option {
+  --option-ledge: color-mix(in srgb, var(--color-border) 55%, black);
 }
 
 .mode-select__option:hover,
 .mode-select__option:focus-visible {
-  border-color: var(--color-primary);
   color: var(--color-primary);
+  --option-ledge: color-mix(in srgb, var(--color-primary) 80%, black);
+  /* The card lights up under the pointer. */
+  background: color-mix(in srgb, var(--color-tint) 35%, #ffffff);
+}
+
+[data-theme="dark"] .mode-select__option:hover,
+[data-theme="dark"] .mode-select__option:focus-visible {
+  background: color-mix(in srgb, var(--color-tint) 82%, #ffffff);
+}
+
+/* Each card's icon rests dimmed and comes up to full strength on hover. */
+.mode-select__option svg {
+  opacity: 0.55;
+  transition: opacity 160ms ease-out;
+}
+
+.mode-select__option:hover svg,
+.mode-select__option:focus-visible svg,
+[data-contrast="high"] .mode-select__option svg {
+  opacity: 1;
+}
+
+.mode-select__option:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+/* High contrast keeps a real edge on each card. */
+[data-contrast="high"] .mode-select__option {
+  border: var(--border-width) solid var(--color-text);
+}
+
+.mode-select__option:active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 var(--option-ledge);
 }
 
 .mode-select__option--voice {
@@ -2570,8 +2694,8 @@ input {
 
 .mode-select__option--voice:hover,
 .mode-select__option--voice:focus-visible {
-  border-color: var(--scenario-accent, var(--color-primary));
   color: var(--scenario-accent, var(--color-primary));
+  --option-ledge: color-mix(in srgb, var(--scenario-accent, var(--color-primary)) 78%, black);
 }
 
 .mode-select__option-title {
@@ -3138,6 +3262,20 @@ input {
 
 .tutorial-replay-button span {
   font-weight: 700;
+}
+
+/* The picker's five header pills, a touch smaller than the 44px base pill
+   (still a comfortable 40px target). */
+.picker__content :is(.picker__feedback-link, .tutorial-replay-button, .picker__history-button, .picker__favorites-button, .a11y-button) {
+  min-height: 40px;
+  padding: 8px 15px;
+  gap: 6px;
+  font-size: calc(13px * var(--text-scale, 1));
+}
+
+.picker__content :is(.picker__feedback-link, .picker__history-button, .picker__favorites-button, .a11y-button) svg {
+  width: 16px;
+  height: 16px;
 }
 
 [data-contrast="high"] .tutorial-replay-button {

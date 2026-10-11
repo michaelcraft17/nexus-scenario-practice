@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ScenarioCard from "./ScenarioCard.jsx";
 import AccessibilityButton from "./AccessibilityButton.jsx";
 import ReflectionHistoryPanel from "./ReflectionHistoryPanel.jsx";
@@ -43,7 +43,7 @@ const PICKER_TUTORIAL_STEPS = [
   },
 ];
 
-export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
+export default function ScenarioPicker({ scenarios, loadError, fadeIn = false, onSelect }) {
   const { registerReadableContent, stopSpeech, favorites, resolvedMotion } = useAccessibility();
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   // The side-rail dot last clicked; its card gets scrolled to and briefly
@@ -66,6 +66,22 @@ export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
   function jumpToScenario(id) {
     if (!visibleScenarios.some((s) => s.id === id)) setShowFavoritesOnly(false);
     setJumpTarget({ id, at: Date.now() });
+  }
+
+  // The other direction: a click anywhere on a card (its picture, text,
+  // buttons) makes that scenario's rail dot answer with a little pulse, so
+  // the dots read as a map of the cards below.
+  const pingTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(pingTimerRef.current), []);
+  function pingRailDot(e) {
+    const id = e.target.closest(".scenario-card")?.dataset.scenario;
+    const dot = id && document.querySelector(`.picker__rail-dot[data-scenario="${id}"]`);
+    if (!dot) return;
+    document.querySelectorAll(".picker__rail-dot--ping").forEach((d) => d.classList.remove("picker__rail-dot--ping"));
+    void dot.offsetWidth; // restart the pulse on a repeat click
+    dot.classList.add("picker__rail-dot--ping");
+    clearTimeout(pingTimerRef.current);
+    pingTimerRef.current = setTimeout(() => dot.classList.remove("picker__rail-dot--ping"), 1200);
   }
 
   useEffect(() => {
@@ -132,7 +148,7 @@ export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
   }
 
   return (
-    <div className="picker">
+    <div className={`picker${fadeIn ? " picker--fade-in" : ""}`}>
       <div className="picker__background" aria-hidden="true" />
 
       {/* Desktop-only rail (hidden below 1180px via CSS) -- fills the empty
@@ -150,6 +166,7 @@ export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
               key={s.id}
               type="button"
               className="picker__rail-dot"
+              data-scenario={s.id}
               style={{ "--dot-color": s.color }}
               onClick={() => jumpToScenario(s.id)}
               aria-label={`Go to ${s.title}`}
@@ -259,7 +276,7 @@ export default function ScenarioPicker({ scenarios, loadError, onSelect }) {
           </div>
         )}
 
-        <div className="picker__grid">
+        <div className="picker__grid" onClick={pingRailDot}>
           {visibleScenarios.map((scenario) => (
             <ScenarioCard key={scenario.id} scenario={scenario} onSelect={onSelect} />
           ))}

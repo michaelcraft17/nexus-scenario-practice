@@ -384,6 +384,38 @@
   font-size: 16px;
 }
 
+/* Each switch row's label leads with an icon in the tiles' style. */
+.a11y-menu__row-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.a11y-menu__row-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--color-surface);
+}
+
+.a11y-menu__row-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.a11y-menu--big .a11y-menu__row-icon {
+  width: 42px;
+  height: 42px;
+}
+
+.a11y-menu--big .a11y-menu__row-icon svg {
+  width: 30px;
+  height: 30px;
+}
+
 .a11y-switch {
   position: relative;
   flex-shrink: 0;
@@ -662,6 +694,15 @@ html[data-contrast="default"] .a11y-menu [data-tile="tooltips"] { --ic: #a26f08;
 html[data-contrast="default"] .a11y-menu [data-tile="lineHeight"] { --ic: #34789a; }
 html[data-contrast="default"] .a11y-menu [data-tile="textAlign"] { --ic: #9b4f8f; }
 html[data-contrast="default"] .a11y-menu [data-tile="saturation"] { --ic: #c2416b; }
+html[data-contrast="default"] .a11y-menu .a11y-menu__row-icon {
+  background: #ffffff;
+  border-radius: 8px 11px 7px 10px / 10px 7px 11px 8px;
+  box-shadow: 0 1px 0 rgba(90, 70, 130, 0.08), 0 3px 10px -6px rgba(90, 70, 130, 0.35);
+}
+html[data-contrast="default"] .a11y-menu .a11y-menu__row-icon svg { color: var(--ic, currentColor); }
+html[data-contrast="default"] .a11y-menu [data-row="oversized"] { --ic: #5a6acf; }
+html[data-contrast="default"] .a11y-menu [data-row="wordMagnifier"] { --ic: #1f7a8c; }
+html[data-contrast="default"] .a11y-menu [data-row="narratorFont"] { --ic: #9a5b2e; }
 
 /* "More settings" heading sits on a little brushstroke. */
 html[data-contrast="default"] .a11y-menu .a11y-menu__more {
@@ -699,7 +740,13 @@ html[data-theme="dark"][data-contrast="default"] .a11y-menu .a11y-tile[aria-pres
   box-shadow: none;
 }
 
+html[data-theme="dark"][data-contrast="default"] .a11y-menu .a11y-menu__row-icon {
+  background: var(--color-surface);
+  box-shadow: none;
+}
+
 /* Dark cards: lift each icon hue so it stays bright enough. */
+html[data-theme="dark"][data-contrast="default"] .a11y-menu .a11y-menu__row-icon svg,
 html[data-theme="dark"][data-contrast="default"] .a11y-menu .a11y-tile svg {
   color: color-mix(in srgb, var(--ic, currentColor) 55%, #ffffff);
 }

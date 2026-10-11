@@ -1,0 +1,513 @@
+/* ==========================================================================
+   Live call transcript (VoiceTranscriptPanel.jsx), opened from the
+   Transcript pill on the call screen.
+
+   Wide screens: a full-height panel on the right, and the call itself
+   (name, ring, controls) re-centres in the space left of it. Narrow screens:
+   a sheet sitting between the ring and the Mute/End controls, with the ring
+   shrunk to make room.
+
+   Same fixed warm paper look as the call screen (it doesn't flip dark with
+   the app theme); high contrast swaps to the theme tokens like .voice-call
+   does. The slide in/out is switched off by the global reduce-motion rule
+   (and VoiceCallScreen skips the close delay under it).
+   ========================================================================== */
+
+.voice-transcript {
+  --transcript-width: 340px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #fbf8f2;
+  color: #2a2620;
+  text-align: left;
+  z-index: 2;
+}
+
+.voice-transcript__header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 10px 10px 18px;
+  border-bottom: 1px solid #e8e1d4;
+}
+
+.voice-transcript__title {
+  flex: 1;
+  margin: 0;
+  font-family: var(--font-narrator);
+  font-size: calc(1.2rem * var(--text-scale, 1));
+  font-weight: 500;
+}
+
+.voice-transcript__close {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+}
+
+.voice-transcript__close:hover {
+  background: color-mix(in srgb, #2a2620 8%, transparent);
+}
+
+/* Icon-only Accessibility / Reduce motion, beside the close button. A ring
+   like the call screen's pills, filled in while pressed. */
+.voice-transcript__icon-btn {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1.5px solid color-mix(in srgb, #2a2620 30%, transparent);
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.voice-transcript__icon-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, #2a2620 8%, transparent);
+}
+
+.voice-transcript__icon-btn[aria-pressed="true"] {
+  border-color: #2a2620;
+  background: #2a2620;
+  color: #fbf8f2;
+}
+
+.voice-transcript__icon-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.voice-transcript__log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 16px 20px;
+}
+
+.voice-transcript__empty {
+  margin: auto 0;
+  text-align: center;
+  font-family: var(--font-narrator);
+  font-style: italic;
+  font-size: calc(1.05rem * var(--narrator-size, 1) * var(--transcript-scale, 1) * var(--text-scale, 1));
+  color: #7a7062;
+}
+
+/* ---------- Display tools: easier font + text size ---------- */
+
+.voice-transcript__tools {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid #e8e1d4;
+}
+
+/* The panel is fixed light paper whatever the app theme, so the toggle keeps
+   the light theme's Narrator colors here (high contrast restyles it anyway). */
+html:not([data-contrast="high"]) .voice-transcript {
+  --color-narrator-accent: #2f7a7d;
+  --color-narrator-tint: #d7e9e9;
+}
+
+/* Previews the font you'd switch to, like the Explain that toggle. */
+.voice-transcript--plain .voice-transcript__font .narrator-font-toggle__glyph {
+  font: italic 600 calc(15px * var(--text-scale, 1)) / 1 "EB Garamond", Georgia, serif;
+}
+
+.voice-transcript__size {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.voice-transcript__size-label {
+  margin-right: 2px;
+  font-size: calc(12px * var(--text-scale, 1));
+  font-weight: 600;
+  color: #6b6255;
+}
+
+.voice-transcript__size-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 34px;
+  height: 30px;
+  padding: 0 6px;
+  border: 1px solid color-mix(in srgb, #2a2620 30%, transparent);
+  border-radius: 8px;
+  background: transparent;
+  color: #2a2620;
+  font-size: calc(12px * var(--text-scale, 1));
+  font-weight: 700;
+  line-height: 1;
+}
+
+.voice-transcript__size-btn--up {
+  font-size: calc(15px * var(--text-scale, 1));
+}
+
+.voice-transcript__size-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, #2a2620 8%, transparent);
+}
+
+.voice-transcript__size-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* Easier font: the Narrator's lines (and the panel title) in the app's
+   plain sans, upright -- same swap as the Access menu's Easier Narrator
+   Font, just for this panel. */
+.voice-transcript--plain {
+  --font-narrator: var(--font-sans);
+  --narrator-size: 0.88;
+}
+
+.voice-transcript--plain .voice-transcript__line--narrator,
+.voice-transcript--plain .voice-transcript__empty {
+  font-style: normal;
+}
+
+/* ---------- Lines: same speaker/bubble language as the text chat ---------- */
+
+.voice-transcript__line {
+  max-width: 92%;
+  padding: 10px 14px;
+  line-height: 1.45;
+}
+
+.voice-transcript__line--assistant {
+  align-self: flex-start;
+  background: rgba(255, 255, 252, 0.95);
+  border: 1px solid #e8e1d4;
+  border-radius: 4px 14px 14px 14px;
+}
+
+.voice-transcript__line--user {
+  align-self: flex-end;
+  background: color-mix(in srgb, var(--scenario-accent) 14%, #fbf8f2);
+  border-radius: 14px 4px 14px 14px;
+}
+
+/* The guide's briefing, before the character picks up: the Narrator's
+   voice, unboxed, like its lines elsewhere. */
+.voice-transcript__line--narrator {
+  align-self: stretch;
+  max-width: none;
+  padding: 2px 4px;
+  font-family: var(--font-narrator);
+  font-style: italic;
+}
+
+.voice-transcript__line--narrator .voice-transcript__text {
+  font-size: calc(1.08rem * var(--narrator-size, 1) * var(--transcript-scale, 1) * var(--text-scale, 1));
+  color: #4a4238;
+}
+
+.voice-transcript__line--pending .voice-transcript__text {
+  color: #7a7062;
+}
+
+.voice-transcript__speaker {
+  margin-bottom: 4px;
+  font-family: var(--font-sans, inherit);
+  font-style: normal;
+  font-size: calc(11.5px * var(--transcript-scale, 1) * var(--text-scale, 1));
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b6255;
+}
+
+.voice-transcript__line--user .voice-transcript__speaker {
+  text-align: right;
+}
+
+.voice-transcript__speaker--npc {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.voice-transcript__avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ece8df;
+  color: #695f50;
+  letter-spacing: 0;
+}
+
+.voice-transcript__role {
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.voice-transcript__role::before {
+  content: "·";
+  margin-right: 7px;
+}
+
+.voice-transcript__text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: calc(15px * var(--transcript-scale, 1) * var(--text-scale, 1));
+}
+
+/* "Still being transcribed" -- three soft dots. */
+.voice-transcript__dots {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.voice-transcript__dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.35;
+  animation: voice-transcript-dot 1.2s ease-in-out infinite;
+}
+
+.voice-transcript__dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.voice-transcript__dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes voice-transcript-dot {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.voice-transcript__jump {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  border: 1px solid #2a2620;
+  border-radius: 999px;
+  background: #2a2620;
+  color: #faf6f0;
+  font-size: calc(0.78rem * var(--text-scale, 1));
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(42, 38, 32, 0.18);
+}
+
+.voice-transcript__close:focus-visible,
+.voice-transcript__icon-btn:focus-visible,
+.voice-transcript__size-btn:focus-visible,
+.voice-transcript__font:focus-visible,
+.voice-transcript__jump:focus-visible,
+.voice-transcript__log:focus-visible {
+  outline: 3px solid #2a2620;
+  outline-offset: -3px;
+}
+
+/* ---------- Layout: side panel (wide) ---------- */
+
+@media (min-width: 900px) {
+  .voice-transcript {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: var(--transcript-width);
+    border-left: 1px solid #e8e1d4;
+    box-shadow: -10px 0 30px color-mix(in srgb, var(--scenario-accent) 10%, transparent);
+    animation: voice-transcript-in-side 0.28s ease-out both;
+  }
+
+  .voice-transcript--closing {
+    animation: voice-transcript-out-side 0.28s ease-in both;
+  }
+
+  .voice-call--with-transcript {
+    padding-right: calc(340px + var(--space-4));
+  }
+
+  .voice-call--with-transcript .voice-call__corner {
+    right: calc(340px + var(--space-3));
+  }
+}
+
+/* ---------- Layout: sheet above the controls (narrow) ---------- */
+
+@media (max-width: 899.98px) {
+  .voice-transcript {
+    position: relative;
+    order: 1;
+    flex: 0 1 40vh;
+    width: 100%;
+    max-width: 560px;
+    border: 1px solid #e8e1d4;
+    border-radius: var(--radius);
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--scenario-accent) 12%, transparent);
+    overflow: hidden;
+    animation: voice-transcript-in-sheet 0.28s ease-out both;
+  }
+
+  .voice-transcript--closing {
+    animation: voice-transcript-out-sheet 0.28s ease-in both;
+  }
+
+  .voice-call--with-transcript {
+    gap: var(--space-3);
+  }
+
+  .voice-call--with-transcript .voice-call__controls {
+    order: 2;
+  }
+
+  .voice-call--with-transcript .voice-call__loop-wrapper {
+    min-height: 0;
+  }
+
+  /* Sized from the height actually left between the name and the sheet
+     (which shrinks at large text sizes), not a fixed width. */
+  .voice-call--with-transcript .voice-call__loop {
+    width: auto;
+    height: min(100%, 150px);
+    max-width: 40vw;
+    aspect-ratio: 1;
+  }
+}
+
+@media (min-width: 900px) {
+  .voice-transcript__jump {
+    bottom: 18px;
+  }
+}
+
+@keyframes voice-transcript-in-side {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+
+@keyframes voice-transcript-in-sheet {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+}
+
+/* The same slides in reverse, for closing. */
+@keyframes voice-transcript-out-side {
+  to {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+
+@keyframes voice-transcript-out-sheet {
+  to {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+}
+
+/* ---------- High contrast ---------- */
+
+[data-contrast="high"] .voice-transcript {
+  background: var(--color-bg);
+  color: var(--color-text);
+  border-color: var(--color-text);
+  box-shadow: none;
+}
+
+[data-contrast="high"] .voice-transcript__header {
+  border-bottom: var(--border-width) solid var(--color-text);
+}
+
+[data-contrast="high"] .voice-transcript__line--assistant,
+[data-contrast="high"] .voice-transcript__line--user {
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+}
+
+[data-contrast="high"] .voice-transcript__speaker,
+[data-contrast="high"] .voice-transcript__empty,
+[data-contrast="high"] .voice-transcript__line--narrator .voice-transcript__text,
+[data-contrast="high"] .voice-transcript__line--pending .voice-transcript__text {
+  color: var(--color-text);
+}
+
+[data-contrast="high"] .voice-transcript__avatar {
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+
+[data-contrast="high"] .voice-transcript__jump {
+  background: var(--color-text);
+  border-color: var(--color-text);
+  color: var(--color-bg);
+}
+
+[data-contrast="high"] .voice-transcript__tools {
+  border-bottom: var(--border-width) solid var(--color-text);
+}
+
+[data-contrast="high"] .voice-transcript__size-btn {
+  border: var(--border-width) solid var(--color-text);
+  color: var(--color-text);
+}
+
+[data-contrast="high"] .voice-transcript__size-label {
+  color: var(--color-text);
+}
+
+[data-contrast="high"] .voice-transcript__icon-btn {
+  border: var(--border-width) solid var(--color-text);
+}
+
+[data-contrast="high"] .voice-transcript__icon-btn[aria-pressed="true"] {
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+
+[data-contrast="high"] .voice-transcript__close:focus-visible,
+[data-contrast="high"] .voice-transcript__icon-btn:focus-visible,
+[data-contrast="high"] .voice-transcript__size-btn:focus-visible,
+[data-contrast="high"] .voice-transcript__jump:focus-visible,
+[data-contrast="high"] .voice-transcript__log:focus-visible,
+[data-contrast="high"] .voice-call__pill:focus-visible {
+  outline-color: var(--color-text);
+}

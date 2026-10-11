@@ -3,6 +3,43 @@ import { startRealtimeSession, checkVoiceGoal } from "../services/api.js";
 import { useAccessibility } from "../a11y/AccessibilityContext.jsx";
 import "./VoiceCallGoal.css";
 import HoverWords from "./HoverWords.jsx";
+import VoiceTranscriptPanel from "./VoiceTranscriptPanel.jsx";
+import AccessibilityButton from "./AccessibilityButton.jsx";
+
+const TRANSCRIPT_OPEN_KEY = "nexus-voice-transcript-open";
+// Matches the slide in/out duration in VoiceTranscript.css.
+const TRANSCRIPT_SLIDE_MS = 280;
+
+function readTranscriptOpen() {
+  try {
+    return localStorage.getItem(TRANSCRIPT_OPEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function freshItems() {
+  // partial: text still streaming in (deltas), kept apart from `text` so the
+  // goal check and the reflection only ever see finished lines.
+  return { order: [], role: new Map(), text: new Map(), partial: new Map(), pendingUser: new Set() };
+}
+
+/** Scripted lines for ?voicePreview, so the transcript panel can be seen
+ * (and its streaming/auto-scroll checked) without a real call. */
+function previewScript(npcName) {
+  return [
+    {
+      role: "assistant",
+      text: `You're about to talk with ${npcName}. There's no score here and no single right answer — take your time. Ready to begin?`,
+    },
+    { role: "user", text: "Yes, I'm ready." },
+    { role: "assistant", text: "Hi there! Did you find everything you were looking for today?" },
+    { role: "user", text: "Yeah, I did, thanks." },
+    { role: "assistant", text: "Great. Busy afternoon in here, huh? Feels like everyone came in at once." },
+    { role: "user", text: "It is a bit loud. I'm okay though." },
+    { role: "assistant", text: "Totally fair. Here’s your receipt — have a good one!" },
+  ];
+}
 
 /** Roughly maps a stream's RMS loudness to 0..1 -- typical spoken-voice RMS
  * sits well under 1 (silence is near 0, a raised voice maybe 0.15-0.25), so
@@ -43,7 +80,10 @@ const FAREWELL_PATTERN =
 /** Lower-case letters and digits only, so an opener the model speaks with
  * different punctuation/spacing still matches the scenario's written text. */
 function normalizeForMatch(text) {
-  return String(text || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 /** Deterministic pseudo-random in [0, 1) -- so the confetti pieces are laid
@@ -159,6 +199,7 @@ export default function VoiceCallScreen({
   open,
   scenarioId,
   npcName,
+  npcRole = "",
   voiceIntro,
   opener,
   practiceLabel,
@@ -201,9 +242,9 @@ export default function VoiceCallScreen({
   // handleServerEvent) -- {role, content} pairs in the same shape
   // ChatScreen's typed `messages` normally take, so it can go straight into
   // the existing /api/reflection call and ReflectionPanel with no
-  // translation. Never displayed during the call itself (this app's voice
-  // mode is deliberately transcript-free while live); only ever read if the
-  // user opts into a reflection after ending.
+  // translation. The call screen is transcript-free by default; the
+  // Transcript toggle opens a live view of these same items (see
+  // syncTranscriptView), and the reflection reads them after ending.
   //
   // Kept as an ordered set of conversation items (id -> role/text) rather
   // than a plain push-in-arrival-order list: the user's own speech is
@@ -212,8 +253,19 @@ export default function VoiceCallScreen({
   // order comes from the conversation.item.added events instead. Everything
   // before the character's opener is the out-of-character briefing, which
   // shouldn't count as part of the roleplay (see getTranscript).
-  const itemsRef = useRef({ order: [], role: new Map(), text: new Map(), pendingUser: new Set() });
+  const itemsRef = useRef(freshItems());
   const roleplayStartRef = useRef(null); // id of the item where the opener was spoken
+  // The guide's hand-off spoken in the same turn as the opener ("...is
+  // picking up now."), trimmed out of the roleplay transcript but kept here
+  // so the live transcript can still show it as a Narrator line.
+  const handoffRef = useRef(null);
+  // Off by default -- the call screen stays calm and audio-first unless the
+  // user asks for the words too. Remembered per browser.
+  const [transcriptOpen, setTranscriptOpen] = useState(readTranscriptOpen);
+  const [transcriptClosing, setTranscriptClosing] = useState(false); // sliding out
+  const transcriptCloseTimerRef = useRef(null);
+  const [transcriptLines, setTranscriptLines] = useState([]);
+  const transcriptTimerRef = useRef(null);
   // Practice-goal tracking: `ready` = judged reached but maybe still waiting
   // for the character to finish speaking before celebrating.
   const goalRef = useRef({ reached: false, ready: false, checking: false, again: false });
@@ -264,11 +316,84 @@ export default function VoiceCallScreen({
     items.order.push(id);
     items.role.set(id, role);
     if (role === "user") items.pendingUser.add(id);
+    syncTranscriptView();
   }
 
   function setItemText(id, role, text) {
     noteItem(id, role);
     itemsRef.current.text.set(id, text);
+    itemsRef.current.partial.delete(id);
+    syncTranscriptView();
+  }
+
+  function appendPartial(id, role, delta) {
+    if (!delta) return;
+    noteItem(id, role);
+    const items = itemsRef.current;
+    if (items.text.has(id)) return; // already finished
+    items.partial.set(id, (items.partial.get(id) || "") + delta);
+    syncTranscriptView();
+  }
+
+  /** Rebuilds the live transcript view from itemsRef, batched to at most
+   * ~20 times a second (deltas arrive in bursts). A timer rather than rAF so
+   * it still catches up while the tab is in the background. Lines the character spoke before
+   * the opener are the guide's briefing, shown as the Narrator; until the
+   * opener has been spotted, assistant lines before the user's first reply
+   * are treated as briefing too. */
+  function syncTranscriptView() {
+    if (transcriptTimerRef.current) return;
+    transcriptTimerRef.current = setTimeout(() => {
+      transcriptTimerRef.current = null;
+      const { order, role, text, partial, pendingUser } = itemsRef.current;
+      const startIndex = roleplayStartRef.current ? order.indexOf(roleplayStartRef.current) : -1;
+      const firstUserIndex = order.findIndex((id) => role.get(id) === "user");
+      const lines = [];
+      order.forEach((id, i) => {
+        const r = role.get(id);
+        if (id === roleplayStartRef.current && handoffRef.current) {
+          lines.push({ id: `${id}-handoff`, role: "narrator", text: handoffRef.current, pending: false });
+        }
+        const done = text.get(id);
+        const streaming = partial.get(id);
+        if (r === "user") {
+          if (done) lines.push({ id, role: "user", text: done, pending: false });
+          else if (streaming || pendingUser.has(id))
+            lines.push({ id, role: "user", text: streaming || "", pending: true });
+          return;
+        }
+        const content = done || streaming;
+        if (!content) return;
+        const briefing = startIndex >= 0 ? i < startIndex : firstUserIndex === -1 || i < firstUserIndex;
+        lines.push({ id, role: briefing ? "narrator" : "assistant", text: content, pending: !done });
+      });
+      setTranscriptLines(lines);
+    }, 50);
+  }
+
+  /** Opening mounts the panel (it slides in via CSS). Closing first plays the
+   * same slide in reverse, then unmounts -- skipped under Reduce motion.
+   * Toggling again mid-close just keeps it open. */
+  function toggleTranscript() {
+    const showing = transcriptOpen && !transcriptClosing;
+    try {
+      localStorage.setItem(TRANSCRIPT_OPEN_KEY, showing ? "0" : "1");
+    } catch {
+      // Storage blocked -- the toggle still works for this visit.
+    }
+    clearTimeout(transcriptCloseTimerRef.current);
+    if (!showing) {
+      setTranscriptClosing(false);
+      setTranscriptOpen(true);
+    } else if (resolvedMotion === "reduce") {
+      setTranscriptOpen(false);
+    } else {
+      setTranscriptClosing(true);
+      transcriptCloseTimerRef.current = setTimeout(() => {
+        setTranscriptOpen(false);
+        setTranscriptClosing(false);
+      }, TRANSCRIPT_SLIDE_MS);
+    }
   }
 
   /** The call's spoken transcript in conversation order, as {role, content}.
@@ -391,6 +516,16 @@ export default function VoiceCallScreen({
         break;
       case "conversation.item.input_audio_transcription.failed":
         itemsRef.current.pendingUser.delete(evt.item_id);
+        itemsRef.current.partial.delete(evt.item_id);
+        syncTranscriptView();
+        break;
+      // Streaming text for the live transcript only (see syncTranscriptView);
+      // the finished-line events below are what everything else reads.
+      case "response.output_audio_transcript.delta":
+        appendPartial(evt.item_id, "assistant", evt.delta);
+        break;
+      case "conversation.item.input_audio_transcription.delta":
+        appendPartial(evt.item_id, "user", evt.delta);
         break;
       case "response.done":
         // Safety net: a response that ends without ever producing audio
@@ -415,7 +550,10 @@ export default function VoiceCallScreen({
               // same turn as the opener; keep the roleplay transcript to the
               // character's own words when the opener can be found verbatim.
               const at = said.toLowerCase().indexOf(String(openerRef.current).slice(0, 24).toLowerCase());
-              if (at > 0) setItemText(evt.item_id, "assistant", said.slice(at));
+              if (at > 0) {
+                handoffRef.current = said.slice(0, at).trim() || null;
+                setItemText(evt.item_id, "assistant", said.slice(at));
+              }
             }
           }
           if (FAREWELL_PATTERN.test(said)) setWrapUpCue(true);
@@ -485,7 +623,25 @@ export default function VoiceCallScreen({
     npcAnalyserRef.current = null;
   }
 
+  /** Opens the call. Every await is a point where this attempt may have been
+   * cancelled -- the call closed, or (in dev) React StrictMode's
+   * mount/unmount/mount -- while a newer attempt has started. Without the
+   * `stale()` checks the cancelled attempt would carry on, open a second
+   * Realtime session with its own mic, feed the same transcript twice, and
+   * outlive the hang-up (cleanup only knows about the newest connection). */
   async function connect() {
+    const callId = callIdRef.current;
+    const stale = () => callId !== callIdRef.current;
+    let pc = null;
+    let micStream = null;
+    // Tear down only this attempt's own pieces -- never a newer call's.
+    const abandon = () => {
+      micStream?.getTracks().forEach((track) => track.stop());
+      pc?.close();
+      if (pcRef.current === pc) pcRef.current = null;
+      if (micStreamRef.current === micStream) micStreamRef.current = null;
+    };
+
     setStatus("connecting");
     setErrorMessage("");
     try {
@@ -494,16 +650,19 @@ export default function VoiceCallScreen({
       }
 
       const session = await startRealtimeSession(scenarioId);
+      if (stale()) return;
 
-      const pc = new RTCPeerConnection();
+      pc = new RTCPeerConnection();
       pcRef.current = pc;
       pc.ontrack = (e) => {
+        if (stale()) return;
         const [stream] = e.streams;
         if (audioRef.current) audioRef.current.srcObject = stream;
         attachAnalyser(stream, npcAnalyserRef, npcBufferRef);
       };
 
-      const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (stale()) return abandon();
       micStreamRef.current = micStream;
       micStream.getTracks().forEach((track) => pc.addTrack(track, micStream));
       attachAnalyser(micStream, userAnalyserRef, userBufferRef);
@@ -511,19 +670,24 @@ export default function VoiceCallScreen({
       const dc = pc.createDataChannel("oai-events");
       dcRef.current = dc;
       dc.addEventListener("open", () => {
+        if (stale()) return;
         setStatus("connected");
         // The NPC opens the call by speaking the scenario's opener line --
         // the server's instructions already script this, this just
         // triggers it to actually speak.
         dc.send(JSON.stringify({ type: "response.create" }));
       });
-      dc.addEventListener("message", handleServerEvent);
+      dc.addEventListener("message", (e) => {
+        if (!stale()) handleServerEvent(e);
+      });
       dc.addEventListener("close", () => {
+        if (stale()) return;
         setStatus((s) => (s === "error" ? s : "ended"));
       });
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
+      if (stale()) return abandon();
 
       const resp = await fetch(`https://api.openai.com/v1/realtime/calls?model=${encodeURIComponent(session.model)}`, {
         method: "POST",
@@ -533,14 +697,18 @@ export default function VoiceCallScreen({
         },
         body: offer.sdp,
       });
+      if (stale()) return abandon();
       if (!resp.ok) {
         throw new Error(`Couldn't connect the voice call (${resp.status}).`);
       }
       const answerSdp = await resp.text();
+      if (stale()) return abandon();
       await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
+      if (stale()) return abandon();
 
       rafRef.current = requestAnimationFrame(tick);
     } catch (err) {
+      if (stale()) return abandon();
       disconnect();
       setStatus("error");
       setErrorMessage(err.message || "Couldn't start the voice call.");
@@ -599,8 +767,10 @@ export default function VoiceCallScreen({
     clearTimeout(confettiTimerRef.current);
     goalRef.current = { reached: false, ready: false, checking: false, again: false };
     callIdRef.current += 1; // orphans any goal check still running from a previous call
-    itemsRef.current = { order: [], role: new Map(), text: new Map(), pendingUser: new Set() };
+    itemsRef.current = freshItems();
     roleplayStartRef.current = null;
+    handoffRef.current = null;
+    setTranscriptLines([]);
     waveRef.current = { min: 30, max: 40, period: 4.5, phase: 0 };
     lastFrameTimeRef.current = null;
     if (endingTimeoutRef.current) {
@@ -625,15 +795,66 @@ export default function VoiceCallScreen({
         rafRef.current = requestAnimationFrame(previewTick);
       }
       rafRef.current = requestAnimationFrame(previewTick);
+
+      // Play the scripted lines into the transcript the same way a real call
+      // does: a user line shows as pending, then lands; a character line
+      // streams in word by word. Loops (with fresh ids) so auto-scroll can be
+      // checked on a long log.
+      const script = previewScript(npcName);
+      let lineIndex = 0;
+      let round = 0;
+      let scriptTimer;
+      function playLine() {
+        if (lineIndex >= script.length) {
+          lineIndex = 0;
+          round += 1;
+          if (round >= 4) {
+            itemsRef.current = freshItems();
+            round = 0;
+          }
+        }
+        const { role, text } = script[lineIndex];
+        const id = `preview-${round}-${lineIndex}`;
+        lineIndex += 1;
+        if (role === "user") {
+          noteItem(id, "user");
+          scriptTimer = setTimeout(() => {
+            itemsRef.current.pendingUser.delete(id);
+            setItemText(id, "user", text);
+            scriptTimer = setTimeout(playLine, 900);
+          }, 1100);
+          return;
+        }
+        const words = text.split(" ");
+        let w = 0;
+        (function streamWord() {
+          if (w < words.length) {
+            appendPartial(id, "assistant", (w ? " " : "") + words[w]);
+            w += 1;
+            scriptTimer = setTimeout(streamWord, 140);
+          } else {
+            setItemText(id, "assistant", text);
+            scriptTimer = setTimeout(playLine, 1200);
+          }
+        })();
+      }
+      scriptTimer = setTimeout(playLine, 600);
+
       return () => {
         if (rafRef.current) cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
+        clearTimeout(scriptTimer);
+        clearTimeout(transcriptTimerRef.current);
+        transcriptTimerRef.current = null;
       };
     }
 
     connect();
     return () => {
       disconnect();
+      clearTimeout(transcriptCloseTimerRef.current);
+      clearTimeout(transcriptTimerRef.current);
+      transcriptTimerRef.current = null;
       callIdRef.current += 1;
       clearTimeout(confettiTimerRef.current);
       if (endingTimeoutRef.current) {
@@ -692,18 +913,18 @@ export default function VoiceCallScreen({
     status === "connecting"
       ? "Connecting..."
       : status === "connected"
-      ? muted
-        ? "Muted"
-        : bodyState === "listening"
-        ? "Listening"
-        : bodyState === "thinking"
-        ? "Thinking"
-        : bodyState === "speaking"
-        ? "Speaking"
-        : "Live"
-      : status === "error"
-      ? errorMessage || "Something went wrong."
-      : "Call ended";
+        ? muted
+          ? "Muted"
+          : bodyState === "listening"
+            ? "Listening"
+            : bodyState === "thinking"
+              ? "Thinking"
+              : bodyState === "speaking"
+                ? "Speaking"
+                : "Live"
+        : status === "error"
+          ? errorMessage || "Something went wrong."
+          : "Call ended";
 
   // The visual state driving the ring/bloom/pulses: bodyState once actually
   // connected (idle/listening/thinking/speaking/ending), otherwise the
@@ -721,7 +942,9 @@ export default function VoiceCallScreen({
         style={{ "--scenario-accent": accentColor, "--scenario-accent-contrast": accentContrast }}
       >
         <div className="voice-call__ask">
-          <p className="voice-call__ask-title"><HoverWords text="Want a reflection on this conversation?" /></p>
+          <p className="voice-call__ask-title">
+            <HoverWords text="Want a reflection on this conversation?" />
+          </p>
           <p className="voice-call__ask-text">
             A warm look back at how it went -- same as text chats get, just based on what was actually said out loud.
           </p>
@@ -740,32 +963,99 @@ export default function VoiceCallScreen({
 
   return (
     <div
-      className="voice-call"
+      className={`voice-call${transcriptOpen ? " voice-call--with-transcript" : ""}`}
       role="dialog"
       aria-modal="true"
       aria-label={`Live voice call with ${npcName}`}
       style={{ "--scenario-accent": accentColor, "--scenario-accent-contrast": accentContrast }}
     >
-      {/* A small always-there way to calm the screen mid-call -- the ring's
-          breathing and the celebration confetti are the two moving things
-          here, and reaching the full accessibility menu (with the call
-          screen covering the page) would be a detour when someone's
-          overwhelmed right now. Same setting as the menu's Pause
-          Animations tile. */}
-      <button
-        type="button"
-        className="voice-call__motion"
-        aria-pressed={reduceMotionOn}
-        disabled={followingDevice}
-        title={followingDevice ? "Your device is set to reduce motion" : reduceMotionOn ? "Turn motion back on" : "Calm the animations"}
-        onClick={() => setPref("motion", prefs.motion === "reduce" ? "device" : "reduce")}
-      >
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="7" />
-          <path d="M9.5 10v4M14.5 10v4" />
-        </svg>
-        Reduce motion
-      </button>
+      <div className="voice-call__corner">
+        {/* Words alongside the voice, for anyone who'd rather read along,
+            missed a word, or wants to check what they themselves said. */}
+        <button
+          type="button"
+          className="voice-call__pill"
+          aria-pressed={transcriptOpen && !transcriptClosing}
+          aria-controls="voice-transcript"
+          title={transcriptOpen && !transcriptClosing ? "Hide the live transcript" : "Show the words as you talk"}
+          onClick={toggleTranscript}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="3.5" y="5" width="17" height="14" rx="2.5" />
+            <path d="M7.5 10h9M7.5 14h6" />
+          </svg>
+          Transcript
+        </button>
+        {/* The full Accessibility menu (text size, fonts, contrast...) sits
+            above the call screen, so it can be reached mid-call too. */}
+        {/* While the transcript is open these two move into its header as
+            icon-only buttons, so the corner doesn't crowd the panel. */}
+        {!transcriptOpen && <AccessibilityButton className="voice-call__pill voice-call__access" />}
+        {/* A small always-there way to calm the screen mid-call -- the ring's
+            breathing and the celebration confetti are the two moving things
+            here, and reaching the full accessibility menu (with the call
+            screen covering the page) would be a detour when someone's
+            overwhelmed right now. Same setting as the menu's Pause
+            Animations tile. */}
+        {!transcriptOpen && (
+          <button
+            type="button"
+            className="voice-call__pill voice-call__motion"
+            aria-pressed={reduceMotionOn}
+            disabled={followingDevice}
+            title={
+              followingDevice
+                ? "Your device is set to reduce motion"
+                : reduceMotionOn
+                  ? "Turn motion back on"
+                  : "Calm the animations"
+            }
+            onClick={() => setPref("motion", prefs.motion === "reduce" ? "device" : "reduce")}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="7" />
+              <path d="M9.5 10v4M14.5 10v4" />
+            </svg>
+            Reduce motion
+          </button>
+        )}
+      </div>
+
+      {transcriptOpen && (
+        <VoiceTranscriptPanel
+          id="voice-transcript"
+          lines={transcriptLines}
+          npcName={npcName}
+          npcRole={npcRole}
+          reduceMotion={reduceMotionOn}
+          motionLocked={followingDevice}
+          onToggleMotion={() => setPref("motion", prefs.motion === "reduce" ? "device" : "reduce")}
+          closing={transcriptClosing}
+          onClose={() => {
+            if (!transcriptClosing) toggleTranscript();
+          }}
+        />
+      )}
 
       {confettiRun > 0 && (
         <div key={confettiRun} className="voice-call__confetti" aria-hidden="true">
@@ -791,7 +1081,9 @@ export default function VoiceCallScreen({
       )}
 
       <div className="voice-call__top">
-        <p className="voice-call__name"><HoverWords text={npcName} /></p>
+        <p className="voice-call__name">
+          <HoverWords text={npcName} />
+        </p>
         <p className="voice-call__status" aria-live="polite">
           {statusText}
         </p>
@@ -799,7 +1091,11 @@ export default function VoiceCallScreen({
             voice mode has to text mode's NarratorIntro, since there's no
             transcript here to establish context otherwise. Fades away once
             the call actually starts so it doesn't compete with the ring. */}
-        {status === "connecting" && voiceIntro && <p className="voice-call__intro"><HoverWords text={voiceIntro} /></p>}
+        {status === "connecting" && voiceIntro && (
+          <p className="voice-call__intro">
+            <HoverWords text={voiceIntro} />
+          </p>
+        )}
         {/* Persists for the rest of the call once triggered (see
             handleServerEvent) -- an explicit, unambiguous cue that this is a
             good stopping point, so the NPC verbally wrapping up is never the
@@ -808,7 +1104,9 @@ export default function VoiceCallScreen({
           <div className="voice-call__goal" role="status" aria-live="polite">
             <p className="voice-call__goal-title">Nicely done</p>
             <p className="voice-call__goal-text">
-              {practiceLabel ? `You practiced ${practiceLabel}, and it worked. ` : "You did what you came here to practice. "}
+              {practiceLabel
+                ? `You practiced ${practiceLabel}, and it worked. `
+                : "You did what you came here to practice. "}
               This is a good place to stop -- hang up whenever you're ready, or keep talking.
             </p>
             <button type="button" className="voice-call__goal-hangup" onClick={handleClose}>
@@ -880,13 +1178,33 @@ export default function VoiceCallScreen({
           title={muted ? "Unmute" : "Mute"}
         >
           {muted ? (
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              width="20"
+              height="20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
               <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
               <path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4" />
               <line x1="4" y1="4" x2="20" y2="20" />
             </svg>
           ) : (
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              width="20"
+              height="20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
               <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
               <path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4" />
             </svg>
@@ -903,7 +1221,18 @@ export default function VoiceCallScreen({
               "decline/end call" shape (same silhouette as the red hangup
               icon on any phone dialer), rather than a custom mark that
               needs its own explaining. */}
-          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: "rotate(135deg)" }}>
+          <svg
+            viewBox="0 0 24 24"
+            width="19"
+            height="19"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            style={{ transform: "rotate(135deg)" }}
+          >
             <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
           </svg>
         </button>

@@ -1,0 +1,387 @@
+/* ==========================================================================
+   Reflection extras (ReflectionPanel.jsx): the "writing your reflection"
+   scene, and each section as its own softly tinted card with an icon, so a
+   new section is easy to tell apart at a glance. The panel's base layout
+   lives in index.css (.reflection-panel*, .reflection-panel .reflection-section*).
+
+   Animations here are removed by the global reduce-motion rule; every
+   element's resting (non-animated) style is the finished still picture.
+   ========================================================================== */
+
+/* ---------- Loading scene ---------- */
+
+.reflection-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-3) 0 var(--space-4);
+  text-align: center;
+}
+
+.reflection-loading__scene {
+  width: min(260px, 80%);
+  height: auto;
+  overflow: visible;
+  --you: #4f8a8b;
+  --them: #c98a2e;
+}
+
+.reflection-loading__page rect {
+  fill: var(--color-surface);
+  stroke: color-mix(in srgb, var(--color-text-muted) 55%, transparent);
+  stroke-width: 1.5;
+}
+
+.reflection-loading__line {
+  stroke: color-mix(in srgb, var(--color-text-muted) 60%, transparent);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-dasharray: 32;
+  stroke-dashoffset: 0;
+  animation: reflection-write 4.8s ease-in-out infinite;
+}
+
+.reflection-loading__line--2 {
+  animation-delay: 0.45s;
+}
+
+.reflection-loading__line--3 {
+  animation-delay: 0.9s;
+}
+
+.reflection-loading__line--4 {
+  animation-delay: 1.35s;
+}
+
+/* Each line writes itself in, stays a while, then the page clears for the
+   next pass. */
+@keyframes reflection-write {
+  0%,
+  8% {
+    stroke-dashoffset: 32;
+  }
+  30%,
+  85% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 32;
+  }
+}
+
+.reflection-loading__bubble path {
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+
+.reflection-loading__bubble--user path {
+  fill: color-mix(in srgb, var(--you) 16%, var(--color-surface));
+  stroke: var(--you);
+}
+
+.reflection-loading__bubble--npc path {
+  fill: color-mix(in srgb, var(--them) 18%, var(--color-surface));
+  stroke: var(--them);
+}
+
+.reflection-loading__bubble {
+  animation: reflection-bob 2.4s ease-in-out infinite;
+}
+
+.reflection-loading__bubble--npc {
+  animation-delay: -1.2s;
+}
+
+@keyframes reflection-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.reflection-loading__bubble--user .reflection-loading__dot {
+  fill: var(--you);
+}
+
+.reflection-loading__bubble--npc .reflection-loading__dot {
+  fill: var(--them);
+}
+
+.reflection-loading__dot {
+  animation: reflection-murmur 1.2s ease-in-out infinite;
+}
+
+.reflection-loading__dot:nth-of-type(2) {
+  animation-delay: 0.15s;
+}
+
+.reflection-loading__dot:nth-of-type(3) {
+  animation-delay: 0.3s;
+}
+
+.reflection-loading__bubble--npc .reflection-loading__dot {
+  animation-delay: 0.6s;
+}
+
+.reflection-loading__bubble--npc .reflection-loading__dot:nth-of-type(2) {
+  animation-delay: 0.75s;
+}
+
+.reflection-loading__bubble--npc .reflection-loading__dot:nth-of-type(3) {
+  animation-delay: 0.9s;
+}
+
+@keyframes reflection-murmur {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Motes: little bits of the conversation drifting up from each bubble into
+   the page. Hidden at rest (the still picture doesn't need them). */
+.reflection-loading__mote {
+  opacity: 0;
+  animation: reflection-drift-left 2.8s ease-in-out infinite;
+}
+
+.reflection-loading__mote--user-1,
+.reflection-loading__mote--user-2 {
+  fill: var(--you);
+}
+
+.reflection-loading__mote--npc-1,
+.reflection-loading__mote--npc-2 {
+  fill: var(--them);
+  animation-name: reflection-drift-right;
+}
+
+.reflection-loading__mote--user-2 {
+  animation-delay: 1.4s;
+}
+
+.reflection-loading__mote--npc-1 {
+  animation-delay: 0.7s;
+}
+
+.reflection-loading__mote--npc-2 {
+  animation-delay: 2.1s;
+}
+
+@keyframes reflection-drift-left {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.6);
+  }
+  20% {
+    opacity: 0.9;
+  }
+  70% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(46px, -30px) scale(1);
+  }
+}
+
+@keyframes reflection-drift-right {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.6);
+  }
+  20% {
+    opacity: 0.9;
+  }
+  70% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-46px, -30px) scale(1);
+  }
+}
+
+.reflection-loading__sparkle {
+  fill: #e4a34c;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: reflection-twinkle 2.2s ease-in-out infinite;
+}
+
+@keyframes reflection-twinkle {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.75) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1) rotate(20deg);
+  }
+}
+
+.reflection-loading__line-text {
+  margin: var(--space-3) 0 0 !important;
+  min-height: 1.6em;
+  font-family: var(--font-narrator);
+  font-style: italic;
+  font-size: calc(1.15rem * var(--narrator-size, 1) * var(--text-scale, 1));
+  color: var(--color-text);
+  animation: reflection-line-in 0.45s ease-out both;
+}
+
+@keyframes reflection-line-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+html[data-narrator-font="plain"] .reflection-loading__line-text {
+  font-style: normal;
+}
+
+/* ---------- Sections as distinct cards ---------- */
+
+.reflection-panel .reflection-section {
+  --section-color: #7a7062;
+  margin-bottom: var(--space-3);
+  padding: 14px 16px 16px;
+  border: 1px solid color-mix(in srgb, var(--section-color) 22%, transparent);
+  border-left: 4px solid var(--section-color);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--section-color) 7%, var(--color-surface));
+  animation: reflection-section-in 0.4s ease-out both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+@keyframes reflection-section-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.reflection-panel .reflection-section--strengths {
+  --section-color: #5f8f6b;
+}
+
+.reflection-panel .reflection-section--learned {
+  --section-color: #3f8a8c;
+}
+
+.reflection-panel .reflection-section--moments {
+  --section-color: #c1666b;
+}
+
+.reflection-panel .reflection-section--style {
+  --section-color: #7a5f92;
+}
+
+.reflection-panel .reflection-section--growth {
+  --section-color: #c98a2e;
+}
+
+.reflection-panel .reflection-section--echo {
+  --section-color: #4a77a8;
+}
+
+.reflection-panel .reflection-section--balance {
+  --section-color: #7a7062;
+}
+
+.reflection-panel .reflection-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: var(--space-3);
+  color: color-mix(in srgb, var(--section-color) 75%, var(--color-text));
+}
+
+.reflection-panel .reflection-section__icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  /* A hand-cut, slightly uneven round chip with a thin ring, like a
+     watercolor dot on paper. */
+  border-radius: 52% 48% 50% 50% / 48% 52% 48% 52%;
+  background: color-mix(in srgb, var(--section-color) 13%, var(--color-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--section-color) 28%, transparent);
+  color: var(--section-color);
+}
+
+.reflection-panel .reflection-section__icon .soft {
+  fill: currentColor;
+  fill-opacity: 0.3;
+  stroke: none;
+}
+
+.reflection-panel .reflection-section__icon .solid {
+  fill: currentColor;
+  stroke: none;
+}
+
+.reflection-panel .reflection-section li::marker {
+  color: var(--section-color);
+}
+
+/* The style label is the one "name" in the reflection -- set in the
+   Narrator's voice, a touch bigger, in the section's own color. */
+.reflection-panel .reflection-section--style .reflection-style-label {
+  font-family: var(--font-narrator);
+  font-style: italic;
+  font-weight: 600;
+  font-size: calc(1.45rem * var(--narrator-size, 1) * var(--text-scale, 1));
+  color: color-mix(in srgb, var(--section-color) 85%, var(--color-text));
+}
+
+html[data-narrator-font="plain"] .reflection-panel .reflection-section--style .reflection-style-label {
+  font-style: normal;
+}
+
+/* Dark: the section colors are mid-tones, so headings and the style label
+   lean further toward the (light) text color to stay readable. */
+[data-theme="dark"] .reflection-panel .reflection-section h3 {
+  color: color-mix(in srgb, var(--section-color) 50%, var(--color-text));
+}
+
+[data-theme="dark"] .reflection-panel .reflection-section--style .reflection-style-label {
+  color: color-mix(in srgb, var(--section-color) 45%, var(--color-text));
+}
+
+/* ---------- High contrast: plain bordered cards, theme colors ---------- */
+
+[data-contrast="high"] .reflection-panel .reflection-section {
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-text);
+  border-left-width: 5px;
+}
+
+[data-contrast="high"] .reflection-panel .reflection-section h3,
+[data-contrast="high"] .reflection-panel .reflection-section--style .reflection-style-label {
+  color: var(--color-text);
+}
+
+[data-contrast="high"] .reflection-panel .reflection-section__icon {
+  background: var(--color-text);
+  box-shadow: none;
+  color: var(--color-bg);
+}
+
+[data-contrast="high"] .reflection-panel .reflection-section__icon .soft {
+  fill-opacity: 0;
+}
+
+[data-contrast="high"] .reflection-loading__scene {
+  --you: var(--color-text);
+  --them: var(--color-text);
+}

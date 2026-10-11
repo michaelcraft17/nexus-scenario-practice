@@ -1,4 +1,5 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useAccessibility } from "../a11y/AccessibilityContext.jsx";
 
 /**
  * Per-scenario heading and framing line for the practice-focus card. Only
@@ -11,6 +12,68 @@ const FOCUS_COPY = {
     lead: "You don’t have to guess what someone needs. A question is a useful next step.",
   },
 };
+
+/**
+ * Small reminders of the tools around the chat, shown one at a time under
+ * the scenario's own tip. Names match the on-screen labels exactly so they
+ * can be spotted.
+ */
+const APP_TIPS = [
+  <>Not sure what someone meant? <b>Explain that</b> under their message unpacks the subtext.</>,
+  <><b>Explain that</b> steps outside the scene for a moment — the character never hears it.</>,
+  <>Stuck for words? <b>Need a hint?</b> above the reply box offers a couple of directions, not a script.</>,
+  <>Hints are possibilities, not answers. You can find them in <b>Need a hint?</b> or the <b>Hint</b> button up top.</>,
+  <>You can find <b>Bigger Text</b> and a <b>Dyslexia Friendly</b> font in the <b>Access</b> menu, top right.</>,
+  <>Screen feeling busy? <b>Pause Animations</b> and <b>Saturation</b> live in the <b>Access</b> menu (Ctrl+U).</>,
+  <>Lines feel cramped? <b>Text Spacing</b> and <b>Line Height</b> are in the <b>Access</b> menu.</>,
+];
+
+const TIP_ROTATE_MS = 18000;
+
+function randomTipIndex(except) {
+  let i = Math.floor(Math.random() * APP_TIPS.length);
+  if (i === except) i = (i + 1) % APP_TIPS.length;
+  return i;
+}
+
+/**
+ * One rotating reminder. Starts on a random tip and moves to another every
+ * ~18s -- paused while the pointer is over it or focus is inside it, and not
+ * at all under Reduce motion (text changing on its own is its own kind of
+ * movement). "Another tip" always works. Not a live region: a tip swapping
+ * in shouldn't interrupt a screen reader.
+ */
+function AppTip() {
+  const { resolvedMotion } = useAccessibility();
+  const [index, setIndex] = useState(() => randomTipIndex(-1));
+  const [paused, setPaused] = useState(false);
+  const autoRotate = resolvedMotion !== "reduce" && !paused;
+
+  useEffect(() => {
+    if (!autoRotate) return undefined;
+    const id = setInterval(() => setIndex((i) => randomTipIndex(i)), TIP_ROTATE_MS);
+    return () => clearInterval(id);
+  }, [autoRotate]);
+
+  return (
+    <div
+      className="practice-focus__app-tip"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget)) setPaused(false);
+      }}
+    >
+      <p key={index} className="practice-focus__app-tip-text">
+        {APP_TIPS[index]}
+      </p>
+      <button type="button" className="practice-focus__app-tip-next" onClick={() => setIndex((i) => randomTipIndex(i))}>
+        Another tip
+      </button>
+    </div>
+  );
+}
 
 function fallbackHeading(scenario) {
   const label = scenario.practiceLabel || "";
@@ -191,6 +254,7 @@ export default function PracticeFocus({ scenario, mission, collapsed = false, on
           {copy.lead
             ? copy.lead.replace(/ -- /g, " — ")
             : "There’s more than one way to respond. Try words that feel natural to you."}
+          <AppTip />
         </div>
       </div>
     </aside>
