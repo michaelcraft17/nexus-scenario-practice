@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import AccessibilityButton from "./AccessibilityButton.jsx";
+import { ArrowLeftIcon, HelpIcon, HintIcon, MicIcon } from "./icons.jsx";
 
 /**
  * Full screen for the practice: the browser's own fullscreen mode, which
@@ -54,8 +55,10 @@ function FullscreenButton() {
  * on the left; the scenario title centered; hint, accessibility and full
  * screen (outermost) on the right. No manual Reflection trigger anymore -- the Reflection auto-opens
  * once the whole mission is complete instead (see ChatScreen.jsx).
- * Icon-only buttons keep their full-text meaning in `aria-label`/`title` for
- * anyone not able to rely on the icon alone.
+ * Every button pairs one icon from the shared set (icons.jsx) with a short
+ * word. Where the row runs out of room -- a phone, or bigger text -- the words
+ * (.chat-header__label) drop and the icons stay; each button's accessible
+ * name is its full meaning either way.
  */
 export default function ChatHeader({ scenario, onExit, onHint, onTalkLive, onTutorial, typing = false }) {
   return (
@@ -68,34 +71,32 @@ export default function ChatHeader({ scenario, onExit, onHint, onTalkLive, onTut
             <span className="chat-header__brand-name">nexus</span>
           </div>
           <button
+            type="button"
             className="chat-header__exit"
             onClick={onExit}
             aria-label="Exit scenario and return to the scenario picker"
           >
-            <span aria-hidden="true">&larr;</span>
+            <ArrowLeftIcon size={18} />
           </button>
-          {/* On narrow screens only the "?" shows (the label drops, same as
-              Talk Live's). */}
           <button
+            type="button"
             className="chat-header__tutorial"
             onClick={onTutorial}
             aria-label="Replay the getting-started walkthrough"
             title="Getting started"
           >
-            <span aria-hidden="true">?</span>
-            <span className="chat-header__tutorial-label">Tutorial</span>
+            <HelpIcon />
+            <span className="chat-header__label chat-header__tutorial-label">Tutorial</span>
           </button>
           <button
+            type="button"
             className="chat-header__voice"
             onClick={onTalkLive}
             aria-label="Start a live voice call with this character"
             title="Talk live"
           >
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
-              <path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4" />
-            </svg>
-            <span className="chat-header__voice-label">Talk Live</span>
+            <MicIcon />
+            <span className="chat-header__label chat-header__voice-label">Talk Live</span>
           </button>
         </div>
         <div className="chat-header__title">
@@ -108,10 +109,11 @@ export default function ChatHeader({ scenario, onExit, onHint, onTalkLive, onTut
           </span>
         </div>
         <div className="chat-header__group chat-header__group--right">
-          <button className="chat-header__hint" onClick={onHint} aria-label="Need a hint?" title="Need a hint?">
-            Hint
+          <button type="button" className="chat-header__hint" onClick={onHint} aria-label="Need a hint?" title="Need a hint?">
+            <HintIcon />
+            <span className="chat-header__label">Hint</span>
           </button>
-          <AccessibilityButton className="chat-header__access" iconOnly />
+          <AccessibilityButton className="chat-header__access" labelClassName="chat-header__label" />
           <FullscreenButton />
         </div>
       </div>

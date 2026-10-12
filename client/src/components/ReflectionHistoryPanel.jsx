@@ -1,3 +1,4 @@
+import { CloseIcon } from "./icons.jsx";
 /** Roughly-relative phrasing ("Today", "Yesterday", "3 days ago") reads
  * more naturally in a short list than a raw date/time stamp would. */
 function formatRelativeDate(isoString) {
@@ -23,8 +24,8 @@ export default function ReflectionHistoryPanel({ open, entries, onSelect, onClos
       <div className="reflection-panel">
         <div className="reflection-panel__header">
           <h2>Past Reflections</h2>
-          <button className="reflection-panel__close" onClick={onClose} aria-label="Close past reflections">
-            &times;
+          <button type="button" className="reflection-panel__close" onClick={onClose} aria-label="Close past reflections">
+            <CloseIcon size={20} />
           </button>
         </div>
 

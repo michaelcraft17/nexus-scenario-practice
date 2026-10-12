@@ -12,28 +12,23 @@
 /* ---------- Top-right toggles: Transcript + Reduce motion ---------- */
 
 .voice-call__corner {
-  position: absolute;
-  top: max(12px, env(safe-area-inset-top));
-  right: var(--space-3);
+  /* In the column's flow (not floating) at every width, so the name always
+     starts below the toggles instead of sliding under them -- they wrap
+     onto more rows at large text sizes or beside a docked transcript. */
+  position: relative;
   z-index: 3;
+  align-self: stretch;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
-  max-width: calc(100% - 2 * var(--space-3));
+  margin-bottom: calc(10px - var(--space-5));
 }
 
-/* Phones: no room beside the centred name, so the toggles sit in the
-   column's flow above it instead of floating over it (and wrap onto a
-   second row at large text sizes without colliding with anything). The
-   matching smaller top padding is in index.css, next to .voice-call. */
+/* Phones: centred above the name. */
 @media (max-width: 599.98px) {
   .voice-call__corner {
-    position: static;
-    align-self: stretch;
     justify-content: center;
-    max-width: none;
-    margin-bottom: calc(10px - var(--space-5));
   }
 }
 
@@ -44,18 +39,18 @@
   min-height: 40px;
   padding: 6px 14px;
   border-radius: 999px;
-  border: 1.5px solid color-mix(in srgb, #2a2620 40%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--call-ink) 40%, transparent);
   background: transparent;
-  color: #2a2620;
+  color: var(--call-ink);
   font-size: calc(0.78rem * var(--text-scale, 1));
   font-weight: 600;
   white-space: nowrap;
 }
 
-.voice-call__pill[aria-pressed="true"] {
-  background: #2a2620;
-  border-color: #2a2620;
-  color: #faf6f0;
+.voice-call__pill:is([aria-pressed="true"], [aria-expanded="true"]) {
+  background: var(--call-ink);
+  border-color: var(--call-ink);
+  color: var(--call-on-ink);
 }
 
 .voice-call__pill:disabled {
@@ -70,14 +65,14 @@
   color: var(--color-text);
 }
 
-[data-contrast="high"] .voice-call__pill[aria-pressed="true"] {
+[data-contrast="high"] .voice-call__pill:is([aria-pressed="true"], [aria-expanded="true"]) {
   background: var(--color-text);
   color: var(--color-bg);
 }
 
 .voice-call__pill:focus-visible,
 .voice-call__goal-hangup:focus-visible {
-  outline: 3px solid #2a2620;
+  outline: 3px solid var(--call-ink);
   outline-offset: 2px;
 }
 
@@ -85,19 +80,20 @@
 
 .voice-call__goal {
   margin: var(--space-3) auto 0;
-  max-width: 24em;
+  /* Never wider than the column left beside a docked transcript. */
+  max-width: min(24em, 100%);
   padding: var(--space-3) var(--space-4) var(--space-4);
   border-radius: var(--radius);
-  background: var(--scenario-accent);
+  background: var(--scenario-action, var(--scenario-accent));
   color: var(--scenario-accent-contrast);
   box-shadow: 0 8px 24px color-mix(in srgb, var(--scenario-accent) 35%, transparent);
-  animation: voice-goal-in 0.5s cubic-bezier(0.2, 1.25, 0.4, 1) both;
+  animation: voice-goal-in var(--motion-panel) var(--ease-out) both;
 }
 
 @keyframes voice-goal-in {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.94);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -124,34 +120,33 @@
   border: none;
   border-radius: 999px;
   background: var(--scenario-accent-contrast);
-  color: var(--scenario-accent);
+  color: var(--scenario-action, var(--scenario-accent));
   font-size: calc(0.95rem * var(--text-scale, 1));
   font-weight: 700;
 }
 
 /* The round End Call button also gets picked out, in case the eye goes to
-   the usual place rather than the card. Higher specificity than the base
+   the usual place rather than the card: a steady ring that grows in once
+   over --motion-panel, then holds still rather than tugging at attention
+   for the rest of the call. Higher specificity than the base
    .voice-call__icon-btn--end rules in index.css (which load later). */
 .voice-call__icon-btn.voice-call__icon-btn--attention {
   box-shadow: 0 0 0 3px var(--scenario-accent);
-  animation: voice-attention 1.7s ease-in-out infinite;
+  animation: voice-attention var(--motion-panel) var(--ease-out) both;
 }
 
 @keyframes voice-attention {
-  0%,
-  100% {
-    box-shadow: 0 0 0 3px var(--scenario-accent), 0 0 0 3px transparent;
-  }
-  50% {
-    box-shadow: 0 0 0 3px var(--scenario-accent), 0 0 0 11px color-mix(in srgb, var(--scenario-accent) 25%, transparent);
+  from {
+    box-shadow: 0 0 0 0 transparent;
   }
 }
 
 /* ---------- Confetti: two party poppers, one per bottom corner ----------
-   Each piece launches up and inward (--rise / --dx), spinning (--rot), then
-   arcs back down (--fall) and fades. The two-part easing is what makes it
-   read as a pop and then gravity, not a straight drift. Pointer-events off
-   so it never blocks the End Call button. */
+   Each piece appears at the top of its arc up and inward from its corner
+   (--rise / --dx, turned by --rot): a short fade-and-settle in, a still
+   moment, then a short fade out -- no flight, spin or bounce, and no single
+   motion longer than --motion-panel. Pointer-events off so it never blocks
+   the End Call button. */
 
 .voice-call__confetti {
   position: fixed;
@@ -165,8 +160,10 @@
   position: absolute;
   bottom: -12px;
   background: var(--c);
-  opacity: 0;
-  animation: voice-confetti var(--dur) linear var(--delay) both;
+  transform: translate(calc(var(--dx) * 0.75), calc(var(--rise) * -1)) rotate(calc(var(--rot) * 0.55));
+  animation:
+    voice-confetti-in var(--motion-content) var(--ease-out) var(--delay) both,
+    voice-confetti-out var(--motion-panel) ease-in calc(var(--delay) + var(--dur) * 0.6) forwards;
 }
 
 .voice-call__confetti-piece--left {
@@ -177,19 +174,29 @@
   right: 3%;
 }
 
-@keyframes voice-confetti {
-  0% {
-    opacity: 1;
-    transform: translate(0, 0) rotate(0deg);
-    animation-timing-function: cubic-bezier(0.12, 0.8, 0.3, 1);
-  }
-  38% {
-    opacity: 1;
-    transform: translate(calc(var(--dx) * 0.75), calc(var(--rise) * -1)) rotate(calc(var(--rot) * 0.55));
-    animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.6);
-  }
-  100% {
+@keyframes voice-confetti-in {
+  from {
     opacity: 0;
-    transform: translate(var(--dx), var(--fall)) rotate(var(--rot));
+    transform: translate(calc(var(--dx) * 0.7), calc(var(--rise) * -0.94)) rotate(calc(var(--rot) * 0.55));
   }
+}
+
+@keyframes voice-confetti-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* A clipped goal card gives a subtle cue that more content is below.
+   Its scroll region also receives keyboard focus and an accessible label. */
+.voice-call__top--more {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
+}
+.voice-call__top:focus-visible {
+  outline: 3px solid var(--call-ink);
+  outline-offset: -3px;
+}
+[data-contrast="high"] .voice-call__top--more {
+  mask-image: none;
+  border-bottom: 2px solid var(--call-ink);
 }

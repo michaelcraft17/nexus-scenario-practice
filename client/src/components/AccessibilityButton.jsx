@@ -1,17 +1,19 @@
 import { useAccessibility } from "../a11y/AccessibilityContext.jsx";
+import { AccessibilityIcon } from "./icons.jsx";
 
 /**
- * The single "Accessibility" pill -- rendered in both the
- * picker header and the chat header, both instances opening the same
- * shared panel via AccessibilityContext.
+ * The single "Accessibility" button -- rendered in both the picker header and
+ * the chat header, both instances opening the same shared panel via
+ * AccessibilityContext. Always the universal accessibility figure plus the
+ * word "Accessibility", so it reads the same everywhere.
  * @param {string} [className] - Replaces (never combines with) the default
  *   `.a11y-button` styling, so callers can take on a surrounding header's
  *   look without a cascade fight over which class wins.
- * @param {boolean} [iconOnly] - Renders a short "Access" label instead of
- *   the "Accessibility" text, for tight header space -- the aria-label
- *   stays the full "Accessibility features" either way.
+ * @param {string} [labelClassName] - Class for the visible word, so a tight
+ *   header can hide it at narrow widths. The accessible name stays
+ *   "Accessibility" either way.
  */
-export default function AccessibilityButton({ className, iconOnly = false }) {
+export default function AccessibilityButton({ className, labelClassName }) {
   const { panelOpen, togglePanel } = useAccessibility();
 
   return (
@@ -19,18 +21,13 @@ export default function AccessibilityButton({ className, iconOnly = false }) {
       type="button"
       className={className || "a11y-button"}
       onClick={togglePanel}
-      aria-pressed={panelOpen}
+      aria-expanded={panelOpen}
       aria-haspopup="dialog"
-      aria-label="Accessibility features"
-      title="Accessibility features (Ctrl+U)"
+      aria-label="Accessibility"
+      title="Accessibility (Ctrl+U)"
     >
-      {!iconOnly && (
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <circle cx="12" cy="8" r="3.2" />
-          <path d="M5.5 20c0-3.6 3-6 6.5-6s6.5 2.4 6.5 6" />
-        </svg>
-      )}
-      {iconOnly ? "Access" : "Accessibility"}
+      <AccessibilityIcon size={18} />
+      <span className={labelClassName}>Accessibility</span>
     </button>
   );
 }

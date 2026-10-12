@@ -140,8 +140,9 @@ export function getHint(scenarioId, contextMessages) {
  * @param {string} scenarioId
  * @returns {Promise<{clientSecret: string, expiresAt: number, model: string, npcName: string}>}
  */
-export function startRealtimeSession(scenarioId) {
+export function startRealtimeSession(scenarioId, { signal } = {}) {
   return request("/realtime-session", {
+    signal,
     method: "POST",
     body: JSON.stringify({ scenarioId }),
   });

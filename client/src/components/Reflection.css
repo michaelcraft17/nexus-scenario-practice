@@ -4,8 +4,10 @@
    new section is easy to tell apart at a glance. The panel's base layout
    lives in index.css (.reflection-panel*, .reflection-panel .reflection-section*).
 
-   Animations here are removed by the global reduce-motion rule; every
-   element's resting (non-animated) style is the finished still picture.
+   Animations here are removed by the global reduce-motion rule (durations
+   and delays); every element's resting style is the finished still
+   picture. The page's lines writing in once is the loading scene's only
+   motion; the status text below it says what is happening either way.
    ========================================================================== */
 
 /* ---------- Loading scene ---------- */
@@ -38,33 +40,25 @@
   stroke-linecap: round;
   stroke-dasharray: 32;
   stroke-dashoffset: 0;
-  animation: reflection-write 4.8s ease-in-out infinite;
+  animation: reflection-write var(--motion-content) var(--ease-out) both;
 }
 
 .reflection-loading__line--2 {
-  animation-delay: 0.45s;
+  animation-delay: 30ms;
 }
 
 .reflection-loading__line--3 {
-  animation-delay: 0.9s;
+  animation-delay: 60ms;
 }
 
 .reflection-loading__line--4 {
-  animation-delay: 1.35s;
+  animation-delay: 90ms;
 }
 
-/* Each line writes itself in, stays a while, then the page clears for the
-   next pass. */
+/* Each line writes itself in once, top to bottom, then the page holds
+   still -- no repeating loop while the reflection is written. */
 @keyframes reflection-write {
-  0%,
-  8% {
-    stroke-dashoffset: 32;
-  }
-  30%,
-  85% {
-    stroke-dashoffset: 0;
-  }
-  100% {
+  from {
     stroke-dashoffset: 32;
   }
 }
@@ -84,147 +78,12 @@
   stroke: var(--them);
 }
 
-.reflection-loading__bubble {
-  animation: reflection-bob 2.4s ease-in-out infinite;
-}
-
-.reflection-loading__bubble--npc {
-  animation-delay: -1.2s;
-}
-
-@keyframes reflection-bob {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-4px);
-  }
-}
-
 .reflection-loading__bubble--user .reflection-loading__dot {
   fill: var(--you);
 }
 
 .reflection-loading__bubble--npc .reflection-loading__dot {
   fill: var(--them);
-}
-
-.reflection-loading__dot {
-  animation: reflection-murmur 1.2s ease-in-out infinite;
-}
-
-.reflection-loading__dot:nth-of-type(2) {
-  animation-delay: 0.15s;
-}
-
-.reflection-loading__dot:nth-of-type(3) {
-  animation-delay: 0.3s;
-}
-
-.reflection-loading__bubble--npc .reflection-loading__dot {
-  animation-delay: 0.6s;
-}
-
-.reflection-loading__bubble--npc .reflection-loading__dot:nth-of-type(2) {
-  animation-delay: 0.75s;
-}
-
-.reflection-loading__bubble--npc .reflection-loading__dot:nth-of-type(3) {
-  animation-delay: 0.9s;
-}
-
-@keyframes reflection-murmur {
-  0%,
-  100% {
-    opacity: 0.35;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-/* Motes: little bits of the conversation drifting up from each bubble into
-   the page. Hidden at rest (the still picture doesn't need them). */
-.reflection-loading__mote {
-  opacity: 0;
-  animation: reflection-drift-left 2.8s ease-in-out infinite;
-}
-
-.reflection-loading__mote--user-1,
-.reflection-loading__mote--user-2 {
-  fill: var(--you);
-}
-
-.reflection-loading__mote--npc-1,
-.reflection-loading__mote--npc-2 {
-  fill: var(--them);
-  animation-name: reflection-drift-right;
-}
-
-.reflection-loading__mote--user-2 {
-  animation-delay: 1.4s;
-}
-
-.reflection-loading__mote--npc-1 {
-  animation-delay: 0.7s;
-}
-
-.reflection-loading__mote--npc-2 {
-  animation-delay: 2.1s;
-}
-
-@keyframes reflection-drift-left {
-  0% {
-    opacity: 0;
-    transform: translate(0, 0) scale(0.6);
-  }
-  20% {
-    opacity: 0.9;
-  }
-  70% {
-    opacity: 0.8;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(46px, -30px) scale(1);
-  }
-}
-
-@keyframes reflection-drift-right {
-  0% {
-    opacity: 0;
-    transform: translate(0, 0) scale(0.6);
-  }
-  20% {
-    opacity: 0.9;
-  }
-  70% {
-    opacity: 0.8;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-46px, -30px) scale(1);
-  }
-}
-
-.reflection-loading__sparkle {
-  fill: #e4a34c;
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: reflection-twinkle 2.2s ease-in-out infinite;
-}
-
-@keyframes reflection-twinkle {
-  0%,
-  100% {
-    opacity: 0.4;
-    transform: scale(0.75) rotate(0deg);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.1) rotate(20deg);
-  }
 }
 
 .reflection-loading__line-text {
@@ -234,14 +93,6 @@
   font-style: italic;
   font-size: calc(1.15rem * var(--narrator-size, 1) * var(--text-scale, 1));
   color: var(--color-text);
-  animation: reflection-line-in 0.45s ease-out both;
-}
-
-@keyframes reflection-line-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
 }
 
 html[data-narrator-font="plain"] .reflection-loading__line-text {
@@ -258,14 +109,16 @@ html[data-narrator-font="plain"] .reflection-loading__line-text {
   border-left: 4px solid var(--section-color);
   border-radius: 12px;
   background: color-mix(in srgb, var(--section-color) 7%, var(--color-surface));
-  animation: reflection-section-in 0.4s ease-out both;
-  animation-delay: calc(var(--i, 0) * 70ms);
+  /* A short opacity entry with a light 30ms stagger so the structure reads
+     top to bottom -- no travel. The global reduce rule zeroes both the
+     duration and the delay, so every section is there at once. */
+  animation: reflection-section-in var(--motion-content) var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
 }
 
 @keyframes reflection-section-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
   }
 }
 
@@ -297,12 +150,14 @@ html[data-narrator-font="plain"] .reflection-loading__line-text {
   --section-color: #7a7062;
 }
 
+/* Headings use the readable text ink in every theme; the section color
+   stays decorative (edge, wash, icon, list markers). */
 .reflection-panel .reflection-section h3 {
   display: flex;
   align-items: center;
   gap: 9px;
   margin-bottom: var(--space-3);
-  color: color-mix(in srgb, var(--section-color) 75%, var(--color-text));
+  color: var(--color-text);
 }
 
 .reflection-panel .reflection-section__icon {
@@ -348,12 +203,8 @@ html[data-narrator-font="plain"] .reflection-panel .reflection-section--style .r
   font-style: normal;
 }
 
-/* Dark: the section colors are mid-tones, so headings and the style label
-   lean further toward the (light) text color to stay readable. */
-[data-theme="dark"] .reflection-panel .reflection-section h3 {
-  color: color-mix(in srgb, var(--section-color) 50%, var(--color-text));
-}
-
+/* Dark: the section colors are mid-tones, so the style label leans further
+   toward the (light) text color to stay readable. */
 [data-theme="dark"] .reflection-panel .reflection-section--style .reflection-style-label {
   color: color-mix(in srgb, var(--section-color) 45%, var(--color-text));
 }

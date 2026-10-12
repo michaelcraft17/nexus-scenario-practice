@@ -7,9 +7,8 @@
    a sheet sitting between the ring and the Mute/End controls, with the ring
    shrunk to make room.
 
-   Same fixed warm paper look as the call screen (it doesn't flip dark with
-   the app theme); high contrast swaps to the theme tokens like .voice-call
-   does. The slide in/out is switched off by the global reduce-motion rule
+   Same palette as the call screen (the --call-* tokens on .voice-call in
+   index.css), so it follows the app theme and the contrast palettes. The slide in/out is switched off by the global reduce-motion rule
    (and VoiceCallScreen skips the close delay under it).
    ========================================================================== */
 
@@ -18,8 +17,8 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: #fbf8f2;
-  color: #2a2620;
+  background: var(--call-surface);
+  color: var(--call-ink);
   text-align: left;
   z-index: 2;
 }
@@ -27,15 +26,20 @@
 .voice-transcript__header {
   flex-shrink: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   padding: 10px 10px 10px 18px;
-  border-bottom: 1px solid #e8e1d4;
+  border-bottom: 1px solid var(--call-edge);
 }
 
 .voice-transcript__title {
-  flex: 1;
+  /* Takes the row while it fits; at bigger text it wraps above the buttons
+     instead of pushing them out of the panel. */
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: break-word;
   margin: 0;
   font-family: var(--font-narrator);
   font-size: calc(1.2rem * var(--text-scale, 1));
@@ -45,8 +49,9 @@
 .voice-transcript__close {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
   border: 0;
   border-radius: 50%;
   background: transparent;
@@ -54,7 +59,7 @@
 }
 
 .voice-transcript__close:hover {
-  background: color-mix(in srgb, #2a2620 8%, transparent);
+  background: color-mix(in srgb, var(--call-ink) 8%, transparent);
 }
 
 /* Icon-only Accessibility / Reduce motion, beside the close button. A ring
@@ -66,7 +71,7 @@
   width: 36px;
   height: 36px;
   padding: 0;
-  border: 1.5px solid color-mix(in srgb, #2a2620 30%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--call-ink) 30%, transparent);
   border-radius: 50%;
   background: transparent;
   color: inherit;
@@ -74,13 +79,13 @@
 }
 
 .voice-transcript__icon-btn:hover:not(:disabled) {
-  background: color-mix(in srgb, #2a2620 8%, transparent);
+  background: color-mix(in srgb, var(--call-ink) 8%, transparent);
 }
 
-.voice-transcript__icon-btn[aria-pressed="true"] {
-  border-color: #2a2620;
-  background: #2a2620;
-  color: #fbf8f2;
+.voice-transcript__icon-btn:is([aria-pressed="true"], [aria-expanded="true"]) {
+  border-color: var(--call-ink);
+  background: var(--call-ink);
+  color: var(--call-on-ink);
 }
 
 .voice-transcript__icon-btn:disabled {
@@ -105,7 +110,7 @@
   font-family: var(--font-narrator);
   font-style: italic;
   font-size: calc(1.05rem * var(--narrator-size, 1) * var(--transcript-scale, 1) * var(--text-scale, 1));
-  color: #7a7062;
+  color: var(--call-ink-faint);
 }
 
 /* ---------- Display tools: easier font + text size ---------- */
@@ -118,14 +123,7 @@
   justify-content: space-between;
   gap: 8px;
   padding: 8px 14px;
-  border-bottom: 1px solid #e8e1d4;
-}
-
-/* The panel is fixed light paper whatever the app theme, so the toggle keeps
-   the light theme's Narrator colors here (high contrast restyles it anyway). */
-html:not([data-contrast="high"]) .voice-transcript {
-  --color-narrator-accent: #2f7a7d;
-  --color-narrator-tint: #d7e9e9;
+  border-bottom: 1px solid var(--call-edge);
 }
 
 /* Previews the font you'd switch to, like the Explain that toggle. */
@@ -143,7 +141,7 @@ html:not([data-contrast="high"]) .voice-transcript {
   margin-right: 2px;
   font-size: calc(12px * var(--text-scale, 1));
   font-weight: 600;
-  color: #6b6255;
+  color: var(--call-ink-muted);
 }
 
 .voice-transcript__size-btn {
@@ -154,10 +152,10 @@ html:not([data-contrast="high"]) .voice-transcript {
   min-width: 34px;
   height: 30px;
   padding: 0 6px;
-  border: 1px solid color-mix(in srgb, #2a2620 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--call-ink) 30%, transparent);
   border-radius: 8px;
   background: transparent;
-  color: #2a2620;
+  color: var(--call-ink);
   font-size: calc(12px * var(--text-scale, 1));
   font-weight: 700;
   line-height: 1;
@@ -168,7 +166,7 @@ html:not([data-contrast="high"]) .voice-transcript {
 }
 
 .voice-transcript__size-btn:hover:not(:disabled) {
-  background: color-mix(in srgb, #2a2620 8%, transparent);
+  background: color-mix(in srgb, var(--call-ink) 8%, transparent);
 }
 
 .voice-transcript__size-btn:disabled {
@@ -199,14 +197,14 @@ html:not([data-contrast="high"]) .voice-transcript {
 
 .voice-transcript__line--assistant {
   align-self: flex-start;
-  background: rgba(255, 255, 252, 0.95);
-  border: 1px solid #e8e1d4;
+  background: var(--call-surface-strong);
+  border: 1px solid var(--call-edge);
   border-radius: 4px 14px 14px 14px;
 }
 
 .voice-transcript__line--user {
   align-self: flex-end;
-  background: color-mix(in srgb, var(--scenario-accent) 14%, #fbf8f2);
+  background: color-mix(in srgb, var(--scenario-accent) 14%, var(--call-surface));
   border-radius: 14px 4px 14px 14px;
 }
 
@@ -222,11 +220,11 @@ html:not([data-contrast="high"]) .voice-transcript {
 
 .voice-transcript__line--narrator .voice-transcript__text {
   font-size: calc(1.08rem * var(--narrator-size, 1) * var(--transcript-scale, 1) * var(--text-scale, 1));
-  color: #4a4238;
+  color: var(--call-ink-soft);
 }
 
 .voice-transcript__line--pending .voice-transcript__text {
-  color: #7a7062;
+  color: var(--call-ink-faint);
 }
 
 .voice-transcript__speaker {
@@ -237,7 +235,7 @@ html:not([data-contrast="high"]) .voice-transcript {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #6b6255;
+  color: var(--call-ink-muted);
 }
 
 .voice-transcript__line--user .voice-transcript__speaker {
@@ -257,8 +255,8 @@ html:not([data-contrast="high"]) .voice-transcript {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: #ece8df;
-  color: #695f50;
+  background: var(--call-bubble-them);
+  color: var(--call-ink-quiet);
   letter-spacing: 0;
 }
 
@@ -292,26 +290,7 @@ html:not([data-contrast="high"]) .voice-transcript {
   height: 6px;
   border-radius: 50%;
   background: currentColor;
-  opacity: 0.35;
-  animation: voice-transcript-dot 1.2s ease-in-out infinite;
-}
-
-.voice-transcript__dots span:nth-child(2) {
-  animation-delay: 0.15s;
-}
-
-.voice-transcript__dots span:nth-child(3) {
-  animation-delay: 0.3s;
-}
-
-@keyframes voice-transcript-dot {
-  0%,
-  100% {
-    opacity: 0.25;
-  }
-  50% {
-    opacity: 0.7;
-  }
+  opacity: 0.55;
 }
 
 .voice-transcript__jump {
@@ -320,14 +299,14 @@ html:not([data-contrast="high"]) .voice-transcript {
   bottom: 14px;
   transform: translateX(-50%);
   padding: 6px 14px;
-  border: 1px solid #2a2620;
+  border: 1px solid var(--call-ink);
   border-radius: 999px;
-  background: #2a2620;
-  color: #faf6f0;
+  background: var(--call-ink);
+  color: var(--call-on-ink);
   font-size: calc(0.78rem * var(--text-scale, 1));
   font-weight: 600;
   white-space: nowrap;
-  box-shadow: 0 4px 14px rgba(42, 38, 32, 0.18);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--call-ink) 18%, transparent);
 }
 
 .voice-transcript__close:focus-visible,
@@ -336,7 +315,7 @@ html:not([data-contrast="high"]) .voice-transcript {
 .voice-transcript__font:focus-visible,
 .voice-transcript__jump:focus-visible,
 .voice-transcript__log:focus-visible {
-  outline: 3px solid #2a2620;
+  outline: 3px solid var(--call-ink);
   outline-offset: -3px;
 }
 
@@ -349,21 +328,19 @@ html:not([data-contrast="high"]) .voice-transcript {
     right: 0;
     bottom: 0;
     width: var(--transcript-width);
-    border-left: 1px solid #e8e1d4;
+    border-left: 1px solid var(--call-edge);
     box-shadow: -10px 0 30px color-mix(in srgb, var(--scenario-accent) 10%, transparent);
-    animation: voice-transcript-in-side 0.28s ease-out both;
+    animation: voice-transcript-in-side var(--motion-panel) var(--ease-out) both;
   }
 
   .voice-transcript--closing {
-    animation: voice-transcript-out-side 0.28s ease-in both;
+    animation: voice-transcript-out-side var(--motion-panel) ease-in both;
   }
 
-  .voice-call--with-transcript {
+  /* Doubled class: index.css (loaded after this file) sets .voice-call's
+     own padding and gap, which would otherwise win. */
+  .voice-call.voice-call--with-transcript {
     padding-right: calc(340px + var(--space-4));
-  }
-
-  .voice-call--with-transcript .voice-call__corner {
-    right: calc(340px + var(--space-3));
   }
 }
 
@@ -373,18 +350,21 @@ html:not([data-contrast="high"]) .voice-transcript {
   .voice-transcript {
     position: relative;
     order: 1;
-    flex: 0 1 40vh;
+    /* Gives up its height well before the name and goal card do (they
+       scroll in .voice-call__top only once this hits its floor). */
+    flex: 0 10000 40vh;
+    min-height: 7rem;
     width: 100%;
     max-width: 560px;
-    border: 1px solid #e8e1d4;
+    border: 1px solid var(--call-edge);
     border-radius: var(--radius);
     box-shadow: 0 8px 24px color-mix(in srgb, var(--scenario-accent) 12%, transparent);
     overflow: hidden;
-    animation: voice-transcript-in-sheet 0.28s ease-out both;
+    animation: voice-transcript-in-sheet var(--motion-panel) var(--ease-out) both;
   }
 
   .voice-transcript--closing {
-    animation: voice-transcript-out-sheet 0.28s ease-in both;
+    animation: voice-transcript-out-sheet var(--motion-panel) ease-in both;
   }
 
   .voice-call--with-transcript {
@@ -498,7 +478,7 @@ html:not([data-contrast="high"]) .voice-transcript {
   border: var(--border-width) solid var(--color-text);
 }
 
-[data-contrast="high"] .voice-transcript__icon-btn[aria-pressed="true"] {
+[data-contrast="high"] .voice-transcript__icon-btn:is([aria-pressed="true"], [aria-expanded="true"]) {
   background: var(--color-text);
   color: var(--color-bg);
 }

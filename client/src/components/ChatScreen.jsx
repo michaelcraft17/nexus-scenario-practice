@@ -6,6 +6,7 @@ import {
   getHint,
 } from "../services/api.js";
 import { useAccessibility } from "../a11y/AccessibilityContext.jsx";
+import { MOTION_MS, isReducedMotion } from "../a11y/motion.js";
 import { saveReflectionToHistory } from "../services/reflectionHistory.js";
 import ChatHeader from "./ChatHeader.jsx";
 import MessageBubble, { NpcSpeaker } from "./MessageBubble.jsx";
@@ -14,6 +15,7 @@ import ResponseOptions from "./ResponseOptions.jsx";
 import NarratorIntro from "./NarratorIntro.jsx";
 import NarratorNote from "./NarratorNote.jsx";
 import MissionBar from "./MissionBar.jsx";
+import { CloseIcon } from "./icons.jsx";
 import VoiceCallScreen from "./VoiceCallScreen.jsx";
 import TutorialOverlay from "./TutorialOverlay.jsx";
 import PracticeFocus from "./PracticeFocus.jsx";
@@ -24,11 +26,12 @@ function makeId() {
   return `m${nextId++}`;
 }
 
-/** Matches .chat-v2__layout--resizing's chip fade in chat-v2.css. */
-const RESIZE_FADE_MS = 560;
+/** Matches .chat-v2__layout--resizing's chip fade in chat-v2.css, which
+ * runs within the panel-width change itself. */
+const RESIZE_FADE_MS = MOTION_MS.panel;
 
 /** Matches .chat-screen--leaving's fade in chat-v2.css. */
-const LEAVE_MS = 320;
+const LEAVE_MS = MOTION_MS.handoff;
 
 /** Matches chat-v2.css's breakpoint for showing the practice-focus side card. */
 const WIDE_LAYOUT_QUERY = "(min-width: 1001px)";
@@ -124,7 +127,7 @@ function readFocusCollapsed() {
  * index.css's [data-scenario="unexpected-conversation"] block). Every
  * other scenario color is dark enough for white text to work fine. */
 export const SCENARIO_ACCENT_CONTRAST = {
-  "unexpected-conversation": "#3a2a0d",
+  "unexpected-conversation": "#2b1d05",
 };
 
 /** Real roleplay turns only -- excludes the Narrator's proactive asides,
@@ -179,7 +182,7 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
   function toggleFocusCollapsed() {
     const next = !focusCollapsed;
     setFocusCollapsed(next);
-    if (resolvedMotion !== "reduce" && window.matchMedia(WIDE_LAYOUT_QUERY).matches) {
+    if (!isReducedMotion() && window.matchMedia(WIDE_LAYOUT_QUERY).matches) {
       clearTimeout(resizeTimerRef.current);
       setLayoutResizing(true);
       resizeTimerRef.current = setTimeout(() => setLayoutResizing(false), RESIZE_FADE_MS);
@@ -192,8 +195,61 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
   }
 
   const scrollRef = useRef(null);
+  // Whether the conversation follows its newest turn. One policy for every
+  // automatic scroll below (a reply arriving, staged narrator notes, layout
+  // changes, a motion-setting change): the reader scrolling up suspends it,
+  // and scrolling back to the bottom -- or sending -- resumes it.
+  const pinnedRef = useRef(true);
   const inputRef = useRef(null);
+  const sendButtonRef = useRef(null);
   const autoReflectedRef = useRef(false);
+  // Identifies the newest reflection request, so an older one finishing
+  // late can't overwrite it.
+  const reflectionRunRef = useRef(0);
+  const reflectionTranscriptRef = useRef(null);
+  const reflectionPendingRef = useRef(false);
+  // A ref closes the gap before React renders the pending state.
+  const sendingRef = useRef(false);
+  const failedReplyRef = useRef(null);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      reflectionRunRef.current += 1;
+    };
+  }, []);
+  // Safari may blur the composer before synthesizing a button click.
+  // Native non-passive touch listeners let us keep that already-open
+  // keyboard and submit once at touch end; keyboard activation stays native.
+  useEffect(() => {
+    const button = sendButtonRef.current;
+    if (!button) return undefined;
+    let armed = false;
+    function start(event) {
+      armed = event.touches.length === 1 && !button.disabled && document.activeElement === inputRef.current;
+      if (armed) event.preventDefault();
+    }
+    function end(event) {
+      if (!armed) return;
+      armed = false;
+      event.preventDefault();
+      const touch = event.changedTouches[0];
+      const rect = button.getBoundingClientRect();
+      if (!touch || touch.clientX < rect.left || touch.clientX > rect.right || touch.clientY < rect.top || touch.clientY > rect.bottom) return;
+      inputRef.current?.focus({ preventScroll: true });
+      button.form?.requestSubmit();
+    }
+    function cancel() { armed = false; }
+    button.addEventListener("touchstart", start, { passive: false });
+    button.addEventListener("touchend", end, { passive: false });
+    button.addEventListener("touchcancel", cancel);
+    return () => {
+      button.removeEventListener("touchstart", start);
+      button.removeEventListener("touchend", end);
+      button.removeEventListener("touchcancel", cancel);
+    };
+  }, []);
   const typingRef = useRef(null);
   // What's left to show after a reply lands -- the "Mission Updated" moment
   // and the Narrator's aside come in one at a time after it rather than all
@@ -222,11 +278,50 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
   }, [inputValue]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
+    const el = scrollRef.current;
+    if (!el || !pinnedRef.current) return;
+    el.scrollTo({
+      top: el.scrollHeight,
       behavior: resolvedMotion === "reduce" ? "auto" : "smooth",
     });
   }, [messages, sending, resolvedMotion]);
+
+  // Keep the newest turn in view while the layout settles around it -- web
+  // fonts arriving, the composer opening its reply ideas, a text-size change
+  // -- unless the reader has scrolled up to look at something earlier.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return undefined;
+    // Only the reader's own scrolling changes pinnedRef: content growing and
+    // our own smooth scrolls also fire scroll events, and those mustn't
+    // count. Moving up unpins; reaching the bottom pins again.
+    let userInputAt = -Infinity;
+    let lastTop = el.scrollTop;
+    const USER_EVENTS = ["wheel", "touchmove", "keydown", "pointerdown"];
+    const markUser = () => {
+      userInputAt = performance.now();
+    };
+    const onScroll = () => {
+      const top = el.scrollTop;
+      if (performance.now() - userInputAt <= 1000) {
+        if (el.scrollHeight - top - el.clientHeight < 48) pinnedRef.current = true;
+        else if (top < lastTop) pinnedRef.current = false;
+      }
+      lastTop = top;
+    };
+    const observer = new ResizeObserver(() => {
+      if (pinnedRef.current) el.scrollTop = el.scrollHeight;
+    });
+    observer.observe(el);
+    if (el.firstElementChild) observer.observe(el.firstElementChild);
+    el.addEventListener("scroll", onScroll, { passive: true });
+    USER_EVENTS.forEach((type) => el.addEventListener(type, markUser, { passive: true }));
+    return () => {
+      observer.disconnect();
+      el.removeEventListener("scroll", onScroll);
+      USER_EVENTS.forEach((type) => el.removeEventListener(type, markUser));
+    };
+  }, []);
 
   // "Read aloud" on this screen reads the scene setting plus the
   // conversation so far, in order -- the chat equivalent of the picker's
@@ -265,9 +360,14 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
     steps.forEach((step) => step());
   }
 
-  /** Runs each step `gap` ms after the previous one. */
+  /** Runs each step `gap` ms after the previous one -- or all of them right
+   * away under Reduce motion, where staging content in is pure delay. */
   function scheduleReveals(steps, gap) {
     flushReveals();
+    if (isReducedMotion() || gap <= 0) {
+      steps.forEach((step) => step());
+      return;
+    }
     const pending = [...steps];
     revealRef.current.steps = pending;
     revealRef.current.timers = steps.map((step, i) =>
@@ -307,44 +407,56 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
   async function handleSend(e) {
     e.preventDefault();
     const text = inputValue.trim();
-    if (!text || sending) return;
+    if (!text || sendingRef.current) return;
     // Anything still waiting to appear from the last reply shows now, so it
     // lands above this message rather than after it.
     flushReveals();
 
     // Your message flies up out of the text box into the conversation (see
-    // MessageBubble's flyFrom), so note where the box is before it clears.
+    // MessageBubble's arrival animation), so note where the box is before it clears.
     const box = inputRef.current?.getBoundingClientRect();
     const launchFrom =
-      box && resolvedMotion !== "reduce"
+      box && !isReducedMotion()
         ? { left: box.left, top: box.top, width: box.width, height: box.height }
         : null;
     const userMessage = { id: makeId(), role: "user", content: text, launchFrom };
     const updated = [...messages, userMessage];
+    // Sending is a return to the conversation's newest turn.
+    pinnedRef.current = true;
     setMessages(updated);
     setInputValue("");
+    // Keep the complete failed request, including mission/event state, so a
+    // retry neither duplicates the user turn nor consumes the next draft.
+    await requestReply({
+      history: toApiShape(updated.filter((m) => !m.isOpener && isDialogueTurn(m))),
+      options: {
+        difficulty,
+        firedEventIds,
+        activeMissionStageId: mission?.stageId,
+        completedObjectiveIds: mission?.objectives.filter((o) => o.completed).map((o) => o.id),
+      },
+    });
+  }
+
+  async function requestReply(request) {
+    if (!request || sendingRef.current || !mountedRef.current) return;
+    sendingRef.current = true;
     setSendError(null);
     setSending(true);
-
     try {
-      // Exclude the opener -- it was never a real API turn, so the history
-      // sent to /api/chat always starts with role "user" as required.
-      const historyForApi = toApiShape(updated.filter((m) => !m.isOpener && isDialogueTurn(m)));
       const { message: reply, event, narratorNote, mission: updatedMission } = await sendChatMessage(
         scenario.id,
-        historyForApi,
-        {
-          difficulty,
-          firedEventIds,
-          activeMissionStageId: mission?.stageId,
-          completedObjectiveIds: mission?.objectives.filter((o) => o.completed).map((o) => o.id),
-        }
+        request.history,
+        request.options
       );
-      // The reply grows out of the typing bubble it replaces (see
-      // MessageBubble's arriveFrom), so note that bubble's size first.
+      if (!mountedRef.current) return;
+      failedReplyRef.current = null;
+      // Measure the typing bubble before replacing it with the reply.
       const typingBox = typingRef.current?.getBoundingClientRect();
       const arriveFrom =
-        typingBox && resolvedMotion !== "reduce" ? { width: typingBox.width, height: typingBox.height } : null;
+        typingBox && !isReducedMotion()
+          ? { left: typingBox.left, top: typingBox.top, width: typingBox.width, height: typingBox.height }
+          : null;
       setMessages((prev) => {
         const next = [...prev];
         // A scene event (atmosphere shift, or another NPC chiming in) is
@@ -361,36 +473,43 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
         setFiredEventIds((prev) => [...prev, event.id]);
       }
 
-      // Then, a beat apart so each can be read: the "Mission Updated" moment
-      // when the mission moves to a new stage (with the side checklist
-      // ticking over at the same time), and the Narrator's aside on the
-      // reply. Neither this aside nor the event above ever leaks back into
+      // The checklist itself updates straight away -- it's state, not
+      // decoration. Then, a short beat apart so each can be read, the
+      // "Mission Updated" note when the mission moves to a new stage and the
+      // Narrator's aside on the reply (both at once under Reduce motion).
+      // Neither this aside nor the event above ever leaks back into
       // /api/chat -- narrator-role entries are filtered out of every payload
       // the app sends. The mission-tracking call is a non-fatal
       // nice-to-have server-side -- on failure it comes back null, so keep
       // whatever mission state is already showing rather than clearing it.
-      const missionAdvanced = updatedMission && updatedMission.stageId !== mission?.stageId;
+      const missionAdvanced = updatedMission && updatedMission.stageId !== request.options.activeMissionStageId;
+      if (updatedMission) setMission(updatedMission);
       const steps = [];
-      if (updatedMission) {
-        steps.push(() => {
-          if (missionAdvanced) {
-            setMessages((prev) => [
-              ...prev,
-              { id: makeId(), role: "narrator", content: updatedMission.missionText, variant: "mission" },
-            ]);
-          }
-          setMission(updatedMission);
-        });
+      if (missionAdvanced) {
+        steps.push(() =>
+          setMessages((prev) => [
+            ...prev,
+            { id: makeId(), role: "narrator", content: updatedMission.missionText, variant: "mission" },
+          ])
+        );
       }
       if (narratorNote) {
         steps.push(() => setMessages((prev) => [...prev, { id: makeId(), role: "narrator", content: narratorNote }]));
       }
-      scheduleReveals(steps, 1300);
+      scheduleReveals(steps, MOTION_MS.revealGap);
     } catch (err) {
+      if (!mountedRef.current) return;
+      failedReplyRef.current = request;
       setSendError(err.message || "Something went wrong. Try sending again.");
     } finally {
-      setSending(false);
+      sendingRef.current = false;
+      if (mountedRef.current) setSending(false);
     }
+  }
+
+  function handleRetryReply() {
+    inputRef.current?.focus({ preventScroll: true });
+    void requestReply(failedReplyRef.current);
   }
 
   async function handleExplain(message) {
@@ -407,19 +526,35 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
    *   text-mode auto-trigger call site (missionComplete effect) omits this,
    *   falling back to the normal typed-transcript behavior. */
   async function handleReflect(transcriptOverride) {
+    const run = ++reflectionRunRef.current;
+    const transcript = transcriptOverride ?? toApiShape(messages.filter(isDialogueTurn));
+    reflectionTranscriptRef.current = transcript;
+    reflectionPendingRef.current = true;
     setReflection({ open: true, status: "loading", data: null, errorMessage: "" });
+    // Results keep whatever `open` is by then: closing the panel while it
+    // loads is the reader's choice, and an answer arriving doesn't undo it.
+    // (A finished reflection is still saved to Past Reflections.)
     try {
-      const transcript = transcriptOverride ?? toApiShape(messages.filter(isDialogueTurn));
       const data = await getReflection(scenario.id, transcript);
-      setReflection({ open: true, status: "done", data, errorMessage: "" });
+      if (!mountedRef.current || run !== reflectionRunRef.current) return;
       saveReflectionToHistory({ scenarioId: scenario.id, scenarioTitle: scenario.title, npcName, data });
+      setReflection((r) => ({ ...r, status: "done", data, errorMessage: "" }));
     } catch (err) {
-      setReflection({
-        open: true,
+      if (!mountedRef.current || run !== reflectionRunRef.current) return;
+      setReflection((r) => ({
+        ...r,
         status: "error",
         data: null,
         errorMessage: err.message || "Couldn't put together a reflection right now.",
-      });
+      }));
+    } finally {
+      if (run === reflectionRunRef.current) reflectionPendingRef.current = false;
+    }
+  }
+
+  function handleRetryReflection() {
+    if (!reflectionPendingRef.current && reflectionTranscriptRef.current) {
+      void handleReflect(reflectionTranscriptRef.current);
     }
   }
 
@@ -452,13 +587,27 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
   useEffect(() => () => clearTimeout(leaveTimerRef.current), []);
   function leaveSession() {
     if (leaving) return;
-    if (resolvedMotion === "reduce") {
+    if (isReducedMotion()) {
       onExit();
       return;
     }
     setLeaving(true);
     leaveTimerRef.current = setTimeout(onExit, LEAVE_MS);
   }
+
+  // Reduce motion switched on while something was still staged or fading:
+  // show everything now and finish any pending exit immediately, rather
+  // than letting timers that matched the old animations run out.
+  useEffect(() => {
+    if (resolvedMotion !== "reduce") return;
+    flushReveals();
+    clearTimeout(resizeTimerRef.current);
+    setLayoutResizing(false);
+    if (leaving) {
+      clearTimeout(leaveTimerRef.current);
+      onExit();
+    }
+  }, [resolvedMotion]);
 
   return (
     <div
@@ -516,6 +665,7 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
                     npcRole={npcRole}
                     onExplain={handleExplain}
                     showExplain={message.id === latestAssistantId}
+                    followNewest={pinnedRef.current}
                   />
                 )
               )}
@@ -547,12 +697,19 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
                   onClick={() => setHint((h) => ({ ...h, open: false }))}
                   aria-label="Dismiss hint"
                 >
-                  &times;
+                  <CloseIcon />
                 </button>
               </div>
             )}
 
-            {sendError && <div className="chat-screen__error">{sendError}</div>}
+            {sendError && (
+              <div className="chat-screen__error">
+                <p role="alert">{sendError}</p>
+                <button type="button" className="recovery-button" onClick={handleRetryReply} disabled={sending}>
+                  Retry reply
+                </button>
+              </div>
+            )}
 
             {showResponseOptions && (
               <ResponseOptions options={scenario.responseOptions} onPick={handlePickResponseOption} />
@@ -587,11 +744,23 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
                   }
                 }}
                 placeholder={`What would you say to ${npcName}?`}
-                disabled={sending}
                 aria-label="Your reply"
                 aria-describedby="chat-keyhint"
               />
-              <button type="submit" disabled={sending || !inputValue.trim()}>
+              <button
+                ref={sendButtonRef}
+                type="submit"
+                disabled={sending || !inputValue.trim()}
+                onPointerDown={(e) => {
+                  // Keep an open phone keyboard attached to the composer.
+                  // Sending stays available to keyboard users and still works
+                  // when the user has deliberately dismissed the keyboard.
+                  if (e.pointerType !== "touch" && e.button === 0 && document.activeElement === inputRef.current) e.preventDefault();
+                }}
+                onMouseDown={(e) => {
+                  if (e.button === 0 && document.activeElement === inputRef.current) e.preventDefault();
+                }}
+              >
                 Send
               </button>
             </form>
@@ -617,6 +786,8 @@ export default function ChatScreen({ scenario, difficulty, difficultyGoal, start
         npcName={npcName}
         onClose={() => setReflection((r) => ({ ...r, open: false }))}
         onFinish={leaveSession}
+        onRetry={handleRetryReflection}
+        fallbackFocusRef={inputRef}
       />
 
       <VoiceCallScreen

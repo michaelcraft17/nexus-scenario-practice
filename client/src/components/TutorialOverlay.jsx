@@ -11,11 +11,8 @@ const EDGE_INSET = 6;
 const MAX_CORNER_RADIUS = 28;
 const CALLOUT_WIDTH = 280;
 const CALLOUT_MARGIN = 16;
-// The ripples that pulse out from the spotlight: how far each travels, and
-// how many are in flight at once.
+// How far outside the spotlight its still highlight ring sits.
 const WAVE_SPREAD = 18;
-const WAVE_COUNT = 3;
-const WAVE_SECONDS = 2.1;
 // Room left between a side-placed callout and its target, for the wavy
 // pointer (and the ripples) to show in.
 const SIDE_GAP = 76;
@@ -60,9 +57,12 @@ function wavyPath(x1, y1, x2, y2) {
  *     (and closes it again on the way out), so the walkthrough can show it.
  *   placement: "left" -- put the callout beside the target rather than
  *     above/below it; for tall targets like that full-height menu.
+ *   turnsOn: { key, prefs } -- switches these Accessibility prefs on when the
+ *     step appears, once ever (remembered under `key`), so a replayed
+ *     walkthrough never undoes a choice the user has made since.
  */
 export default function TutorialOverlay({ steps, storageKey, active }) {
-  const { resolvedMotion, openPanel, closePanel } = useAccessibility();
+  const { resolvedMotion, openPanel, closePanel, setPref } = useAccessibility();
   const [stepIndex, setStepIndex] = useState(0);
   const [dismissed, setDismissed] = useState(() => {
     try {
@@ -89,6 +89,18 @@ export default function TutorialOverlay({ steps, storageKey, active }) {
     openPanel();
     return () => closePanel();
   }, [opensMenu, stepIndex, openPanel, closePanel]);
+
+  const turnsOn = running ? step?.turnsOn : null;
+  useEffect(() => {
+    if (!turnsOn) return;
+    try {
+      if (localStorage.getItem(turnsOn.key)) return;
+      localStorage.setItem(turnsOn.key, "1");
+    } catch {
+      return; // Storage unavailable: leave prefs alone rather than re-apply every visit.
+    }
+    turnsOn.prefs.forEach((key) => setPref(key, true));
+  }, [turnsOn, setPref]);
 
   // Polls for the target element rather than assuming it's already in the
   // DOM -- scenario cards/mission badge/etc. all depend on data that loads
@@ -254,7 +266,6 @@ export default function TutorialOverlay({ steps, storageKey, active }) {
     calloutLeftRaw + CALLOUT_WIDTH > hlLeft &&
     calloutTopEdge < hlBottom &&
     calloutTopEdge + calloutH > hlTop;
-  const animateWaves = resolvedMotion !== "reduce";
 
   return (
     <div className="tutorial-overlay" role="dialog" aria-modal="true" aria-label="Getting started walkthrough">
@@ -300,59 +311,19 @@ export default function TutorialOverlay({ steps, storageKey, active }) {
           strokeDasharray="7 7"
           className="tutorial-overlay__ring"
         />
-        {/* Waves: rounded frames that ripple out from the spotlight and
-            fade, like rings on water, to draw the eye to it. A single
-            still ring stands in for them with reduced motion. */}
-        {animateWaves
-          ? Array.from({ length: WAVE_COUNT }, (_, i) => (
-              <rect
-                key={i}
-                className="tutorial-overlay__wave"
-                x={hlLeft}
-                y={hlTop}
-                width={hlRight - hlLeft}
-                height={hlBottom - hlTop}
-                rx={cornerRadius}
-                fill="none"
-                stroke="var(--tutorial-accent, var(--color-primary))"
-                opacity="0"
-              >
-                {[
-                  ["x", hlLeft, hlLeft - WAVE_SPREAD],
-                  ["y", hlTop, hlTop - WAVE_SPREAD],
-                  ["width", hlRight - hlLeft, hlRight - hlLeft + WAVE_SPREAD * 2],
-                  ["height", hlBottom - hlTop, hlBottom - hlTop + WAVE_SPREAD * 2],
-                  ["rx", cornerRadius, cornerRadius + WAVE_SPREAD],
-                  ["opacity", 0.75, 0],
-                  ["stroke-width", 3, 0.6],
-                ].map(([attr, from, to]) => (
-                  <animate
-                    key={attr}
-                    attributeName={attr}
-                    values={`${from};${to}`}
-                    dur={`${WAVE_SECONDS}s`}
-                    begin={`${(i * WAVE_SECONDS) / WAVE_COUNT}s`}
-                    repeatCount="indefinite"
-                    calcMode="spline"
-                    keySplines="0.2 0.6 0.35 1"
-                    keyTimes="0;1"
-                  />
-                ))}
-              </rect>
-            ))
-          : (
-              <rect
-                x={hlLeft - WAVE_SPREAD / 2}
-                y={hlTop - WAVE_SPREAD / 2}
-                width={hlRight - hlLeft + WAVE_SPREAD}
-                height={hlBottom - hlTop + WAVE_SPREAD}
-                rx={cornerRadius + WAVE_SPREAD / 2}
-                fill="none"
-                stroke="var(--tutorial-accent, var(--color-primary))"
-                strokeWidth="1.2"
-                opacity="0.45"
-              />
-            )}
+        {/* A still ring a little outside the spotlight draws the eye to it --
+            no looping ripple, so nothing keeps moving while you read. */}
+        <rect
+          x={hlLeft - WAVE_SPREAD / 2}
+          y={hlTop - WAVE_SPREAD / 2}
+          width={hlRight - hlLeft + WAVE_SPREAD}
+          height={hlBottom - hlTop + WAVE_SPREAD}
+          rx={cornerRadius + WAVE_SPREAD / 2}
+          fill="none"
+          stroke="var(--tutorial-accent, var(--color-primary))"
+          strokeWidth="1.2"
+          opacity="0.45"
+        />
         {!calloutOnTarget && (
           <path
             className="tutorial-overlay__pointer"

@@ -5,14 +5,16 @@
    block) without touching any other screen. */
 
 .chat-screen--v2 {
-  --v2-accent: color-mix(in srgb, var(--scenario-accent, var(--color-primary)) 88%, #000);
+  /* The scenario's own action fill (index.css, --scenario-action), so the
+     user bubble, Send, Talk Live and the voice prompt share one fill and its
+     ink (--scenario-accent-contrast), and the contrast palettes reach them. */
+  --v2-accent: var(--scenario-action, var(--color-primary));
   --v2-panel: rgba(255, 255, 252, 0.35);
   --v2-panel-border: rgba(255, 255, 252, 0.6);
   --v2-line: #e5e6df;
   --v2-muted: #656c70;
   --v2-bubble: rgba(255, 255, 252, 0.86);
   --v2-bubble-border: rgba(228, 224, 216, 0.8);
-  --v2-user-bubble: rgba(228, 238, 235, 0.9);
   --v2-text: #292c32;
 }
 
@@ -91,11 +93,56 @@
 .chat-screen--v2 .chat-header__voice,
 .chat-screen--v2 .chat-header__hint,
 .chat-screen--v2 .chat-header__access {
-  min-height: 32px;
-  min-width: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  min-width: 36px;
   padding: 0 12px;
-  font-size: calc(12px * var(--text-scale, 1));
-  gap: 5px;
+  font-size: calc(13px * var(--text-scale, 1));
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.chat-screen--v2 .chat-header :is(button) svg {
+  flex-shrink: 0;
+}
+
+/* Touch screens get the full 44px target. */
+@media (pointer: coarse) {
+  .chat-screen--v2 .chat-header__exit,
+  .chat-screen--v2 .chat-header__tutorial,
+  .chat-screen--v2 .chat-header__voice,
+  .chat-screen--v2 .chat-header__hint,
+  .chat-screen--v2 .chat-header__access,
+  .chat-screen--v2 .chat-header__fullscreen {
+    min-height: var(--control-min);
+    min-width: var(--control-min);
+  }
+}
+
+/* Out of room -- a phone, or a narrower window at bigger text -- the words
+   drop and each button keeps its icon (and its full accessible name). */
+@media (max-width: 640px) {
+  .chat-screen--v2 .chat-header__label {
+    display: none;
+  }
+
+  .chat-screen--v2 :is(.chat-header__tutorial, .chat-header__voice, .chat-header__hint, .chat-header__access) {
+    padding: 0;
+  }
+}
+
+@media (max-width: 1100px) {
+  :root:is([data-text-size="largest"], [data-text-size="huge"], [data-text-size="giant"]) .chat-screen--v2 .chat-header__label {
+    display: none;
+  }
+
+  :root:is([data-text-size="largest"], [data-text-size="huge"], [data-text-size="giant"])
+    .chat-screen--v2
+    :is(.chat-header__tutorial, .chat-header__voice, .chat-header__hint, .chat-header__access) {
+    padding: 0;
+  }
 }
 
 .chat-screen--v2 .chat-header__fullscreen {
@@ -123,13 +170,11 @@
 
 [data-contrast="high"] .chat-screen--v2 .chat-header__fullscreen {
   background: var(--color-tint);
-  color: var(--color-primary);
+  color: var(--accent-ink);
 }
 
 .chat-screen--v2 .chat-header__exit {
-  width: 32px;
   padding: 0;
-  font-size: calc(15px * var(--text-scale, 1));
 }
 
 /* ---------- Layout ---------- */
@@ -142,9 +187,9 @@
   grid-template-columns: minmax(0, 1fr) var(--focus-width);
   gap: 24px;
   width: 100%;
-  /* The conversation takes the whole window -- just a thin margin so the
-     panel's rounded edge still reads. */
-  padding: 8px 10px 10px;
+  /* The conversation takes the whole window -- a 16px side margin keeps the
+     panel's rounded edge clear of the screen edge. */
+  padding: 8px 16px 12px;
 }
 
 .chat-screen--v2 .chat-v2__panel {
@@ -179,14 +224,13 @@
   background: #719884;
 }
 
-/* Status dot breathes while the reply is being written. */
-.chat-screen--v2 .chat-v2__mode.is-typing .chat-v2__dot {
-  animation: v2-dot-pulse 1.2s ease-in-out infinite;
+/* Status dot dims, without pulsing, while the reply is being written. */
+.chat-screen--v2 .chat-v2__dot {
+  transition: opacity var(--motion-feedback) var(--ease-out);
 }
 
-@keyframes v2-dot-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.35; transform: scale(0.7); }
+.chat-screen--v2 .chat-v2__mode.is-typing .chat-v2__dot {
+  opacity: 0.45;
 }
 
 /* ---------- Conversation ---------- */
@@ -205,10 +249,11 @@
 }
 
 .chat-screen--v2 .chat-v2__begins {
+  --begins-ink: var(--color-text-muted);
   margin: 4px 0 0;
   text-align: center;
   font-size: calc(11px * var(--text-scale, 1));
-  color: #727873;
+  color: var(--begins-ink);
 }
 
 /* Sized like the live app's bubbles: up to 65% of the column, never wider
@@ -309,13 +354,16 @@ html[data-theme="dark"]:not([data-contrast="high"]):not([data-contrast="invert"]
 }
 
 .chat-screen--v2 .bubble-row--user .bubble {
-  background: var(--v2-user-bubble);
-  color: var(--v2-text);
+  background: var(--scenario-action, var(--color-primary));
+  color: var(--scenario-accent-contrast, var(--color-primary-contrast));
   border-radius: 14px 4px 14px 14px;
 }
 
+/* "You" takes the bubble's own ink -- the muted grey is tuned for surfaces,
+   not for the action fill. */
 .chat-screen--v2 .bubble-row--user .bubble__speaker {
   text-align: right;
+  color: inherit;
 }
 
 /* The Narrator's voice (EB Garamond) runs small next to the sans dialogue,
@@ -359,7 +407,7 @@ html[data-theme="dark"]:not([data-contrast="high"]):not([data-contrast="invert"]
   cursor: pointer;
   border: none;
   border-left: 3px solid var(--color-narrator-accent);
-  animation: v2-bubble-in 0.3s ease-out both;
+  animation: v2-fade-in var(--motion-content) var(--ease-out) both;
 }
 
 .chat-screen--v2 .narrator-card--compact .narrator-card__label {
@@ -538,7 +586,8 @@ html[data-theme="dark"]:not([data-contrast="high"]):not([data-contrast="invert"]
 .chat-screen--v2 .chat-screen__input button {
   min-height: 46px;
   padding: 0 26px;
-  background: var(--v2-accent);
+  background: var(--scenario-action, var(--color-primary));
+  color: var(--scenario-accent-contrast, var(--color-primary-contrast));
   font-size: calc(15px * var(--text-scale, 1));
 }
 
@@ -582,7 +631,7 @@ html[data-theme="dark"]:not([data-contrast="high"]):not([data-contrast="invert"]
 @media (min-width: 1001px) {
   .chat-screen--v2 .chat-v2__layout {
     column-gap: 0;
-    transition: grid-template-columns 0.28s ease;
+    transition: grid-template-columns var(--motion-panel) var(--ease-out);
   }
 
   .chat-screen--v2 .chat-v2__panel {
@@ -619,7 +668,7 @@ html[data-theme="dark"]:not([data-contrast="high"]):not([data-contrast="invert"]
   padding: 16px;
 }
 
-/* Opening from the slim bar, the column grows over 0.28s. Without this the
+/* Opening from the slim bar, the column grows over --motion-panel. Without this the
    content would lay out in the narrow column and re-wrap on every frame as
    it widens. Instead it holds its final width (column minus the 1px borders
    and 16px padding each side) from the first frame, clipped by the
@@ -627,7 +676,7 @@ html[data-theme="dark"]:not([data-contrast="high"]):not([data-contrast="invert"]
    the hold ends the content follows the column again. */
 @media (min-width: 1001px) {
   .chat-screen--v2 .practice-focus__scroll > * {
-    animation: practice-focus-hold 0.3s;
+    animation: practice-focus-hold calc(var(--motion-panel) + 20ms);
   }
 }
 
@@ -710,7 +759,7 @@ html[data-theme="dark"]:not([data-contrast="high"]):not([data-contrast="invert"]
 }
 
 .chat-screen--v2 .practice-focus__mark-arrow {
-  transition: transform 0.25s ease;
+  transition: transform var(--motion-feedback) var(--ease-out);
 }
 
 /* Hovering the bar re-fires the arrow: it pulls back a touch. */
@@ -718,8 +767,10 @@ html[data-theme="dark"]:not([data-contrast="high"]):not([data-contrast="invert"]
   transform: translate(2px, -2px);
 }
 
-[data-motion="reduce"] .chat-screen--v2 .practice-focus__mark-arrow {
+[data-motion="reduce"] .chat-screen--v2 .practice-focus__mark-arrow,
+[data-motion="reduce"] .chat-screen--v2 .practice-focus__rail:hover .practice-focus__mark-arrow {
   transition: none;
+  transform: none;
 }
 
 html[data-theme="dark"] .chat-screen--v2 .practice-focus__toggle {
@@ -802,7 +853,7 @@ html:is([data-contrast="high"], [data-contrast="dark"], [data-contrast="light"])
   height: 4px;
   border-radius: 4px;
   background: #e4e5d9;
-  transition: background-color 0.3s;
+  transition: background-color var(--motion-content) var(--ease-out);
 }
 
 .chat-screen--v2 .practice-focus__bar i.is-on {
@@ -827,7 +878,7 @@ html:is([data-contrast="high"], [data-contrast="dark"], [data-contrast="light"])
   font-size: calc(13px * var(--text-scale, 1));
   line-height: 1.5;
   color: #59645d;
-  transition: background-color 0.3s;
+  transition: background-color var(--motion-content) var(--ease-out);
 }
 
 .chat-screen--v2 .practice-focus__check {
@@ -838,11 +889,10 @@ html:is([data-contrast="high"], [data-contrast="dark"], [data-contrast="light"])
   height: 18px;
   margin-top: 1px;
   border: 1.5px solid #a3ae9f;
+  padding: 2px;
   border-radius: 5px;
   background: rgba(255, 255, 255, 0.85);
   color: #fff;
-  font-size: calc(12px * var(--text-scale, 1));
-  line-height: 1;
 }
 
 .chat-screen--v2 .practice-focus__objective--current {
@@ -865,9 +915,6 @@ html:is([data-contrast="high"], [data-contrast="dark"], [data-contrast="light"])
   border-color: #6f9a83;
 }
 
-.chat-screen--v2 .practice-focus__objective--done .practice-focus__check::after {
-  content: "✓";
-}
 
 .chat-screen--v2 .practice-focus__complete {
   margin: 12px 0 0;
@@ -877,6 +924,19 @@ html:is([data-contrast="high"], [data-contrast="dark"], [data-contrast="light"])
   color: #2f5f55;
   font-size: calc(12.5px * var(--text-scale, 1));
   line-height: 1.5;
+}
+
+/* The pale wash above is tuned for the light card; on dark cards it would
+   go muddy under the dark-green ink, so use the narrator's own pair. */
+[data-theme="dark"] .chat-screen--v2 .practice-focus__complete {
+  background: var(--color-narrator-tint);
+  color: var(--color-narrator-accent);
+}
+
+[data-contrast="high"] .chat-screen--v2 .practice-focus__complete {
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  color: var(--color-text);
 }
 
 /* Its own frosted backing rather than sitting bare on the scenario photo --
@@ -913,7 +973,7 @@ html:is([data-contrast="high"], [data-contrast="dark"], [data-contrast="light"])
 .chat-screen--v2 .practice-focus__app-tip-text {
   margin: 0;
   min-height: calc(3 * 1.7em);
-  animation: practice-tip-in 0.5s ease-out both;
+  animation: practice-tip-in var(--motion-content) var(--ease-out) both;
 }
 
 .chat-screen--v2 .practice-focus__app-tip-text b {
@@ -939,7 +999,6 @@ html:is([data-contrast="high"], [data-contrast="dark"], [data-contrast="light"])
 @keyframes practice-tip-in {
   from {
     opacity: 0;
-    transform: translateY(3px);
   }
 }
 
@@ -959,6 +1018,130 @@ html:is([data-contrast="high"], [data-contrast="dark"], [data-contrast="light"])
 [data-contrast="high"] .chat-screen--v2 .practice-focus__app-tip-text b,
 [data-contrast="high"] .chat-screen--v2 .practice-focus__app-tip-next {
   color: var(--color-text);
+}
+
+/* ---------- Narrow layouts: keep the character's turn in view ----------
+   Reply ideas: a button that opens the chips in place. Wide screens show the
+   chips directly and never the button. */
+.chat-screen--v2 .response-options__toggle {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .chat-screen--v2 .response-options__toggle {
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 1100px) {
+  :root:is([data-text-size="largest"], [data-text-size="huge"], [data-text-size="giant"]) .chat-screen--v2 .response-options__toggle {
+    display: inline-flex;
+  }
+}
+
+.chat-screen--v2 .response-options__toggle {
+  align-items: center;
+  gap: 6px;
+  min-height: var(--control-min);
+  margin: 0 0 6px;
+  padding: 0 14px 0 10px;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: calc(14px * var(--text-scale, 1));
+  font-weight: 600;
+}
+
+.chat-screen--v2 .response-options__toggle:hover {
+  background: var(--color-tint);
+}
+
+/* Chips stay hidden behind the button wherever the button shows. */
+.chat-screen--v2 .response-options:not(.is-open) .response-options__chips {
+  display: var(--reply-chips-collapsed, flex);
+}
+
+/* Opened from the button, the ideas get a bounded region of their own that
+   scrolls, so at any text size the reply box and Send stay on screen and the
+   conversation keeps over a third of the panel. The composer is capped and
+   the ideas list is the only part of it that gives way (down to about one
+   chip); the text itself is never shrunk. (dvh ignores the page zoom, hence
+   the --zoom-factor division.) */
+.chat-screen--v2 .chat-v2__composer:has(.response-options.is-open) {
+  display: flex;
+  flex-direction: column;
+  max-height: 62%;
+}
+
+.chat-screen--v2 .chat-v2__composer:has(.response-options.is-open) > * {
+  flex-shrink: 0;
+}
+
+/* The Enter/Ctrl+Enter line steps aside while the ideas are open (it wraps
+   to several lines at large text). It still describes the reply box to
+   screen readers through aria-describedby, and returns when they close. */
+.chat-screen--v2 .chat-v2__composer:has(.response-options.is-open) .chat-v2__keyhint {
+  display: none;
+}
+
+/* A picked idea can run to several lines at large text; while the list is
+   open the draft scrolls inside a shorter box so the list keeps its room. */
+.chat-screen--v2 .chat-v2__composer:has(.response-options.is-open) .chat-screen__input textarea {
+  max-height: calc(var(--control-min) * 2);
+}
+
+.chat-screen--v2 .chat-v2__composer > .response-options.is-open {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex-shrink: 1;
+  min-height: 0;
+}
+
+/* Only the ideas list gives up height; the toggle keeps its full label. */
+.chat-screen--v2 .response-options.is-open > .response-options__toggle {
+  flex-shrink: 0;
+}
+
+.chat-screen--v2 .response-options.is-open .response-options__chips {
+  align-self: stretch;
+  flex: 0 1 auto;
+  min-height: calc(var(--control-min) + 8px);
+  max-height: calc(26dvh / var(--zoom-factor, 1));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Room for the chips' focus rings inside the scrolling edge. */
+  padding: 4px;
+  margin: -4px;
+}
+
+@media (max-width: 640px) {
+  .chat-screen--v2 {
+    --reply-chips-collapsed: none;
+  }
+}
+
+@media (max-width: 1100px) {
+  :root:is([data-text-size="largest"], [data-text-size="huge"], [data-text-size="giant"]) .chat-screen--v2 {
+    --reply-chips-collapsed: none;
+  }
+}
+
+/* Mission, below the side card's breakpoint: an inline disclosure at the
+   top of the conversation, full width, that scrolls with it -- not a badge
+   floating over the messages. */
+@media (max-width: 1000px) {
+  .chat-screen--v2 .mission-badge {
+    position: static;
+    width: auto;
+    max-width: none;
+    margin: 0 0 12px;
+  }
+
+  .chat-screen--v2 .mission-badge__toggle {
+    box-shadow: none;
+  }
 }
 
 /* The side card replaces the floating mission badge on wide layouts. */
@@ -1004,7 +1187,7 @@ html:is([data-contrast="high"], [data-contrast="dark"], [data-contrast="light"])
   }
 
   .chat-screen--v2 .chat-v2__layout {
-    padding: 10px;
+    padding: 10px 16px;
   }
 
   .chat-screen--v2 .chat-v2__panel {
@@ -1028,13 +1211,7 @@ html:is([data-contrast="high"], [data-contrast="dark"], [data-contrast="light"])
   }
 }
 
-@media (max-width: 430px) {
-  .chat-screen--v2 .chat-header__voice,
-  .chat-screen--v2 .chat-header__tutorial {
-    width: 32px;
-    padding: 0;
-  }
-}
+
 
 @media (prefers-reduced-motion: reduce) {
   .chat-screen--v2 .practice-focus__bar i,
@@ -1052,7 +1229,6 @@ html:is([data-contrast="high"], [data-contrast="dark"], [data-contrast="light"])
   --v2-muted: var(--color-text-muted);
   --v2-bubble: var(--color-surface);
   --v2-bubble-border: var(--color-border);
-  --v2-user-bubble: #2c3d3c;
   --v2-text: var(--color-text);
 }
 
@@ -1131,15 +1307,16 @@ html:is([data-contrast="high"], [data-contrast="dark"], [data-contrast="light"])
 
 [data-contrast="high"] .chat-screen--v2 .chat-screen__input button {
   background: var(--color-primary);
+  color: var(--color-primary-contrast);
 }
 
 /* ---------- Typing indicator ---------- */
 
 /* While the AI writes its reply: a small bubble with the speaker's name and
-   three dots that rise in a wave. It fades up into place, matching the way
-   a new message arrives. */
+   three still dots (the hidden "is typing" text says the same to screen
+   readers). It fades up into place, matching the way a new message arrives. */
 .chat-screen--v2 .chat-v2__typing-row {
-  animation: v2-bubble-in 0.28s ease-out both;
+  animation: v2-bubble-in var(--motion-content) var(--ease-out) both;
 }
 
 .chat-screen--v2 .bubble--typing {
@@ -1163,34 +1340,19 @@ html:is([data-contrast="high"], [data-contrast="dark"], [data-contrast="light"])
   height: 0.45em;
   border-radius: 50%;
   background: var(--v2-accent, #4f8a8b);
-  opacity: 0.35;
-  animation: v2-typing-wave 1.2s ease-in-out infinite;
-}
-
-.chat-screen--v2 .chat-v2__typing-dots i:nth-child(2) {
-  animation-delay: 0.15s;
-}
-
-.chat-screen--v2 .chat-v2__typing-dots i:nth-child(3) {
-  animation-delay: 0.3s;
-}
-
-@keyframes v2-typing-wave {
-  0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
-  30% { transform: translateY(-0.32em); opacity: 1; }
+  opacity: 0.8;
 }
 
 @keyframes v2-bubble-in {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Reduce motion: no wave or pulse -- the dots just sit there, fully visible. */
-[data-motion="reduce"] .chat-screen--v2 .chat-v2__typing-dots i,
-[data-motion="reduce"] .chat-screen--v2 .chat-v2__mode.is-typing .chat-v2__dot {
-  animation: none;
-  opacity: 0.8;
+/* Asides and notes need no travel -- a short fade is enough. */
+@keyframes v2-fade-in {
+  from { opacity: 0; }
 }
+
 
 [data-contrast="high"] .chat-screen--v2 .chat-v2__typing-dots i {
   background: currentColor;
@@ -1204,25 +1366,20 @@ html:is([data-contrast="high"], [data-contrast="dark"], [data-contrast="light"])
   transform-origin: top left;
 }
 
-/* "Mission Updated" and the Narrator's aside rise in gently when their turn
-   comes, a beat after the reply (see scheduleReveals in ChatScreen.jsx). */
+/* "Mission Updated" and the Narrator's aside fade in when their turn comes,
+   a short beat after the reply (see scheduleReveals in ChatScreen.jsx). */
 .chat-screen--v2 .narrator-box--note {
-  animation: v2-bubble-in 0.4s ease-out both;
+  animation: v2-fade-in var(--motion-content) var(--ease-out) both;
 }
 
 /* ---------- Leaving a session ----------
-   Back to the scenario picker: the whole screen fades out while its
-   contents sink back a touch (ChatScreen waits LEAVE_MS before unmounting).
-   Opacity only on the root -- a transform there would re-anchor the
-   position: fixed overlays inside it (reflection, voice call). Switched off
-   by the global reduce-motion rule, and ChatScreen skips the wait then. */
+   Back to the scenario picker: a short fade, nothing else (ChatScreen waits
+   LEAVE_MS = --motion-handoff before unmounting). Opacity only on the root
+   -- a transform there would re-anchor the position: fixed overlays inside
+   it (reflection, voice call). Under Reduce motion ChatScreen leaves at once. */
 .chat-screen--leaving {
   pointer-events: none;
-  animation: chat-screen-leave 0.32s ease-in forwards;
-}
-
-.chat-screen--leaving > :not(.chat-screen__background) {
-  animation: chat-screen-sink 0.32s ease-in forwards;
+  animation: chat-screen-leave var(--motion-handoff) ease-in forwards;
 }
 
 @keyframes chat-screen-leave {
@@ -1231,16 +1388,10 @@ html:is([data-contrast="high"], [data-contrast="dark"], [data-contrast="light"])
   }
 }
 
-@keyframes chat-screen-sink {
-  to {
-    transform: translateY(10px) scale(0.985);
-  }
-}
-
-/* The picker, arriving back after a session: a soft fade up to meet the
+/* The picker, arriving back after a session: a soft fade to meet the
    fade-out above (App sets this only on the way back from a session). */
 .picker--fade-in {
-  animation: picker-fade-in 0.35s ease-out both;
+  animation: picker-fade-in var(--motion-content) var(--ease-out) both;
 }
 
 @keyframes picker-fade-in {
@@ -1250,31 +1401,54 @@ html:is([data-contrast="high"], [data-contrast="dark"], [data-contrast="light"])
 }
 
 /* ---------- Reply chips while the side column slides ----------
-   Opening or hiding Practice Focus resizes the chat column over 0.28s, and
-   the chips would re-wrap at every in-between width. They fade out as the
-   slide starts, stay hidden while it runs, then settle back in one after
-   another at the new width (ChatScreen clears the class after
-   RESIZE_FADE_MS; it's never set under Reduce motion). */
+   Opening or hiding Practice Focus resizes the chat column over
+   --motion-panel, and the chips would re-wrap at every in-between width.
+   All of them dip out together as the slide starts and come back together
+   at the new width, within the slide's own --motion-panel -- opacity only,
+   no stagger (ChatScreen clears the class after RESIZE_FADE_MS; it's never
+   set under Reduce motion). */
 .chat-v2__layout--resizing .response-options__chip {
-  animation: response-chip-reflow 0.48s ease both;
-  animation-delay: calc(var(--i, 0) * 40ms);
+  animation: response-chip-reflow var(--motion-panel) linear both;
 }
 
 @keyframes response-chip-reflow {
   0% {
     opacity: 1;
-    transform: none;
   }
-  18% {
+  25%,
+  70% {
     opacity: 0;
-    transform: scale(0.97);
-  }
-  60% {
-    opacity: 0;
-    transform: translateY(6px) scale(0.97);
   }
   100% {
     opacity: 1;
-    transform: none;
+  }
+}
+
+/* Dark surfaces: the Focus card's warm brown labels were tuned for paper and
+   sink below 3:1 here, so they take the theme's muted ink and the Mission
+   yellow (the contrast palettes supply both). */
+[data-theme="dark"] .chat-screen--v2 .practice-focus__eyebrow {
+  color: var(--color-text-muted);
+}
+
+[data-theme="dark"] .chat-screen--v2 :is(.practice-focus__mission-label, .practice-focus__mission-count) {
+  color: var(--color-mission-accent);
+}
+
+/* Touch: small inline controls keep their look, but their hit area grows
+   to at least 44px so they're easy to tap. */
+@media (pointer: coarse) {
+  .chat-screen--v2 .chat-v2__hint-link {
+    min-height: 44px;
+  }
+
+  .chat-screen--v2 .bubble__explain-button {
+    position: relative;
+  }
+
+  .chat-screen--v2 .bubble__explain-button::after {
+    content: "";
+    position: absolute;
+    inset: -10px -2px;
   }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ScenarioCard from "./ScenarioCard.jsx";
 import AccessibilityButton from "./AccessibilityButton.jsx";
+import { HelpIcon } from "./icons.jsx";
 import ReflectionHistoryPanel from "./ReflectionHistoryPanel.jsx";
 import ReflectionPanel from "./ReflectionPanel.jsx";
 import TutorialOverlay from "./TutorialOverlay.jsx";
@@ -32,6 +33,9 @@ const PICKER_TUTORIAL_STEPS = [
     // button -- seeing what's inside is what makes people come back to it.
     target: ".a11y-menu",
     opensAccessibilityMenu: true,
+    // First walkthrough only: start with the two reading aids on, shown
+    // switched on in the open menu, so they're easy to see and turn off.
+    turnsOn: { key: "nexus-tutorial-reading-aids", prefs: ["wordMagnifier", "easierNarratorFont"] },
     placement: "left",
     title: "Make it comfortable",
     text: "The Accessibility menu has bigger text, calmer colors, reduced motion, read-aloud and more. Open it any time from the Accessibility button, or press Ctrl + U.",
@@ -76,9 +80,9 @@ export default function ScenarioPicker({ scenarios, loadError, fadeIn = false, o
   function pingRailDot(e) {
     const id = e.target.closest(".scenario-card")?.dataset.scenario;
     const dot = id && document.querySelector(`.picker__rail-dot[data-scenario="${id}"]`);
-    if (!dot) return;
+    // The rail is only laid out on wide screens; nothing to light up otherwise.
+    if (!dot || dot.getClientRects().length === 0) return;
     document.querySelectorAll(".picker__rail-dot--ping").forEach((d) => d.classList.remove("picker__rail-dot--ping"));
-    void dot.offsetWidth; // restart the pulse on a repeat click
     dot.classList.add("picker__rail-dot--ping");
     clearTimeout(pingTimerRef.current);
     pingTimerRef.current = setTimeout(() => dot.classList.remove("picker__rail-dot--ping"), 1200);
@@ -189,6 +193,16 @@ export default function ScenarioPicker({ scenarios, loadError, fadeIn = false, o
             </svg>
             Share Feedback
           </a>
+          <button type="button" className="picker__history-button" onClick={openHistory}>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7v5l3.5 2" />
+            </svg>
+            Past Reflections
+          </button>
+        </div>
+
+        <div className="picker__a11y">
           <button
             type="button"
             className="tutorial-replay-button"
@@ -196,17 +210,8 @@ export default function ScenarioPicker({ scenarios, loadError, fadeIn = false, o
             aria-label="Replay the getting-started walkthrough"
             title="Getting started"
           >
-            <span aria-hidden="true">?</span> Tutorial
-          </button>
-        </div>
-
-        <div className="picker__a11y">
-          <button className="picker__history-button" onClick={openHistory}>
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 7v5l3.5 2" />
-            </svg>
-            Past Reflections
+            <HelpIcon size={18} />
+            Tutorial
           </button>
           <button
             type="button"

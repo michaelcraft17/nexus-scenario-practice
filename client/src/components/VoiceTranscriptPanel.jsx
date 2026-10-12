@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useAccessibility } from "../a11y/AccessibilityContext.jsx";
+import { AccessibilityIcon } from "./icons.jsx";
 import "./VoiceTranscript.css";
 
 // How close to the bottom (px) still counts as "following along" -- new
@@ -218,25 +219,12 @@ export default function VoiceTranscriptPanel({
           type="button"
           className="voice-transcript__icon-btn"
           onClick={togglePanel}
-          aria-pressed={panelOpen}
+          aria-expanded={panelOpen}
           aria-haspopup="dialog"
-          aria-label="Accessibility features"
-          title="Accessibility features (Ctrl+U)"
+          aria-label="Accessibility"
+          title="Accessibility (Ctrl+U)"
         >
-          <svg
-            viewBox="0 0 24 24"
-            width="18"
-            height="18"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <circle cx="12" cy="8" r="3.2" />
-            <path d="M5.5 20c0-3.6 3-6 6.5-6s6.5 2.4 6.5 6" />
-          </svg>
+          <AccessibilityIcon size={18} />
         </button>
         <button
           type="button"

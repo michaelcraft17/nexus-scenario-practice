@@ -6,7 +6,7 @@ import { useState } from "react";
  * stays put while scrolling without needing a fixed pixel offset tied to
  * the header's height). Styled like a game quest tracker: a short label
  * plus the single next incomplete objective, not the full mission text --
- * tap to expand for the full mission and every objective as a ☑/☐ row.
+ * tap to expand for the full mission and every objective as a checkbox row.
  * Objective completion and stage progression are both decided server-side
  * (see server/src/engine/dialogueEngine.js generateNarratorUpdate) -- this
  * component only ever renders the mission object it's given, it never
@@ -60,10 +60,12 @@ export default function MissionBar({ mission }) {
                   objective.completed ? "mission-badge__objective--done" : ""
                 }`}
               >
-                <span className="mission-badge__checkbox" aria-hidden="true">
-                  {objective.completed ? "☑" : "☐"}
-                </span>
+                <svg className="mission-badge__checkbox" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="3" y="3" width="18" height="18" rx="5" />
+                  {objective.completed && <path d="M7.5 12.5l3 3 6-6.5" />}
+                </svg>
                 {objective.text}
+                <span className="visually-hidden">{objective.completed ? " (done)" : " (not yet)"}</span>
               </li>
             ))}
           </ul>

@@ -56,6 +56,19 @@ const lineHeightIcon = (sp) => {
 
 const DROP = "M16 4s9 10 9 16a9 9 0 01-18 0c0-6 9-16 9-16z";
 
+// Typeface tiles: a drawn "Aa" rather than live text, so the icon doesn't
+// depend on which fonts happen to be installed. The dyslexia variant gets a
+// heavy baseline under the letters, echoing OpenDyslexic's weighted bottoms.
+const aaIcon = (baseline) =>
+  tileSvg(
+    <>
+      <path d="M4 24L10.5 7 17 24M6.6 18.5h7.8" />
+      <circle cx="23" cy="20" r="4" />
+      <path d="M27 14.5V24" />
+      {baseline && <path d="M3 28h26" strokeWidth="3" />}
+    </>
+  );
+
 /** Icon for a tile in its off state (also the fallback for any step
  * without its own icon in ICONS_ON). */
 const TILE_ICONS = {
@@ -65,11 +78,7 @@ const TILE_ICONS = {
   spacing: tileSvg(<path d="M4 16h24M4 16l4-4M4 16l4 4M28 16l-4-4M28 16l-4 4" strokeDasharray="3 3" />),
   motion: tileSvg(<><circle cx="16" cy="16" r="6" /><path d="M14 13v6M18 13v6" /><path d="M16 3v3M16 26v3M3 16h3M26 16h3M7 7l2 2M23 23l2 2M7 25l2-2M23 9l2-2" /></>),
   hideImages: tileSvg(<><path d="M4 8h14M4 8v18h22v-9" /><path d="M4 22l6-6 5 5 3-3 8 7" /><path d="M22 4l6 6M28 4l-6 6" /></>),
-  typeface: (
-    <svg viewBox="0 0 32 32" aria-hidden="true">
-      <text x="16" y="23" textAnchor="middle" fontSize="20" fontWeight="700" fill="currentColor" fontFamily="Georgia,serif">Df</text>
-    </svg>
-  ),
+  typeface: aaIcon(true),
   cursor: tileSvg(<path d="M8 4l16 12-7 1.5 4 7-3.5 1.8-4-7L8 22z" />),
   tooltips: tileSvg(<><path d="M5 6h22v16H16l-6 5v-5H5z" /><path d="M16 11v1M16 15v4" /></>),
   lineHeight: tileSvg(<path d="M6 4v24M6 4l-3 4M6 4l3 4M6 28l-3-4M6 28l3-4M14 8h14M14 14h14M14 20h14M14 26h14" />),
@@ -95,14 +104,17 @@ const ICONS_ON = {
     ])
   ),
   motion: {
-    reduce: tileSvg(<><circle cx="16" cy="16" r="6.5" /><path d="M14 12.5l6 3.5-6 3.5z" fill="currentColor" /><path d="M16 3v3M16 26v3M3 16h3M26 16h3M7 7l2 2M23 23l2 2M7 25l2-2M23 9l2-2" /></>),
+    // Paused: the same pause mark, now solid and still -- the motion rays
+    // are gone. (A play triangle here read as "press to play".)
+    reduce: tileSvg(
+      <>
+        <circle cx="16" cy="16" r="10" fill="currentColor" />
+        <path d="M13 11.5v9M19 11.5v9" stroke="var(--tile-knockout, #fff)" strokeWidth="2.6" />
+      </>
+    ),
   },
   typeface: {
-    legible: (
-      <svg viewBox="0 0 32 32" aria-hidden="true">
-        <text x="16" y="23" textAnchor="middle" fontSize="19" fontWeight="600" fill="currentColor" fontFamily="Verdana,Arial,sans-serif">Ab</text>
-      </svg>
-    ),
+    legible: aaIcon(false),
   },
   cursor: {
     mask: tileSvg(<><rect x="4" y="6" width="24" height="20" rx="2" /><rect x="4" y="6" width="24" height="6" fill="currentColor" /><rect x="4" y="20" width="24" height="6" fill="currentColor" /></>),
@@ -189,15 +201,15 @@ export const ResetIcon = () => (
 );
 
 export const CloseIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
-    <path d="M6 6l12 12M18 6L6 18" />
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+    <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" />
   </svg>
 );
 
 /** Icons for the three switch rows above the tile grid, drawn like the
  * tiles' own: Oversized Widget (a box with arrows pushing its corners out),
  * Word Magnifier (a magnifying glass over a letter), Easier Narrator Font
- * (the Narrator's calligraphy pen nib). */
+ * (a speech bubble holding a plain upright "A"). */
 export const ROW_ICONS = {
   oversized: tileSvg(
     <>
@@ -214,9 +226,8 @@ export const ROW_ICONS = {
   ),
   narratorFont: tileSvg(
     <>
-      <path d="M16 29L8.5 15 12.5 4h7l4 11z" />
-      <path d="M16 29V17.5" />
-      <circle cx="16" cy="15" r="1.8" />
+      <path d="M5 5h22a1 1 0 011 1v15a1 1 0 01-1 1H15l-6 5v-5H5a1 1 0 01-1-1V6a1 1 0 011-1z" />
+      <path d="M12 18l4-9 4 9M13.4 15h5.2" />
     </>
   ),
 };

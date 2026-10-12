@@ -23,12 +23,40 @@ const APP_TIPS = [
   <><b>Explain that</b> steps outside the scene for a moment — the character never hears it.</>,
   <>Stuck for words? <b>Need a hint?</b> above the reply box offers a couple of directions, not a script.</>,
   <>Hints are possibilities, not answers. You can find them in <b>Need a hint?</b> or the <b>Hint</b> button up top.</>,
-  <>You can find <b>Bigger Text</b> and a <b>Dyslexia Friendly</b> font in the <b>Access</b> menu, top right.</>,
-  <>Screen feeling busy? <b>Pause Animations</b> and <b>Saturation</b> live in the <b>Access</b> menu (Ctrl+U).</>,
-  <>Lines feel cramped? <b>Text Spacing</b> and <b>Line Height</b> are in the <b>Access</b> menu.</>,
+  <>You can find <b>Bigger Text</b> and a <b>Dyslexia Friendly</b> font in the <b>Accessibility</b> menu, top right.</>,
+  <>Screen feeling busy? <b>Pause Animations</b> and <b>Saturation</b> live in the <b>Accessibility</b> menu (Ctrl+U).</>,
+  <>Lines feel cramped? <b>Text Spacing</b> and <b>Line Height</b> are in the <b>Accessibility</b> menu.</>,
 ];
 
 const TIP_ROTATE_MS = 18000;
+
+/** Same breakpoint as chat-v2.css's: below it the whole panel is hidden
+ * (display: none) and MissionBar's badge stands in. */
+const PANEL_VISIBLE_QUERY = "(min-width: 1001px)";
+
+/** Whether the tip can actually be seen: the panel is laid out at this
+ * width and the tab is in the foreground. Rotating text nobody can see is
+ * wasted work, and returning to a tab to find it changed is disorienting. */
+function useTipVisible() {
+  const [visible, setVisible] = useState(() => isTipVisible());
+  useEffect(() => {
+    const mq = window.matchMedia?.(PANEL_VISIBLE_QUERY);
+    const update = () => setVisible(isTipVisible());
+    mq?.addEventListener("change", update);
+    document.addEventListener("visibilitychange", update);
+    return () => {
+      mq?.removeEventListener("change", update);
+      document.removeEventListener("visibilitychange", update);
+    };
+  }, []);
+  return visible;
+}
+
+function isTipVisible() {
+  if (typeof document === "undefined") return false;
+  const wide = window.matchMedia ? window.matchMedia(PANEL_VISIBLE_QUERY).matches : true;
+  return wide && document.visibilityState !== "hidden";
+}
 
 function randomTipIndex(except) {
   let i = Math.floor(Math.random() * APP_TIPS.length);
@@ -38,16 +66,18 @@ function randomTipIndex(except) {
 
 /**
  * One rotating reminder. Starts on a random tip and moves to another every
- * ~18s -- paused while the pointer is over it or focus is inside it, and not
- * at all under Reduce motion (text changing on its own is its own kind of
- * movement). "Another tip" always works. Not a live region: a tip swapping
- * in shouldn't interrupt a screen reader.
+ * ~18s -- paused while the pointer is over it or focus is inside it, while
+ * it can't be seen (narrow layout or a background tab; collapsing the panel
+ * unmounts it), and not at all under Reduce motion (text changing on its
+ * own is its own kind of movement). "Another tip" always works. Not a live
+ * region: a tip swapping in shouldn't interrupt a screen reader.
  */
 function AppTip() {
   const { resolvedMotion } = useAccessibility();
+  const visible = useTipVisible();
   const [index, setIndex] = useState(() => randomTipIndex(-1));
   const [paused, setPaused] = useState(false);
-  const autoRotate = resolvedMotion !== "reduce" && !paused;
+  const autoRotate = resolvedMotion !== "reduce" && !paused && visible;
 
   useEffect(() => {
     if (!autoRotate) return undefined;
@@ -72,6 +102,16 @@ function AppTip() {
         Another tip
       </button>
     </div>
+  );
+}
+
+/** Tick inside a finished objective's box -- an SVG rather than a text
+ * glyph, so it renders identically everywhere and scales with its box. */
+function CheckGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 12.5l4 4 8-9" />
+    </svg>
   );
 }
 
@@ -233,7 +273,9 @@ export default function PracticeFocus({ scenario, mission, collapsed = false, on
                   const state = o.completed ? "done" : i === currentIndex ? "current" : "todo";
                   return (
                     <li key={o.id} className={`practice-focus__objective practice-focus__objective--${state}`}>
-                      <span className="practice-focus__check" aria-hidden="true" />
+                      <span className="practice-focus__check" aria-hidden="true">
+                        {state === "done" && <CheckGlyph />}
+                      </span>
                       <span>{o.text}</span>
                       <span className="visually-hidden">
                         {state === "done" ? " (done)" : state === "current" ? " (current)" : " (not yet)"}
@@ -243,7 +285,7 @@ export default function PracticeFocus({ scenario, mission, collapsed = false, on
                 })}
               </ol>
               {objectives.length > 0 && currentIndex === -1 && (
-                <p className="practice-focus__complete">All objectives complete — nice work.</p>
+                <p className="practice-focus__complete">All objectives covered.</p>
               )}
             </div>
           )}

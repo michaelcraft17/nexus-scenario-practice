@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { startRealtimeSession, checkVoiceGoal } from "../services/api.js";
+import { waitForConnectionStep } from "../services/connectionStep.js";
 import { useAccessibility } from "../a11y/AccessibilityContext.jsx";
+import { MOTION_MS, isReducedMotion } from "../a11y/motion.js";
 import "./VoiceCallGoal.css";
 import HoverWords from "./HoverWords.jsx";
 import VoiceTranscriptPanel from "./VoiceTranscriptPanel.jsx";
@@ -8,7 +10,9 @@ import AccessibilityButton from "./AccessibilityButton.jsx";
 
 const TRANSCRIPT_OPEN_KEY = "nexus-voice-transcript-open";
 // Matches the slide in/out duration in VoiceTranscript.css.
-const TRANSCRIPT_SLIDE_MS = 280;
+const TRANSCRIPT_SLIDE_MS = MOTION_MS.panel;
+/** The ring settling into its "ending" pose before the call closes. */
+const ENDING_MS = 300;
 
 function readTranscriptOpen() {
   try {
@@ -129,41 +133,14 @@ const CONFETTI_VISIBLE_MS = 4200;
 const TRANSCRIPT_WAIT_STEP_MS = 200;
 const TRANSCRIPT_WAIT_STEPS = 12;
 
-/** Each body-language state's breathing range/tempo for the ring+bloom's
- * radius -- see stepWave() below for how the ring actually moves between
- * these without ever jump-cutting. */
-const WAVE_TARGETS = {
-  idle: { min: 30, max: 40, period: 4.5 },
-  listening: { min: 24, max: 30, period: 3.2 },
-  thinking: { min: 32, max: 34, period: 6 },
-  speaking: { min: 34, max: 46, period: 3.2 },
-  ending: { min: 32, max: 34, period: 6 },
-};
-
-/** Advances one continuous breathing wave by dt seconds, easing its
- * range/tempo toward whatever state is currently targeted rather than
- * swapping to a differently-parameterized animation outright (which is
- * what CSS @keyframes name-swapping does, and why the ring used to visibly
- * jump-cut on every body-language transition). `wave.phase` is never reset
- * -- that's the actual key to it reading as one continuous wave instead of
- * a sequence of separate animations: only its amplitude and speed drift. */
-function stepWave(wave, bodyState, dt) {
-  const target = WAVE_TARGETS[bodyState] || WAVE_TARGETS.idle;
-  // ~350ms to mostly settle into the new range/tempo.
-  const smoothing = 1 - Math.exp(-dt / 0.35);
-  wave.min += (target.min - wave.min) * smoothing;
-  wave.max += (target.max - wave.max) * smoothing;
-  wave.period += (target.period - wave.period) * smoothing;
-  wave.phase += dt * ((2 * Math.PI) / wave.period);
-  const mid = (wave.min + wave.max) / 2;
-  const half = (wave.max - wave.min) / 2;
-  return mid + half * Math.sin(wave.phase);
-}
+/* Each body-language state's ring size is a still value in CSS (--ring-r on
+ * .voice-call__loop-wrapper--<state>, index.css); a state change eases to it
+ * once over --motion-content instead of breathing on a loop. */
 
 /**
  * A full-screen "phone call" takeover -- a thin, single-stroke wreath-like
  * circle (in the scenario's accent color, on a soft warm-white field) that
- * continuously grows and shrinks and reacts to whoever's actually making
+ * changes size with each turn of the conversation and reacts to whoever's actually making
  * sound, rather than a panel with a running transcript or a filled colorful
  * orb. Styling direction is Her (2013)'s OS1 interface -- minimal, no
  * chrome, warm and human rather than mechanical -- adapted to a light
@@ -212,6 +189,12 @@ export default function VoiceCallScreen({
 }) {
   const { resolvedMotion, prefs, setPref } = useAccessibility();
   const [status, setStatus] = useState("idle"); // idle | connecting | connected | error | ended
+  const [connectionStep, setConnectionStep] = useState("Preparing your call...");
+  const connectionAbortRef = useRef(null);
+  const connectionTimerRef = useRef(null);
+  const callTopRef = useRef(null);
+  const [topScrollable, setTopScrollable] = useState(false);
+  const [moreBelow, setMoreBelow] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [muted, setMuted] = useState(false);
   // The "body language" vocabulary -- only meaningful while status is
@@ -264,6 +247,7 @@ export default function VoiceCallScreen({
   const [transcriptOpen, setTranscriptOpen] = useState(readTranscriptOpen);
   const [transcriptClosing, setTranscriptClosing] = useState(false); // sliding out
   const transcriptCloseTimerRef = useRef(null);
+  const transcriptToggleRef = useRef(null);
   const [transcriptLines, setTranscriptLines] = useState([]);
   const transcriptTimerRef = useRef(null);
   // Practice-goal tracking: `ready` = judged reached but maybe still waiting
@@ -292,8 +276,6 @@ export default function VoiceCallScreen({
   const npcBufferRef = useRef(null);
   const rafRef = useRef(null);
   const endingTimeoutRef = useRef(null);
-  const waveRef = useRef({ min: 30, max: 40, period: 4.5, phase: 0 });
-  const lastFrameTimeRef = useRef(null);
 
   useEffect(() => {
     bodyStateRef.current = bodyState;
@@ -301,6 +283,19 @@ export default function VoiceCallScreen({
 
   useEffect(() => {
     motionReduceRef.current = resolvedMotion === "reduce";
+    if (resolvedMotion !== "reduce") return;
+    // Switched on mid-call: end anything still moving right away -- a
+    // transcript halfway through closing, and any confetti in the air.
+    if (transcriptCloseTimerRef.current) {
+      clearTimeout(transcriptCloseTimerRef.current);
+      transcriptCloseTimerRef.current = null;
+      setTranscriptOpen(false);
+      setTranscriptClosing(false);
+    }
+    clearTimeout(confettiTimerRef.current);
+    setConfettiRun(0);
+    // A ring halfway through a state change lands on its new size now.
+    loopRef.current?.getAnimations({ subtree: true }).forEach((a) => a.finish());
   }, [resolvedMotion]);
 
   useEffect(() => {
@@ -382,14 +377,16 @@ export default function VoiceCallScreen({
       // Storage blocked -- the toggle still works for this visit.
     }
     clearTimeout(transcriptCloseTimerRef.current);
+    transcriptCloseTimerRef.current = null;
     if (!showing) {
       setTranscriptClosing(false);
       setTranscriptOpen(true);
-    } else if (resolvedMotion === "reduce") {
+    } else if (isReducedMotion()) {
       setTranscriptOpen(false);
     } else {
       setTranscriptClosing(true);
       transcriptCloseTimerRef.current = setTimeout(() => {
+        transcriptCloseTimerRef.current = null;
         setTranscriptOpen(false);
         setTranscriptClosing(false);
       }, TRANSCRIPT_SLIDE_MS);
@@ -399,12 +396,17 @@ export default function VoiceCallScreen({
   /** The call's spoken transcript in conversation order, as {role, content}.
    * Starts at the character's opener when that was spotted, so the guide's
    * briefing isn't treated as part of the roleplay. */
-  function getTranscript() {
-    const { order, role, text } = itemsRef.current;
+  /** Finished lines only, unless `includePartial` -- used once the call has
+   * been hung up, so a line cut off mid-sentence still counts as said. */
+  function getTranscript({ includePartial = false } = {}) {
+    const { order, role, text, partial } = itemsRef.current;
     const start = roleplayStartRef.current ? order.indexOf(roleplayStartRef.current) : 0;
     return order
       .slice(Math.max(0, start))
-      .map((id) => ({ role: role.get(id), content: (text.get(id) || "").trim() }))
+      .map((id) => ({
+        role: role.get(id),
+        content: (text.get(id) || (includePartial ? partial.get(id) : "") || "").trim(),
+      }))
       .filter((m) => m.content);
   }
 
@@ -584,16 +586,12 @@ export default function VoiceCallScreen({
     bufferRef.current = new Uint8Array(analyser.fftSize);
   }
 
-  function tick(timestamp) {
-    const dt = Math.min(0.1, (timestamp - (lastFrameTimeRef.current ?? timestamp)) / 1000);
-    lastFrameTimeRef.current = timestamp;
-
-    // Reduce motion: hold the ring still (dropping the vars lets the CSS
-    // defaults apply). The loop keeps running rather than stopping, so
-    // turning the setting back off mid-call picks the animation right up.
+  function tick() {
+    // Reduce motion: hold the ring still (dropping --amp lets the CSS
+    // default apply). The loop keeps running rather than stopping, so
+    // turning the setting back off mid-call picks the audio response back up.
     if (motionReduceRef.current) {
       loopRef.current?.style.removeProperty("--amp");
-      loopRef.current?.style.removeProperty("--r");
       rafRef.current = requestAnimationFrame(tick);
       return;
     }
@@ -602,12 +600,17 @@ export default function VoiceCallScreen({
     const npcAmp = npcAnalyserRef.current ? getAmplitude(npcAnalyserRef.current, npcBufferRef.current) : 0;
     if (loopRef.current) {
       loopRef.current.style.setProperty("--amp", Math.max(userAmp, npcAmp).toFixed(3));
-      loopRef.current.style.setProperty("--r", stepWave(waveRef.current, bodyStateRef.current, dt).toFixed(2));
     }
     rafRef.current = requestAnimationFrame(tick);
   }
 
   function disconnect() {
+    // Invalidate pending mic requests and transport events before closing them.
+    callIdRef.current += 1;
+    connectionAbortRef.current?.abort();
+    connectionAbortRef.current = null;
+    clearTimeout(connectionTimerRef.current);
+    connectionTimerRef.current = null;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = null;
     dcRef.current?.close();
@@ -632,6 +635,14 @@ export default function VoiceCallScreen({
   async function connect() {
     const callId = callIdRef.current;
     const stale = () => callId !== callIdRef.current;
+    const controller = new AbortController();
+    connectionAbortRef.current = controller;
+    const fail = (error) => {
+      if (stale()) return;
+      disconnect();
+      setStatus("error");
+      setErrorMessage(error.message || "Couldn't start the voice call. End the call and try again.");
+    };
     let pc = null;
     let micStream = null;
     // Tear down only this attempt's own pieces -- never a newer call's.
@@ -643,13 +654,18 @@ export default function VoiceCallScreen({
     };
 
     setStatus("connecting");
+    setConnectionStep("Preparing your call...");
     setErrorMessage("");
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
         throw new Error("This browser doesn't support live voice calls.");
       }
 
-      const session = await startRealtimeSession(scenarioId);
+      const session = await waitForConnectionStep(
+        () => startRealtimeSession(scenarioId, { signal: controller.signal }),
+        { signal: controller.signal, timeoutMs: 30000,
+          message: "Preparing the call took too long. End the call and try again." },
+      );
       if (stale()) return;
 
       pc = new RTCPeerConnection();
@@ -661,6 +677,8 @@ export default function VoiceCallScreen({
         attachAnalyser(stream, npcAnalyserRef, npcBufferRef);
       };
 
+      // Permission prompts belong to the user: do not time those out.
+      setConnectionStep("Waiting for microphone access...");
       micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       if (stale()) return abandon();
       micStreamRef.current = micStream;
@@ -671,6 +689,8 @@ export default function VoiceCallScreen({
       dcRef.current = dc;
       dc.addEventListener("open", () => {
         if (stale()) return;
+        clearTimeout(connectionTimerRef.current);
+        connectionTimerRef.current = null;
         setStatus("connected");
         // The NPC opens the call by speaking the scenario's opener line --
         // the server's instructions already script this, this just
@@ -682,36 +702,42 @@ export default function VoiceCallScreen({
       });
       dc.addEventListener("close", () => {
         if (stale()) return;
-        setStatus((s) => (s === "error" ? s : "ended"));
+        // An unexpected hang-up must release the microphone and pending timer too.
+        disconnect();
+        setStatus("ended");
       });
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       if (stale()) return abandon();
 
-      const resp = await fetch(`https://api.openai.com/v1/realtime/calls?model=${encodeURIComponent(session.model)}`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.clientSecret}`,
-          "Content-Type": "application/sdp",
-        },
-        body: offer.sdp,
-      });
+      setConnectionStep("Connecting your voice...");
+      const answerSdp = await waitForConnectionStep(async () => {
+        const resp = await fetch(`https://api.openai.com/v1/realtime/calls?model=${encodeURIComponent(session.model)}`, {
+          method: "POST",
+          signal: controller.signal,
+          headers: {
+            Authorization: `Bearer ${session.clientSecret}`,
+            "Content-Type": "application/sdp",
+          },
+          body: offer.sdp,
+        });
+        if (!resp.ok) throw new Error(`Couldn't connect the voice call (${resp.status}).`);
+        return resp.text();
+      }, { signal: controller.signal, timeoutMs: 30000,
+        message: "The voice connection took too long. End the call and try again." });
       if (stale()) return abandon();
-      if (!resp.ok) {
-        throw new Error(`Couldn't connect the voice call (${resp.status}).`);
-      }
-      const answerSdp = await resp.text();
-      if (stale()) return abandon();
+      setConnectionStep("Opening your call...");
+      connectionTimerRef.current = setTimeout(() => {
+        fail(new Error("The voice connection didn't open. End the call and try again."));
+      }, 20000);
       await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
       if (stale()) return abandon();
 
       rafRef.current = requestAnimationFrame(tick);
     } catch (err) {
       if (stale()) return abandon();
-      disconnect();
-      setStatus("error");
-      setErrorMessage(err.message || "Couldn't start the voice call.");
+      fail(err);
     }
   }
 
@@ -728,27 +754,32 @@ export default function VoiceCallScreen({
   /** "Goodbye" is its own brief body-language beat, not an instant cut --
    * settle into the ending pose first (see the CSS for what that looks
    * like: everything relaxes and fades toward rest), then actually tear
-   * down the connection. If anything was actually said, ask about a
-   * reflection next rather than closing immediately -- unlike text mode
-   * there's no mission-completion signal here to auto-trigger one from, so
-   * this is a deliberate ask instead. */
+   * down the connection. Then ask about a reflection rather than closing
+   * immediately -- including when the call is cut short mid-scene, since a
+   * look back at a call that felt hard to finish is often the most useful
+   * one. Unlike text mode there's no mission-completion signal here to
+   * auto-trigger one from, so this is a deliberate ask instead. Only a call
+   * where nothing at all was said closes straight away: there'd be nothing
+   * to reflect on (and the reflection endpoint needs at least one line). */
   function handleClose() {
     if (endingTimeoutRef.current) return; // already ending, ignore repeat clicks
     setBodyState("ending");
     bodyStateRef.current = "ending";
+    // The pause is only there for the ring to settle visibly; with motion
+    // reduced there's nothing to watch, so don't make anyone wait.
     endingTimeoutRef.current = setTimeout(() => {
       disconnect();
-      if (hasRoleplay()) {
+      if (getTranscript({ includePartial: true }).length > 0) {
         setAskingReflection(true);
       } else {
         onClose(null);
       }
-    }, 700);
+    }, isReducedMotion() ? 0 : ENDING_MS);
   }
 
   function respondToReflectionPrompt(wantsReflection) {
     setAskingReflection(false);
-    onClose(wantsReflection ? getTranscript() : null);
+    onClose(wantsReflection ? getTranscript({ includePartial: true }) : null);
   }
 
   useEffect(() => {
@@ -771,8 +802,6 @@ export default function VoiceCallScreen({
     roleplayStartRef.current = null;
     handoffRef.current = null;
     setTranscriptLines([]);
-    waveRef.current = { min: 30, max: 40, period: 4.5, phase: 0 };
-    lastFrameTimeRef.current = null;
     if (endingTimeoutRef.current) {
       clearTimeout(endingTimeoutRef.current);
       endingTimeoutRef.current = null;
@@ -781,16 +810,12 @@ export default function VoiceCallScreen({
     if (previewMode) {
       setStatus("connected");
       const start = performance.now();
-      function previewTick(timestamp) {
-        const dt = Math.min(0.1, (timestamp - (lastFrameTimeRef.current ?? timestamp)) / 1000);
-        lastFrameTimeRef.current = timestamp;
+      function previewTick() {
         if (motionReduceRef.current) {
           loopRef.current?.style.removeProperty("--amp");
-          loopRef.current?.style.removeProperty("--r");
         } else if (loopRef.current) {
           const t = (performance.now() - start) / 1000;
           loopRef.current.style.setProperty("--amp", fakeAmplitude(t).toFixed(3));
-          loopRef.current.style.setProperty("--r", stepWave(waveRef.current, bodyStateRef.current, dt).toFixed(2));
         }
         rafRef.current = requestAnimationFrame(previewTick);
       }
@@ -902,16 +927,39 @@ export default function VoiceCallScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewCelebrateKey]);
 
+  // Only fade the bottom edge while actual content remains below it.
+  useEffect(() => {
+    const top = callTopRef.current;
+    if (!open || askingReflection || !top) return undefined;
+    const update = () => {
+      const overflow = top.scrollHeight > top.clientHeight + 2;
+      setTopScrollable(overflow);
+      setMoreBelow(overflow && top.scrollTop + top.clientHeight < top.scrollHeight - 2);
+    };
+    const observer = new ResizeObserver(update);
+    observer.observe(top);
+    Array.from(top.children).forEach((child) => observer.observe(child));
+    top.addEventListener("scroll", update, { passive: true });
+    update();
+    return () => {
+      observer.disconnect();
+      top.removeEventListener("scroll", update);
+    };
+  }, [open, askingReflection, goalReached, status, transcriptOpen, prefs]);
+
   if (!open) return null;
 
   const reduceMotionOn = resolvedMotion === "reduce";
+  // A light accent pairs with dark ink and keeps its own fill as the action
+  // color, the same as the text chat (index.css, [data-light-accent]).
+  const lightAccent = accentContrast && accentContrast.toLowerCase() !== "#ffffff" ? "" : undefined;
   // The OS-level "reduce motion" preference is already on and this app is
   // following it -- there's nothing for this button to switch off.
   const followingDevice = prefs.motion === "device" && reduceMotionOn;
 
   const statusText =
     status === "connecting"
-      ? "Connecting..."
+      ? connectionStep
       : status === "connected"
         ? muted
           ? "Muted"
@@ -939,6 +987,7 @@ export default function VoiceCallScreen({
         role="dialog"
         aria-modal="true"
         aria-label="Reflect on this call?"
+        data-light-accent={lightAccent}
         style={{ "--scenario-accent": accentColor, "--scenario-accent-contrast": accentContrast }}
       >
         <div className="voice-call__ask">
@@ -967,12 +1016,14 @@ export default function VoiceCallScreen({
       role="dialog"
       aria-modal="true"
       aria-label={`Live voice call with ${npcName}`}
+      data-light-accent={lightAccent}
       style={{ "--scenario-accent": accentColor, "--scenario-accent-contrast": accentContrast }}
     >
       <div className="voice-call__corner">
         {/* Words alongside the voice, for anyone who'd rather read along,
             missed a word, or wants to check what they themselves said. */}
         <button
+          ref={transcriptToggleRef}
           type="button"
           className="voice-call__pill"
           aria-pressed={transcriptOpen && !transcriptClosing}
@@ -1002,7 +1053,7 @@ export default function VoiceCallScreen({
             icon-only buttons, so the corner doesn't crowd the panel. */}
         {!transcriptOpen && <AccessibilityButton className="voice-call__pill voice-call__access" />}
         {/* A small always-there way to calm the screen mid-call -- the ring's
-            breathing and the celebration confetti are the two moving things
+            response to sound and the celebration confetti are the two moving things
             here, and reaching the full accessibility menu (with the call
             screen covering the page) would be a detour when someone's
             overwhelmed right now. Same setting as the menu's Pause
@@ -1053,6 +1104,8 @@ export default function VoiceCallScreen({
           closing={transcriptClosing}
           onClose={() => {
             if (!transcriptClosing) toggleTranscript();
+            // The panel unmounts; hand focus back to the button that opened it.
+            transcriptToggleRef.current?.focus();
           }}
         />
       )}
@@ -1080,7 +1133,13 @@ export default function VoiceCallScreen({
         </div>
       )}
 
-      <div className="voice-call__top">
+      <div
+        ref={callTopRef}
+        className={`voice-call__top${moreBelow ? " voice-call__top--more" : ""}`}
+        tabIndex={topScrollable ? 0 : undefined}
+        role={topScrollable ? "region" : undefined}
+        aria-label={topScrollable ? "Call information, scroll for more" : undefined}
+      >
         <p className="voice-call__name">
           <HoverWords text={npcName} />
         </p>
@@ -1128,7 +1187,7 @@ export default function VoiceCallScreen({
             {/* Deterministic noise (fixed seed, not re-randomized per
                 frame) displaces the circle's own outline -- a static
                 organic imperfection riding along with the ring's real
-                animation (grow/shrink, dash-flow), rather than a
+                size changes between states, rather than a
                 mathematically perfect curve. This is the "hand-drawn ink
                 circle" quality; cheap since the noise field itself never
                 re-computes, only the geometry it's warping moves. */}

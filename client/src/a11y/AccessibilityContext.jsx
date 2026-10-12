@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { getReflectionHistory, clearReflectionHistory } from "../services/reflectionHistory.js";
 import { useTooltips } from "./useTooltips.js";
 
@@ -206,7 +206,10 @@ export function AccessibilityProvider({ children }) {
     return () => mq.removeEventListener("change", onChange);
   }, [prefs.motion]);
 
-  useEffect(() => {
+  // A layout effect, so a changed setting is on <html> before the next paint:
+  // switching Pause animations on must not let the click's own style change
+  // (a tile's pressed shadow) start a transition first.
+  useLayoutEffect(() => {
     const root = document.documentElement;
     // The dark/light contrast steps are themselves a dark or a light look,
     // so they pin data-theme (letting every existing [data-theme="dark"]
@@ -217,7 +220,9 @@ export function AccessibilityProvider({ children }) {
     root.setAttribute("data-theme", effectiveTheme);
     root.setAttribute("data-contrast", prefs.contrast);
     root.setAttribute("data-typeface", prefs.typeface);
-    root.setAttribute("data-motion", resolvedMotion);
+    // An explicit choice applies at once; "device" follows the OS (tracked in
+    // resolvedMotion), which can't have changed in the same render.
+    root.setAttribute("data-motion", prefs.motion === "device" ? resolvedMotion : resolveMotion(prefs.motion));
     // Tile-menu features -- a11y.css keys off these.
     root.setAttribute("data-links", prefs.links);
     root.setAttribute("data-spacing", prefs.spacing);
@@ -236,6 +241,10 @@ export function AccessibilityProvider({ children }) {
     const zoomValue = Math.min(targetSize, TEXT_ZOOM.default);
     root.style.zoom = String(zoomValue);
     root.style.setProperty("--text-scale", String(targetSize / zoomValue));
+    // The whole requested size, for surfaces that cancel the page zoom
+    // (the Accessibility menu) but should still follow Bigger Text.
+    root.style.setProperty("--text-size", String(targetSize));
+    root.setAttribute("data-text-size", prefs.textSize);
     // `zoom` scales the *rendered* size of everything, but viewport units
     // (vh/dvh) don't know about zoom and still resolve against the real
     // viewport -- so `height: 100dvh` becomes `900px` pre-zoom, then renders

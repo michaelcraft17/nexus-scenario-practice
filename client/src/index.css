@@ -1,10 +1,48 @@
 :root {
+  /* ---------- Design tokens ----------
+     One small set shared by every screen. Color roles live in the
+     scheme/theme blocks below (and the contrast palettes in a11y.css):
+       --color-bg / --color-surface / --color-tint   page, panels, subtle fills
+       --color-text / --color-text-muted             ink
+       --color-border / --color-focus                edges, focus ring
+       --color-primary + --color-primary-contrast    the action fill and the
+                                                     ink that sits on it
+       --accent-ink                                  the primary hue as text
+                                                     on a surface
+       --scenario-action + --scenario-accent-contrast  a scenario's own
+                                                     button fill and its ink
+     Fill and ink are always set as a pair, so no text is assumed to be
+     white on whatever accent happens to be behind it. */
   --radius: 14px;
+  --radius-control: 12px;
+  --radius-card: 16px;
+  --radius-panel: 20px;
+  --radius-pill: 999px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
   --space-5: 24px;
+  --space-6: 32px;
+  /* Two elevations only: resting cards, and things that float over the
+     page (menus, sheets, dialogs). */
+  --shadow-card: 0 2px 8px rgb(25 25 30 / 8%);
+  --shadow-overlay: 0 12px 32px rgb(15 15 20 / 18%);
+  /* Smallest comfortable hit area for anything tappable. */
+  --control-min: 44px;
+  /* Motion: short, decelerating, never overshooting. Under Reduce motion the
+     global rule below collapses every duration and delay; JS-driven motion
+     uses the same numbers from a11y/motion.js. */
+  --motion-feedback: 140ms;
+  --motion-content: 200ms;
+  --motion-panel: 220ms;
+  --motion-handoff: 240ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  /* Type roles (each multiplied by --text-scale where used). */
+  --type-caption: 12px;
+  --type-label: 14px;
+  --type-body: 16px;
+  --type-title: 20px;
   --font-sans: "Work Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   /* Longer narration meant to be read through (the chat's "Read full
      context"): Lora keeps the calligraphic feel but with larger, more open
@@ -42,6 +80,10 @@
   --color-narrator-tint: #d7e9e9;
   --color-mission-accent: #b8860b;
   --color-mission-tint: #f5e6bd;
+  /* Mission as text (labels on the tint or a surface): the accent above is
+     a decorative edge color and sits under 3:1 as text; this deeper gold
+     clears 4.5:1 on the tint. */
+  --color-mission-ink: #7a5a00;
   /* The mission badge's *expanded* detail dropdown gets the logo's other
      hand color (orange), distinct from the collapsed toggle's yellow --
      sampled the same way as the teal/yellow above. */
@@ -63,6 +105,7 @@
   --color-narrator-tint: #1c2e2f;
   --color-mission-accent: #e8c04a;
   --color-mission-tint: #34290f;
+  --color-mission-ink: #e8c04a;
   --color-mission-dropdown-accent: #f0b163;
   --color-mission-dropdown-tint: #3a2a16;
 
@@ -93,6 +136,8 @@
   --color-danger-bg: #fbeceb;
   --color-border: #e4e0d8;
   --color-tint: #efedf5;
+  --accent-ink: #2e2a4a;
+  --color-focus: #2e2a4a;
 }
 
 [data-color-scheme="calm-earthy"][data-theme="dark"] {
@@ -102,16 +147,18 @@
   --color-text-muted: #b0a9c2;
   /* Primary does double duty as a solid button/header background (paired
      with --color-primary-contrast) AND as plain text on --color-tint --
-     picked a mid-lightness purple so both roles keep reasonable contrast,
-     rather than the near-black light-mode value which would vanish as
-     text on a dark tint, or a pale value that would wash out white text. */
-  --color-primary: #7d68d6;
+     picked a mid-lightness purple that keeps white text above 4.5:1 (5.5:1).
+     As text on the dark surfaces it would sit near 3:1, so the text role
+     gets its own lighter partner, --accent-ink. */
+  --color-primary: #6c58c4;
   --color-primary-contrast: #ffffff;
   --color-accent: #e8b567;
   --color-danger: #e5766d;
   --color-danger-bg: #3a2224;
   --color-border: #3a3548;
   --color-tint: #2f2a40;
+  --accent-ink: #c4b5f5;
+  --color-focus: #c4b5f5;
 }
 
 [data-color-scheme="blue-yellow"][data-theme="light"] {
@@ -126,6 +173,8 @@
   --color-danger-bg: #fbeaea;
   --color-border: #dbe4ee;
   --color-tint: #e8f0fa;
+  --accent-ink: #1c4e80;
+  --color-focus: #1c4e80;
 }
 
 [data-color-scheme="blue-yellow"][data-theme="dark"] {
@@ -134,18 +183,24 @@
   --color-text: #eaf1fb;
   --color-text-muted: #9fb0c8;
   --color-primary: #5b9bdb;
-  --color-primary-contrast: #ffffff;
+  /* White on this blue is under 3:1; the page's own near-black reads 6:1. */
+  --color-primary-contrast: #0f1620;
   --color-accent: #f4c542;
   --color-danger: #e5766d;
   --color-danger-bg: #33201f;
   --color-border: #2b3a4d;
   --color-tint: #16283d;
+  --accent-ink: #8cc0f0;
+  --color-focus: #8cc0f0;
 }
 
 /* ---------- Contrast ---------- */
 
 [data-contrast="high"] {
   --color-text-muted: var(--color-text);
+  --accent-ink: var(--color-text);
+  --color-mission-ink: var(--color-text);
+  --color-focus: var(--color-text);
   --border-width: 2px;
 }
 
@@ -155,6 +210,9 @@
 
 [data-contrast="high"][data-theme="dark"] {
   --color-border: #ffffff;
+  /* Solid buttons go white-on-black's inverse: the strongest pair there is. */
+  --color-primary: var(--color-text);
+  --color-primary-contrast: var(--color-bg);
 }
 
 /* ---------- Typeface ----------
@@ -200,11 +258,20 @@
 
 /* ---------- Motion ---------- */
 
+/* Reduce motion (the app's own setting, or the OS preference -- both resolve
+   to data-motion="reduce" in AccessibilityContext): every animation and
+   transition jumps straight to its end state. Delays are zeroed too, or a
+   staggered entrance would still hold content back (at opacity 0) for the
+   length of its delay. JavaScript-driven motion (MessageBubble, ChatScreen's
+   reveals, the voice call) reads the same attribute and skips/cancels its
+   own work -- see a11y/motion.js. */
 [data-motion="reduce"] *,
 [data-motion="reduce"] *::before,
 [data-motion="reduce"] *::after {
   transition-duration: 0.001ms !important;
+  transition-delay: 0s !important;
   animation-duration: 0.001ms !important;
+  animation-delay: 0s !important;
   animation-iteration-count: 1 !important;
   scroll-behavior: auto !important;
 }
@@ -355,7 +422,8 @@ input {
   border-radius: 50%;
   background: var(--dot-color);
   opacity: 0.8;
-  transition: transform 150ms ease, opacity 150ms ease, box-shadow 150ms ease;
+  transition: transform var(--motion-feedback) var(--ease-out), opacity var(--motion-feedback) var(--ease-out),
+    box-shadow var(--motion-feedback) var(--ease-out);
 }
 
 .picker__rail-dot:hover::before,
@@ -371,67 +439,13 @@ input {
 }
 
 /* Answering a click on its card (ScenarioPicker's pingRailDot): the dot
-   swells and a ring of its color ripples out, twice. Under Reduce motion it
-   just stays enlarged with a soft halo for the same moment instead. */
-.picker__rail-dot::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  border: 2px solid var(--dot-color);
-  opacity: 0;
-  pointer-events: none;
-}
-
+   brightens to its hover size with a soft halo for a moment -- a quiet,
+   static "this one", not a pulse. Identical under Reduce motion, minus the
+   140ms ease in. */
 .picker__rail-dot--ping::before {
-  animation: rail-dot-swell 1.1s ease-out;
-}
-
-.picker__rail-dot--ping::after {
-  animation: rail-dot-ripple 0.55s ease-out 2;
-}
-
-@keyframes rail-dot-swell {
-  0% {
-    transform: scale(1);
-    opacity: 0.8;
-  }
-  18% {
-    transform: scale(2.1);
-    opacity: 1;
-  }
-  45% {
-    transform: scale(1.5);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 0.8;
-  }
-}
-
-@keyframes rail-dot-ripple {
-  0% {
-    transform: scale(1);
-    opacity: 0.9;
-  }
-  100% {
-    transform: scale(3.4);
-    opacity: 0;
-  }
-}
-
-[data-motion="reduce"] .picker__rail-dot--ping::before {
   opacity: 1;
   transform: scale(1.6);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--dot-color) 30%, transparent);
-}
-
-[data-motion="reduce"] .picker__rail-dot--ping::after {
-  animation: none;
 }
 
 @media (min-width: 1180px) {
@@ -440,18 +454,18 @@ input {
   }
 }
 
-/* The card a dot just jumped to glows in its own accent for a moment, so
-   it's obvious where you landed. */
+/* The card a dot just jumped to is ringed in its own accent for a moment,
+   so it's obvious where you landed: the ring holds still, then fades over
+   --motion-panel (ScenarioPicker removes the class after 1.6s). */
 .scenario-card--jumped {
-  animation: scenario-card-jumped 1.6s ease-out;
+  animation: scenario-card-jumped var(--motion-panel) var(--ease-out) 1.2s both;
 }
 
 @keyframes scenario-card-jumped {
-  0%,
-  35% {
+  from {
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--scenario-accent, var(--color-primary)) 70%, transparent);
   }
-  100% {
+  to {
     box-shadow: 0 0 0 4px transparent;
   }
 }
@@ -480,6 +494,7 @@ input {
 .picker__a11y > * {
   flex: 1 1 auto;
 }
+
 
 /* Mirrors .picker__a11y's row-of-pills grouping, but on the opposite side
    -- Share Feedback and the Tutorial replay button live together here so
@@ -512,7 +527,7 @@ input {
   border-radius: 999px;
   border: 1.5px solid #96702c;
   background: rgba(228, 163, 76, 0.14);
-  color: #96702c;
+  color: #7a591f;
   font-size: calc(14px * var(--text-scale, 1));
   font-weight: 500;
   text-decoration: none;
@@ -520,64 +535,10 @@ input {
   position: relative;
 }
 
-/* An occasional nudge: two amber rings ripple out from the pill, then it
-   rests for several seconds before the next pair. The rings are drawn with
-   box-shadow on pseudo-elements so the pill itself never moves or changes
-   size. Pause Animations ([data-motion="reduce"], which also follows the
-   device's reduced-motion setting) removes them entirely, below. */
-.picker__feedback-link::before,
-.picker__feedback-link::after {
-  content: "";
-  position: absolute;
-  inset: -1.5px;
-  border-radius: inherit;
-  pointer-events: none;
-  animation: feedback-wave 7s ease-out 2s infinite;
-}
-
-.picker__feedback-link::after {
-  animation-delay: 2.45s;
-}
-
-@keyframes feedback-wave {
-  0% {
-    box-shadow: 0 0 0 0 rgba(150, 112, 44, 0.5);
-  }
-  18% {
-    box-shadow: 0 0 0 14px rgba(150, 112, 44, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 14px rgba(150, 112, 44, 0);
-  }
-}
-
-[data-motion="reduce"] .picker__feedback-link::before,
-[data-motion="reduce"] .picker__feedback-link::after {
-  animation: none;
-  content: none;
-}
-
 [data-contrast="high"] .picker__feedback-link {
   background: var(--color-bg);
   border-color: var(--color-border);
   color: var(--color-text);
-}
-
-[data-contrast="high"] .picker__feedback-link::before,
-[data-contrast="high"] .picker__feedback-link::after {
-  animation-name: feedback-wave-contrast;
-}
-
-@keyframes feedback-wave-contrast {
-  0% {
-    box-shadow: 0 0 0 0 var(--color-text);
-    opacity: 0.6;
-  }
-  18%,
-  100% {
-    box-shadow: 0 0 0 14px var(--color-text);
-    opacity: 0;
-  }
 }
 
 .picker__header {
@@ -723,6 +684,60 @@ input {
   display: block;
 }
 
+/* Phones: the four pills (Tutorial, Past Reflections, Favorites,
+   Accessibility) form one tidy 2x2 block, and Share Feedback moves below
+   the scenarios -- so the first thing under the buttons is the app's name
+   and then a scenario, not a stack of controls. */
+@media (max-width: 599.98px) {
+  .picker__a11y {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 8em), 1fr));
+  }
+
+  .picker__a11y > * {
+    justify-content: center;
+    white-space: normal;
+    text-align: center;
+  }
+
+  /* An odd one out takes the whole last row rather than sitting half-width. */
+  .picker__a11y > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  /* Same two-up grid as the settings pills above the cards. */
+  .picker__left {
+    order: 4;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 8em), 1fr));
+    align-self: stretch;
+    margin: var(--space-5) 0 0;
+  }
+
+  .picker__left > * {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .picker__left svg {
+    flex-shrink: 0;
+  }
+
+  /* The tagline and the framing line say it; the instruction line repeats. */
+  .picker__header p:not(.picker__tagline, .picker__framing) {
+    display: none;
+  }
+
+  .picker__hero {
+    width: min(240px, 70vw);
+    height: 110px;
+  }
+
+  .picker__hero-title {
+    font-size: calc(2.6rem * var(--text-scale, 1));
+  }
+}
+
 @media (min-width: 1180px) {
   .picker__content {
     max-width: 1180px;
@@ -743,7 +758,7 @@ input {
   }
 
   .picker__a11y .a11y-button,
-  .picker__a11y .picker__history-button,
+  .picker__left .picker__history-button,
   .picker__a11y .picker__favorites-button {
     flex: none;
   }
@@ -757,17 +772,19 @@ input {
 
   .picker__header {
     order: 1;
-    margin-bottom: 0;
-    padding-top: 64px;
+    margin-bottom: var(--space-2);
+    padding-top: 24px;
   }
 
+  /* Compact enough that the first row of cards -- Start included -- is
+     visible on a laptop-height screen. */
   .picker__hero {
-    width: 460px;
-    height: 220px;
+    width: 300px;
+    height: 130px;
   }
 
   .picker__hero-title {
-    font-size: calc(4.25rem * var(--text-scale, 1));
+    font-size: calc(3rem * var(--text-scale, 1));
   }
 
   /* The plain description line is redundant with the framing sentence at
@@ -828,10 +845,30 @@ input {
 
 .scenario-card__image {
   width: 100%;
-  aspect-ratio: 16 / 9;
+  /* The art sets the mood; it shouldn't push the card's text and Start
+     button below the fold. A wide band on phones and desktops alike. */
+  aspect-ratio: 5 / 2;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+}
+
+@media (min-width: 1180px) {
+  .scenario-card__image {
+    aspect-ratio: 3 / 1;
+  }
+}
+
+/* The art sets the mood; it shouldn't push the card's text and Start
+   button below the fold. A wide band on phones and desktops alike. */
+.scenario-card__image {
+  aspect-ratio: 5 / 2;
+}
+
+@media (min-width: 1180px) {
+  .scenario-card__image {
+    aspect-ratio: 3 / 1;
+  }
 }
 
 .scenario-card__body {
@@ -976,22 +1013,26 @@ input {
    natively) reverses the same transition back to resting height. */
 .scenario-card__difficulty-button {
   flex: 1;
+  /* The scenario's own accent, as designed (contrast modes swap the accent
+     for the theme's primary). White text on the teal and rose is ~3.9:1. */
   background: var(--scenario-accent, var(--color-primary));
   border: var(--border-width) solid var(--scenario-accent, var(--color-primary));
-  color: var(--scenario-btn-text, var(--color-primary-contrast));
+  /* White unless the scenario says otherwise (the amber card) -- never the
+     theme's primary ink, which is dark on some dark schemes. */
+  color: var(--scenario-btn-text, #ffffff);
   border-radius: 999px;
   padding: 11px 0;
   min-height: 44px;
   font-size: calc(14px * var(--text-scale, 1));
   font-weight: 600;
   text-align: center;
-  box-shadow: 0 3px 0 color-mix(in srgb, var(--scenario-accent) 78%, black);
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--scenario-accent) 78%, black);
   transform: translateY(0);
-  transition: transform 100ms ease-out, box-shadow 100ms ease-out;
+  transition: transform var(--motion-feedback) var(--ease-out), box-shadow var(--motion-feedback) var(--ease-out);
 }
 
 .scenario-card__difficulty-button:active {
-  transform: translateY(3px);
+  transform: translateY(2px);
   box-shadow: 0 0 0 color-mix(in srgb, var(--scenario-accent) 78%, black);
 }
 
@@ -1002,6 +1043,37 @@ input {
    exception: the amber card uses dark text on its CTA (--scenario-btn-text),
    since white-on-amber falls short of readable contrast where the other
    three colors are dark enough for white text to work fine. */
+/* A scenario's button fill. The raw accents are tuned as colors, not as
+   backgrounds for text: white on the teal and rose measures ~3.9:1. Mixing in
+   20% black keeps the hue and brings white text to ~5.7:1. The amber accent
+   is light, so it keeps its own fill and pairs with dark ink instead
+   (--scenario-btn-text / --scenario-accent-contrast). Contrast modes pin this
+   back to the palette's action color (a11y.css, and high contrast below). */
+.scenario-card,
+.chat-screen,
+.mode-select,
+.voice-call {
+  --scenario-action: color-mix(in srgb, var(--scenario-accent, var(--color-primary)) 80%, #000);
+  /* The accent as text on the page's own surfaces: deepened on light,
+     lifted on dark, so even the amber clears 4.5:1. */
+  --scenario-ink: color-mix(in srgb, var(--scenario-accent, var(--color-primary)) 52%, #000);
+}
+
+[data-theme="dark"] :is(.scenario-card, .chat-screen, .mode-select, .voice-call) {
+  --scenario-ink: color-mix(in srgb, var(--scenario-accent, var(--color-primary)) 55%, #fff);
+}
+
+[data-contrast="high"] :is(.scenario-card, .chat-screen, .mode-select, .voice-call) {
+  --scenario-ink: var(--accent-ink);
+}
+
+.scenario-card[data-scenario="unexpected-conversation"],
+.chat-screen[data-light-accent],
+.mode-select[data-light-accent],
+.voice-call[data-light-accent] {
+  --scenario-action: var(--scenario-accent);
+}
+
 .scenario-card[data-scenario="missing-details"] {
   --scenario-accent: #4f8a8b;
   --scenario-tint: rgba(79, 138, 139, 0.09);
@@ -1015,8 +1087,8 @@ input {
   --scenario-tint: rgba(228, 163, 76, 0.14);
   --scenario-tint-strong: rgba(228, 163, 76, 0.2);
   --scenario-text: #7a591f;
-  --scenario-badge-text: #96702c;
-  --scenario-btn-text: #3a2a0d;
+  --scenario-badge-text: #7a591f;
+  --scenario-btn-text: #2b1d05;
 }
 
 .scenario-card[data-scenario="too-much-happening"] {
@@ -1075,6 +1147,7 @@ input {
    readability" priority as the picker background and card border above. */
 [data-contrast="high"] .scenario-card {
   --scenario-accent: var(--color-primary);
+  --scenario-action: var(--color-primary);
   --scenario-tint: var(--color-tint);
   --scenario-tint-strong: var(--color-tint);
   --scenario-text: var(--color-text);
@@ -1215,7 +1288,7 @@ input {
 .chat-header__hint {
   background: color-mix(in srgb, var(--scenario-accent) 14%, transparent);
   border: none;
-  color: var(--scenario-accent);
+  color: var(--scenario-ink, var(--scenario-accent));
   border-radius: 999px;
   padding: 0 var(--space-3);
   min-width: 40px;
@@ -1255,14 +1328,14 @@ input {
 
 [data-contrast="high"] .chat-header__tutorial {
   background: var(--color-tint);
-  color: var(--color-primary);
+  color: var(--accent-ink);
 }
 
 .chat-header__voice {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: var(--scenario-accent, var(--color-primary));
+  background: var(--scenario-action, var(--color-primary));
   border: none;
   color: var(--scenario-accent-contrast, var(--color-primary-contrast));
   border-radius: 999px;
@@ -1344,7 +1417,7 @@ input {
 [data-contrast="high"] .chat-header__hint,
 [data-contrast="high"] .chat-header__access {
   background: var(--color-tint);
-  color: var(--color-primary);
+  color: var(--accent-ink);
 }
 
 /* A small quest-tracker-style badge, not a full-width bar -- lives as the
@@ -1447,8 +1520,9 @@ input {
 
 .mission-badge__checkbox {
   flex-shrink: 0;
-  font-size: calc(1rem * var(--text-scale, 1));
-  line-height: 1.4;
+  width: calc(1.05em);
+  height: calc(1.05em);
+  margin-top: 0.2em;
 }
 
 .mission-badge__objective--done {
@@ -1479,15 +1553,20 @@ input {
 }
 
 .hint-bar__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
-  font-size: calc(1.25rem * var(--text-scale, 1));
-  line-height: 1;
+  border-radius: var(--radius-pill);
   color: inherit;
-  opacity: 0.6;
-  min-height: 32px;
-  min-width: 32px;
+  min-height: 36px;
+  min-width: 36px;
   flex-shrink: 0;
+}
+
+.hint-bar__close:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
 /* A single horizontally-scrolling row (like a chat app's quick-reply
@@ -1587,7 +1666,7 @@ input {
   margin: 0 0 var(--space-1) !important;
   font-style: normal !important;
   font-weight: 700;
-  color: var(--color-mission-accent) !important;
+  color: var(--color-mission-ink) !important;
   font-size: calc(0.72rem * var(--text-scale, 1));
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1635,7 +1714,7 @@ input {
 }
 
 .bubble-row--user .bubble {
-  background: var(--scenario-accent, var(--color-primary));
+  background: var(--scenario-action, var(--color-primary));
   color: var(--scenario-accent-contrast, var(--color-primary-contrast));
   border-top-right-radius: 4px;
 }
@@ -1751,6 +1830,29 @@ input {
   font-size: calc(0.85rem * var(--text-scale, 1));
 }
 
+/* Recovery actions share the existing typography, palettes and focus ring. */
+.chat-screen__error p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.recovery-button {
+  display: inline-block;
+  max-width: 100%;
+  min-height: var(--control-min);
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid currentColor;
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
 /* No enclosing panel/border -- the textarea and Send button each carry
    their own pill shape and background already, so a solid full-width box
    behind them would just be a big prominent rectangle competing with the
@@ -1784,7 +1886,7 @@ input {
 }
 
 .chat-screen__input button {
-  background: var(--scenario-accent, var(--color-primary));
+  background: var(--scenario-action, var(--color-primary));
   color: var(--scenario-accent-contrast, var(--color-primary-contrast));
   border: none;
   border-radius: 999px;
@@ -1990,13 +2092,21 @@ input {
 }
 
 .reflection-panel__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
   background: none;
   border: none;
-  font-size: calc(1.5rem * var(--text-scale, 1));
-  line-height: 1;
+  border-radius: var(--radius-pill);
   color: var(--color-text-muted);
-  min-height: 44px;
-  min-width: 44px;
+  min-height: var(--control-min);
+  min-width: var(--control-min);
+}
+
+.reflection-panel__close:hover {
+  background: var(--color-tint);
+  color: var(--color-text);
 }
 
 .reflection-panel__loading p,
@@ -2027,6 +2137,57 @@ input {
    text uses elsewhere) -- this screen's whole point is a warm, permanent,
    paper-like calm, not something that should flip dark with the rest of
    the app. */
+/* The live call's own palette: warm paper by day, a warm night by dark
+   theme, and the contrast palettes' own colors when those are on. Every
+   voice-call, transcript and goal rule reads these rather than literals. */
+.voice-call {
+  --call-field: #faf6f0;
+  --call-field-edge: #f7f2ea;
+  --call-surface: #fbf8f2;
+  --call-surface-strong: rgb(255 255 252 / 95%);
+  --call-bubble-them: #ece8df;
+  --call-ink: #2a2620;
+  --call-ink-soft: #4a4438;
+  --call-ink-muted: #6b6255;
+  --call-ink-faint: #7a7062;
+  --call-ink-quiet: #695f50;
+  --call-on-ink: #faf6f0;
+  --call-edge: #e8e1d4;
+  --call-danger: #b3403a;
+}
+
+[data-theme="dark"] .voice-call {
+  --call-field: #1d1a22;
+  --call-field-edge: #17151b;
+  --call-surface: #23202a;
+  --call-surface-strong: rgb(35 32 42 / 96%);
+  --call-bubble-them: #2f2b36;
+  --call-ink: #efeae2;
+  --call-ink-soft: #ddd6ca;
+  --call-ink-muted: #bdb4a6;
+  --call-ink-faint: #a89f91;
+  --call-ink-quiet: #bdb4a6;
+  --call-on-ink: #1d1a22;
+  --call-edge: #3a3542;
+  --call-danger: #ef8a80;
+}
+
+:root:is([data-contrast="high"], [data-contrast="dark"], [data-contrast="light"]) .voice-call {
+  --call-field: var(--color-bg);
+  --call-field-edge: var(--color-bg);
+  --call-surface: var(--color-surface);
+  --call-surface-strong: var(--color-surface);
+  --call-bubble-them: var(--color-tint);
+  --call-ink: var(--color-text);
+  --call-ink-soft: var(--color-text);
+  --call-ink-muted: var(--color-text);
+  --call-ink-faint: var(--color-text);
+  --call-ink-quiet: var(--color-text);
+  --call-on-ink: var(--color-bg);
+  --call-edge: var(--color-border);
+  --call-danger: var(--color-danger);
+}
+
 .voice-call {
   position: fixed;
   inset: 0;
@@ -2037,10 +2198,12 @@ input {
   justify-content: space-between;
   gap: var(--space-5);
   padding: var(--space-5) var(--space-4);
-  padding-top: max(40px, env(safe-area-inset-top));
+  /* The Transcript/Reduce motion toggles sit in the column's flow above
+     the name (see VoiceCallGoal.css), so they take over this space. */
+  padding-top: max(12px, env(safe-area-inset-top));
   padding-bottom: max(var(--space-5), env(safe-area-inset-bottom));
-  background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--scenario-accent) 6%, #faf6f0) 0%, #f7f2ea 70%);
-  color: #2a2620;
+  background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--scenario-accent) 6%, var(--call-field)) 0%, var(--call-field-edge) 70%);
+  color: var(--call-ink);
   text-align: center;
 }
 
@@ -2049,16 +2212,20 @@ input {
   color: var(--color-text);
 }
 
-/* Phones: the Transcript/Reduce motion toggles sit in the column's flow
-   above the name (see VoiceCallGoal.css), so they take over this space. */
-@media (max-width: 599.98px) {
-  .voice-call {
-    padding-top: max(12px, env(safe-area-inset-top));
-  }
-}
-
 .voice-call__top {
-  flex-shrink: 0;
+  /* Large text plus the goal card can outgrow a short screen: the ring
+     gives up its space first (min-height: 0 below), then this block
+     scrolls on its own, so Mute and End call never leave the screen.
+     The padding/negative margin pair leaves room for the goal card's
+     shadow and the Word Magnifier's enlarged name, which the scroll box
+     would otherwise clip. */
+  flex-shrink: 1;
+  min-height: 0;
+  max-width: calc(100% + 48px);
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  padding: 4px 24px 32px;
+  margin: -4px -24px -32px;
 }
 
 /* Serif, not the app's usual sans -- same --font-narrator EB Garamond used
@@ -2071,7 +2238,7 @@ input {
   font-size: calc(1.7rem * var(--text-scale, 1));
   font-weight: 500;
   letter-spacing: 0.01em;
-  color: #2a2620;
+  color: var(--call-ink);
 }
 
 .voice-call__status {
@@ -2080,7 +2247,7 @@ input {
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--scenario-accent) 55%, #6b6355);
+  color: color-mix(in srgb, var(--scenario-accent) 55%, var(--call-ink-muted));
 }
 
 /* Narrator-voice italic serif, same as text mode's NarratorIntro/scenario
@@ -2094,7 +2261,7 @@ input {
   font-style: italic;
   font-size: calc(1.12rem * var(--text-scale, 1));
   line-height: 1.5;
-  color: #4a4438;
+  color: var(--call-ink-soft);
 }
 
 /* Solid (not italic/muted) and accent-tinted -- deliberately reads as a
@@ -2106,7 +2273,7 @@ input {
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius);
   background: color-mix(in srgb, var(--scenario-accent) 14%, transparent);
-  color: color-mix(in srgb, var(--scenario-accent) 80%, #2a2620);
+  color: color-mix(in srgb, var(--scenario-accent) 80%, var(--call-ink));
   font-size: calc(0.85rem * var(--text-scale, 1));
   font-weight: 600;
   line-height: 1.45;
@@ -2136,14 +2303,14 @@ input {
   font-family: var(--font-narrator);
   font-size: calc(1.3rem * var(--text-scale, 1));
   font-weight: 500;
-  color: #2a2620;
+  color: var(--call-ink);
 }
 
 .voice-call__ask-text {
   margin: 0;
   font-size: calc(0.9rem * var(--text-scale, 1));
   line-height: 1.5;
-  color: #6b6355;
+  color: var(--call-ink-muted);
 }
 
 .voice-call__ask-buttons {
@@ -2164,15 +2331,21 @@ input {
 }
 
 .voice-call__ask-skip {
-  background: rgba(42, 38, 32, 0.08);
+  background: color-mix(in srgb, var(--call-ink) 8%, transparent);
   border: none;
-  color: #2a2620;
+  color: var(--call-ink);
 }
 
 .voice-call__ask-yes {
-  background: var(--scenario-accent);
+  background: var(--scenario-action, var(--scenario-accent));
   border: none;
   color: var(--scenario-accent-contrast);
+}
+
+/* Same high-contrast pairing as Send and Talk Live. */
+[data-contrast="high"] .voice-call__ask-yes {
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
 }
 
 .voice-call__loop-wrapper {
@@ -2182,159 +2355,96 @@ input {
   align-items: center;
   justify-content: center;
   width: 100%;
+  min-height: 0;
 }
 
 .voice-call__loop {
   width: min(320px, 78vw);
   height: auto;
+  max-height: 100%;
   overflow: visible;
 }
 
-/* r comes from --r, written every animation frame by stepWave() in
-   VoiceCallScreen.jsx -- ONE continuous breathing wave whose range/tempo
-   eases toward whatever body-language state is current, rather than a CSS
-   @keyframes animation whose *name* swaps per state (which restarts the
-   cycle at 0%, producing a visible jump-cut on every transition -- this
-   used to be `animation: voice-loop-grow ...` for exactly that reason).
-   The fallback (34) only ever shows for an instant before JS starts
-   writing --r. stroke/opacity (not stroke-width, which is amp-driven every
-   frame and would fight a transition retriggering 60x/sec) still
-   transition smoothly between states below, so a state change reads as a
-   mood shifting, not a UI toggle snapping. */
+/* r comes from --ring-r, one still size per body-language state (set on
+   the wrapper below). A state change eases r to the new size once over
+   --motion-content; nothing breathes or loops on its own. stroke-width and
+   the points follow live audio (--amp) only while someone is making sound.
+   Pause/reduced motion collapses the transition, and VoiceCallScreen
+   finishes one already under way. */
+.voice-call__loop-wrapper {
+  --ring-r: 35;
+}
+
 .voice-call__loop-base {
   fill: none;
   stroke-linecap: round;
-  r: var(--r, 34);
+  r: calc(var(--ring-r) * 1px);
   filter: url(#voice-ink-wobble);
-  stroke: color-mix(in srgb, var(--scenario-accent) 70%, #2a2620);
+  stroke: color-mix(in srgb, var(--scenario-accent) 70%, var(--call-ink));
   stroke-width: calc(1.5px + var(--amp) * 1.5px);
   opacity: 0.4;
-  transition: stroke 500ms ease, opacity 500ms ease;
+  transition: r var(--motion-content) var(--ease-out), stroke var(--motion-panel) var(--ease-out), opacity var(--motion-panel) var(--ease-out);
 }
 
-/* Two small bright points orbiting clockwise at a fixed radius (35, the
-   ring's own midpoint between its grow/shrink extremes of 30-40) -- energy
-   traveling around a biological system, not a loading-spinner-style dash
-   sweeping around the outline. Each also pulses its own size/glow on a
-   separate faster cycle, like a packet of light breathing as it travels,
-   and reacts to live audio the same way the rest of the ring does. Offset
-   from each other via animation-delay (not evenly opposite at 180deg) so
-   the pair feels a little irregular/organic rather than mechanically
-   symmetric. */
+/* Two small bright points resting on the ring (radius 35, its midpoint
+   between the grow/shrink extremes of 30-40), not evenly opposite, so the
+   pair feels a little organic. They no longer orbit or pulse on a loop;
+   their size and glow follow live audio (--amp) like the rest of the ring,
+   and each pose below sets their opacity over --motion-panel. */
 .voice-call__loop-pulse {
   fill: var(--scenario-accent);
   cx: 85;
   cy: 50;
   r: calc(1.7px + var(--amp) * 1.6px);
   filter: drop-shadow(0 0 calc(2px + var(--amp) * 7px) var(--scenario-accent));
-  animation: voice-loop-orbit 6s linear infinite, voice-loop-pulse-glow 2.2s ease-in-out infinite;
+  opacity: 0.8;
+  transition: opacity var(--motion-panel) var(--ease-out);
 }
 
 .voice-call__loop-pulse--2 {
+  cx: 32.5;
+  cy: 19.69;
   r: calc(1.2px + var(--amp) * 1.3px);
-  animation-delay: -2.6s, -1.1s;
-}
-
-@keyframes voice-loop-orbit {
-  0% {
-    cx: 85;
-    cy: 50;
-  }
-  8.333% {
-    cx: 80.31;
-    cy: 67.5;
-  }
-  16.667% {
-    cx: 67.5;
-    cy: 80.31;
-  }
-  25% {
-    cx: 50;
-    cy: 85;
-  }
-  33.333% {
-    cx: 32.5;
-    cy: 80.31;
-  }
-  41.667% {
-    cx: 19.69;
-    cy: 67.5;
-  }
-  50% {
-    cx: 15;
-    cy: 50;
-  }
-  58.333% {
-    cx: 19.69;
-    cy: 32.5;
-  }
-  66.667% {
-    cx: 32.5;
-    cy: 19.69;
-  }
-  75% {
-    cx: 50;
-    cy: 15;
-  }
-  83.333% {
-    cx: 67.5;
-    cy: 19.69;
-  }
-  91.667% {
-    cx: 80.31;
-    cy: 32.5;
-  }
-  100% {
-    cx: 85;
-    cy: 50;
-  }
-}
-
-@keyframes voice-loop-pulse-glow {
-  0%,
-  100% {
-    opacity: 0.55;
-  }
-  50% {
-    opacity: 1;
-  }
 }
 
 /* Wide, soft, low-opacity duplicate ring behind the other two -- pure glow
-   diffusion ("fiber optic" softness) rather than a crisp edge. Same --r as
-   the base ring (both read the one JS-driven wave, see above) so it always
-   sits concentric with the ring it's glowing around. */
+   diffusion ("fiber optic" softness) rather than a crisp edge. Same --ring-r
+   as the base ring so it always sits concentric with the ring it's glowing
+   around. */
 .voice-call__loop-bloom {
   fill: none;
   stroke: var(--scenario-accent);
   stroke-width: 9;
   opacity: 0.16;
-  r: var(--r, 34);
+  r: calc(var(--ring-r) * 1px);
   filter: blur(9px);
-  transition: opacity 500ms ease, filter 500ms ease;
+  transition: r var(--motion-content) var(--ease-out), opacity var(--motion-panel) var(--ease-out), filter var(--motion-panel) var(--ease-out);
 }
 
 /* --- Body language: idle/listening/thinking/speaking/ending ---
    A tiny vocabulary of motion standing in for emotion (see
    VoiceCallScreen.jsx's handleServerEvent -- these are driven by real
    Realtime API turn-detection events, not a guess from amplitude). "idle"
-   needs no rules of its own; it's just WAVE_TARGETS.idle's default. The
-   ring/bloom's actual breathing range (via --r) transitions between states
-   smoothly in JS -- see stepWave() -- as ONE continuous wave whose
-   amplitude/tempo eases toward the new target, never a restart, so nothing
-   here touches r directly; these rules are just the other cues (color,
-   opacity, blur, pulse behavior) that complete each pose. Loud audio during
+   uses the wrapper's default size. Each pose sets a still ring size
+   (--ring-r) plus the other cues (color, opacity, blur, pulse behavior)
+   that complete it. Loud audio during
    "speaking" (--amp, already wired through every element's own
    stroke-width/r/glow formulas) is what "excited speech" is -- more motion
    within the speaking pose, not a separate discrete state, since there's no
    reason a louder response should look like a categorically different mood
    than a quieter one. */
 
+/* Still ring sizes per pose (viewBox units). */
+.voice-call__loop-wrapper--listening { --ring-r: 27; }
+.voice-call__loop-wrapper--thinking,
+.voice-call__loop-wrapper--ending { --ring-r: 33; }
+.voice-call__loop-wrapper--speaking { --ring-r: 40; }
+
 /* Listening: "I'm paying attention" -- a more focused glow (tighter blur,
-   a touch more present/saturated) than idle's loose ambient wash; the
-   actual inward contraction is WAVE_TARGETS.listening. */
+   a touch more present/saturated) than idle's loose ambient wash, on a
+   smaller ring. */
 .voice-call__loop-wrapper--listening .voice-call__loop-base {
-  stroke: color-mix(in srgb, var(--scenario-accent) 85%, #2a2620);
+  stroke: color-mix(in srgb, var(--scenario-accent) 85%, var(--call-ink));
   opacity: 0.55;
 }
 
@@ -2343,18 +2453,11 @@ input {
   filter: blur(5px);
 }
 
-.voice-call__loop-wrapper--listening .voice-call__loop-pulse {
-  animation-duration: 9s, 2.2s;
-}
-
-/* Thinking: "I'm considering" -- WAVE_TARGETS.thinking narrows the
-   breathing range to almost nothing (settling, not freezing outright), and
-   the bloom gets its own slow independent shimmer -- soft diffuse light,
-   a different quality of motion rather than just "paused". The pulses do
-   pause outright, though: no energy actively traveling while the AI isn't
+/* Thinking: "I'm considering" -- the ring settles a little smaller and
+   the bloom goes soft and diffuse -- a different quality of light rather
+   than just "paused". The points dim: no energy while the AI isn't
    speaking or being spoken to. */
 .voice-call__loop-wrapper--thinking .voice-call__loop-pulse {
-  animation-play-state: paused;
   opacity: 0.35;
 }
 
@@ -2363,27 +2466,16 @@ input {
 }
 
 .voice-call__loop-wrapper--thinking .voice-call__loop-bloom {
-  animation: voice-loop-shimmer 2.4s ease-in-out infinite;
+  opacity: 0.2;
   filter: blur(18px);
-}
-
-@keyframes voice-loop-shimmer {
-  0%,
-  100% {
-    opacity: 0.14;
-  }
-  50% {
-    opacity: 0.26;
-  }
 }
 
 /* Speaking: "I'm responding" -- a richer glow and more expressive pulses
    (bigger base size and a stronger reach to --amp, so a livelier response
    visibly swings further than a subdued one -- this is where "excited
-   speech" actually lives); the outward bloom itself is
-   WAVE_TARGETS.speaking. */
+   speech" actually lives), on the largest ring. */
 .voice-call__loop-wrapper--speaking .voice-call__loop-base {
-  stroke: color-mix(in srgb, var(--scenario-accent) 82%, #2a2620);
+  stroke: color-mix(in srgb, var(--scenario-accent) 82%, var(--call-ink));
   opacity: 0.5;
 }
 
@@ -2395,32 +2487,23 @@ input {
 .voice-call__loop-wrapper--speaking .voice-call__loop-pulse {
   r: calc(2px + var(--amp) * 2.6px);
   filter: drop-shadow(0 0 calc(3px + var(--amp) * 11px) var(--scenario-accent));
-  animation-duration: 4s, 1.8s;
+  opacity: 1;
 }
 
 /* Goodbye / ending: "conversation complete" -- everything relaxes and
-   fades toward rest together over a slow, deliberate 650ms (see
+   fades toward rest together over a short 300ms (see
    VoiceCallScreen.jsx's handleClose, which waits roughly that long before
    actually closing) rather than the screen just vanishing mid-gesture.
-   WAVE_TARGETS.ending also settles the breathing range down at the same
-   time, so the ring itself relaxes, not just fades. */
+   The ring also settles to a smaller size, so it relaxes, not just fades. */
 .voice-call__loop-wrapper--ending {
-  transition: opacity 650ms ease-out, transform 650ms ease-out;
+  transition: opacity 300ms var(--ease-out), transform 300ms var(--ease-out);
   opacity: 0.15;
   transform: scale(0.94);
 }
 
-.voice-call__loop-wrapper--ending .voice-call__loop-pulse {
-  animation-play-state: paused;
-}
-
-[data-motion="reduce"] .voice-call__loop-pulse {
-  animation: none;
-  opacity: 0.7;
-}
 
 .voice-call__loop-wrapper--error .voice-call__loop-base {
-  stroke: #9a9284;
+  stroke: var(--call-ink-faint);
   opacity: 0.7;
 }
 
@@ -2430,53 +2513,17 @@ input {
   display: none;
 }
 
-/* Each node twinkles on its own independent cycle (staggered delays, not
-   synchronized) so the halo reads as a loose scatter of ambient points
-   rather than a single pulsing group. */
+/* A loose, still scatter of ambient points around the ring, at uneven
+   strengths so it doesn't read as one group. No twinkling loop. */
 .voice-call__loop-node {
   fill: var(--scenario-accent);
-  animation: voice-loop-twinkle 3.6s ease-in-out infinite;
-}
-
-.voice-call__loop-node--1 {
-  animation-delay: 0s;
-}
-.voice-call__loop-node--2 {
-  animation-delay: 0.5s;
-}
-.voice-call__loop-node--3 {
-  animation-delay: 1s;
-}
-.voice-call__loop-node--4 {
-  animation-delay: 1.5s;
-}
-.voice-call__loop-node--5 {
-  animation-delay: 2s;
-}
-.voice-call__loop-node--6 {
-  animation-delay: 2.5s;
-}
-.voice-call__loop-node--7 {
-  animation-delay: 3s;
-}
-.voice-call__loop-node--8 {
-  animation-delay: 0.8s;
-}
-
-@keyframes voice-loop-twinkle {
-  0%,
-  100% {
-    opacity: 0.12;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-
-[data-motion="reduce"] .voice-call__loop-node {
-  animation: none;
   opacity: 0.3;
 }
+
+.voice-call__loop-node:nth-child(even) {
+  opacity: 0.45;
+}
+
 
 .voice-call__controls {
   flex-shrink: 0;
@@ -2497,7 +2544,7 @@ input {
   border-radius: 50%;
   border: none;
   background: transparent;
-  color: #2a2620;
+  color: var(--call-ink);
 }
 
 .voice-call__icon-btn:hover,
@@ -2511,12 +2558,12 @@ input {
 }
 
 .voice-call__icon-btn--end {
-  color: #b3403a;
+  color: var(--call-danger);
 }
 
 .voice-call__icon-btn--end:hover,
 .voice-call__icon-btn--end:focus-visible {
-  background: color-mix(in srgb, #b3403a 14%, transparent);
+  background: color-mix(in srgb, var(--call-danger) 14%, transparent);
 }
 
 /* Sits between ScenarioPicker and ChatScreen (see App.jsx) -- the scenario's
@@ -2541,9 +2588,11 @@ input {
   color: var(--color-text);
   border: none;
   border-radius: 999px;
-  min-width: 40px;
-  min-height: 40px;
-  font-size: calc(1.1rem * var(--text-scale, 1));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--control-min);
+  min-height: var(--control-min);
 }
 
 [data-theme="dark"] .mode-select__back {
@@ -2598,7 +2647,7 @@ input {
   padding: 6px 11px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--scenario-accent) 18%, var(--color-tint));
-  color: var(--scenario-accent, var(--color-primary));
+  color: var(--scenario-ink, var(--scenario-accent));
   font-size: calc(11.5px * var(--text-scale, 1));
   font-weight: 600;
 }
@@ -2634,12 +2683,12 @@ input {
      (:active covers mouse, touch and keyboard). The ledge picks up the hover
      color too. */
   --option-ledge: color-mix(in srgb, var(--color-border) 55%, var(--color-text-muted));
-  box-shadow: 0 4px 0 var(--option-ledge);
+  box-shadow: 0 2px 0 var(--option-ledge);
   transform: translateY(0);
   transition:
-    transform 100ms ease-out,
-    box-shadow 100ms ease-out,
-    background-color 160ms ease-out;
+    transform var(--motion-feedback) var(--ease-out),
+    box-shadow var(--motion-feedback) var(--ease-out),
+    background-color var(--motion-feedback) var(--ease-out);
 }
 
 /* Dark surfaces: the light-theme mix comes out lighter than the card and
@@ -2650,7 +2699,7 @@ input {
 
 .mode-select__option:hover,
 .mode-select__option:focus-visible {
-  color: var(--color-primary);
+  color: var(--accent-ink);
   --option-ledge: color-mix(in srgb, var(--color-primary) 80%, black);
   /* The card lights up under the pointer. */
   background: color-mix(in srgb, var(--color-tint) 35%, #ffffff);
@@ -2664,7 +2713,7 @@ input {
 /* Each card's icon rests dimmed and comes up to full strength on hover. */
 .mode-select__option svg {
   opacity: 0.55;
-  transition: opacity 160ms ease-out;
+  transition: opacity var(--motion-feedback) var(--ease-out);
 }
 
 .mode-select__option:hover svg,
@@ -2684,8 +2733,13 @@ input {
 }
 
 .mode-select__option:active {
-  transform: translateY(4px);
+  transform: translateY(2px);
   box-shadow: 0 0 0 var(--option-ledge);
+}
+
+/* Reduce motion: pressed buttons change color only; nothing moves. */
+[data-motion="reduce"] :is(.mode-select__option, .scenario-card__difficulty-button):active {
+  transform: none;
 }
 
 .mode-select__option--voice {
@@ -2786,7 +2840,7 @@ input {
 .reflection-style-label {
   font-size: calc(1.05rem * var(--text-scale, 1));
   font-weight: 700;
-  color: var(--color-primary);
+  color: var(--accent-ink);
   margin-bottom: var(--space-1) !important;
 }
 
@@ -2866,7 +2920,7 @@ input {
   gap: 8px;
   background: var(--color-narrator-tint);
   border: 1.5px solid var(--color-narrator-accent);
-  color: var(--color-narrator-accent);
+  color: color-mix(in srgb, var(--color-narrator-accent) 80%, #000);
   border-radius: 999px;
   padding: 10px 18px;
   min-height: 44px;
@@ -2926,6 +2980,20 @@ input {
   color: #7a591f;
 }
 
+[data-theme="dark"]:not([data-contrast="high"]) .picker__history-button {
+  color: var(--color-narrator-accent);
+}
+
+[data-theme="dark"]:not([data-contrast="high"]) .picker__feedback-link {
+  border-color: #e8b567;
+  color: #e8b567;
+}
+
+[data-theme="dark"] .tutorial-replay-button {
+  border-color: var(--color-text-muted);
+  color: var(--color-text);
+}
+
 [data-theme="dark"] .picker__favorites-button {
   background: rgba(232, 181, 103, 0.14);
   border-color: #e8b567;
@@ -2973,9 +3041,9 @@ input {
   min-height: 44px;
   padding: 10px 18px;
   border-radius: 999px;
-  border: 1.5px solid var(--color-primary);
+  border: 1.5px solid var(--accent-ink);
   background: transparent;
-  color: var(--color-primary);
+  color: var(--accent-ink);
   font-size: calc(14px * var(--text-scale, 1));
   font-weight: 600;
 }
@@ -3182,7 +3250,7 @@ input {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--color-primary);
+  color: var(--accent-ink);
 }
 
 .tutorial-overlay__title {
@@ -3273,7 +3341,7 @@ input {
   font-size: calc(13px * var(--text-scale, 1));
 }
 
-.picker__content :is(.picker__feedback-link, .picker__history-button, .picker__favorites-button, .a11y-button) svg {
+.picker__content :is(.picker__feedback-link, .tutorial-replay-button, .picker__history-button, .picker__favorites-button, .a11y-button) svg {
   width: 16px;
   height: 16px;
 }
@@ -3288,21 +3356,9 @@ input {
   color: var(--color-accent);
 }
 
-/* The tutorial's pointer is a wavy dashed line whose dashes drift toward
-   the spotlight, so it reads as "this way" at a glance. */
-.tutorial-overlay__pointer {
-  animation: tutorial-pointer-flow 1.2s linear infinite;
-}
-
-@keyframes tutorial-pointer-flow {
-  to {
-    stroke-dashoffset: -22;
-  }
-}
-
-[data-motion="reduce"] .tutorial-overlay__pointer {
-  animation: none;
-}
+/* The tutorial's pointer is a still, wavy dashed line toward the
+   spotlight; its arrowhead already says "this way", so the dashes don't
+   need to drift on a loop. */
 
 /* ---------- Tutorial: a cheerful skin ----------
    Sunny yellow callouts with pink and peach glows in the corners, a
@@ -3339,11 +3395,6 @@ input {
 
 /* A little sparkle beside "2 of 5" -- decoration only, so the alt text
    after the slash is empty and screen readers skip it. */
-.tutorial-overlay .tutorial-overlay__count::before {
-  content: "✨" / "";
-  margin-right: 5px;
-}
-
 .tutorial-overlay .tutorial-overlay__title {
   color: var(--tutorial-ink);
 }
@@ -3363,14 +3414,13 @@ input {
 .tutorial-overlay .tutorial-overlay__next {
   background: var(--tutorial-button);
   color: var(--tutorial-button-ink);
-  box-shadow: 0 3px 0 #8f1a48;
-  transition: transform 120ms ease, background 120ms ease, box-shadow 120ms ease;
+  box-shadow: 0 2px 0 #8f1a48;
+  transition: transform var(--motion-feedback) var(--ease-out), background var(--motion-feedback) var(--ease-out),
+    box-shadow var(--motion-feedback) var(--ease-out);
 }
 
 .tutorial-overlay .tutorial-overlay__next:hover {
   background: var(--tutorial-button-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 0 #8f1a48;
 }
 
 .tutorial-overlay .tutorial-overlay__next:active {
@@ -3420,4 +3470,11 @@ html[data-contrast="invert"] .tutorial-overlay .tutorial-overlay__callout {
   background: var(--tutorial-bg);
   border-color: var(--color-text);
   box-shadow: none;
+}
+
+@media (pointer: coarse) {
+  .scenario-card__favorite {
+    width: 44px;
+    height: 44px;
+  }
 }

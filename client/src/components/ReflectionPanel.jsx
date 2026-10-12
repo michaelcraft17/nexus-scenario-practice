@@ -1,6 +1,9 @@
-import { useEffect, useState } from "react";
-import { useAccessibility } from "../a11y/AccessibilityContext.jsx";
+import { useEffect, useRef, useState } from "react";
+import { CloseIcon } from "./icons.jsx";
 import "./Reflection.css";
+
+/** After this long, the loading note says so plainly. */
+const SLOW_REFLECTION_MS = 8000;
 
 /** Little line icons for each section, so a new section is easy to spot. */
 // Each section's icon: a soft filled shape (".soft", a light wash of the
@@ -57,7 +60,7 @@ const SECTION_ICONS = {
     <>
       <path className="soft" d="M17 4.2l4 1.8-4 1.8z" />
       <path d="M17 11V3.5M17 4.2l4 1.8-4 1.8" />
-      <path d="M3.5 20.5c3 0 4.5-1.6 4.5-3.3S9.6 14 12.5 14 17 13 17 11" strokeDasharray="2.2 2.4" />
+      <path d="M3.5 20.5c3 0 4.5-1.6 4.5-3.3S9.6 14 12.5 14 17 13 17 11" />
       <circle className="solid" cx="3.8" cy="20.3" r="1.5" />
     </>
   ),
@@ -88,7 +91,7 @@ function Section({ kind, title, index, children }) {
     <section className={`reflection-section reflection-section--${kind}`} style={{ "--i": index }}>
       <h3>
         <span className="reflection-section__icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             {SECTION_ICONS[kind]}
           </svg>
         </span>
@@ -100,30 +103,20 @@ function Section({ kind, title, index, children }) {
 }
 
 /**
- * While the reflection is being written: two speech bubbles (you and the
- * character) murmuring, little motes drifting up from each into a page whose
- * lines write themselves in, and a line underneath naming what's being looked
- * at. Under Reduce motion it's a still picture and a single line. Screen
- * readers get one steady status message, not each rotating line.
+ * While the reflection is being written: a still picture of the two of you
+ * talking beside a page, whose lines quietly write themselves in -- the one
+ * moving part -- and a single status line. The line only changes if the wait
+ * runs long, to say so honestly rather than to imply progress steps that
+ * aren't happening. Under Reduce motion the page is simply written out.
+ * Screen readers get one steady status message.
  */
-function ReflectionLoading({ npcName }) {
-  const { resolvedMotion } = useAccessibility();
-  const still = resolvedMotion === "reduce";
-  const name = npcName || "they";
-  const lines = [
-    "Gathering the moments that mattered...",
-    `Noticing what ${name} learned about you...`,
-    "Finding a name for your conversation style...",
-    "Listening for the echo of what you said...",
-    "Almost there — tidying up the page...",
-  ];
-  const [lineIndex, setLineIndex] = useState(0);
+function ReflectionLoading() {
+  const [slow, setSlow] = useState(false);
 
   useEffect(() => {
-    if (still) return undefined;
-    const id = setInterval(() => setLineIndex((i) => Math.min(i + 1, lines.length - 1)), 2600);
-    return () => clearInterval(id);
-  }, [still, lines.length]);
+    const id = setTimeout(() => setSlow(true), SLOW_REFLECTION_MS);
+    return () => clearTimeout(id);
+  }, []);
 
   return (
     <div className="reflection-loading" role="status">
@@ -136,11 +129,6 @@ function ReflectionLoading({ npcName }) {
           <path className="reflection-loading__line reflection-loading__line--3" d="M95 43h30" />
           <path className="reflection-loading__line reflection-loading__line--4" d="M95 52h18" />
         </g>
-        <path className="reflection-loading__sparkle" d="M146 14l1.6 4.4 4.4 1.6-4.4 1.6-1.6 4.4-1.6-4.4-4.4-1.6 4.4-1.6z" />
-        <circle className="reflection-loading__mote reflection-loading__mote--user-1" cx="50" cy="66" r="2.6" />
-        <circle className="reflection-loading__mote reflection-loading__mote--user-2" cx="58" cy="66" r="2" />
-        <circle className="reflection-loading__mote reflection-loading__mote--npc-1" cx="170" cy="66" r="2.6" />
-        <circle className="reflection-loading__mote reflection-loading__mote--npc-2" cx="162" cy="66" r="2" />
         <g className="reflection-loading__bubble reflection-loading__bubble--user">
           <path d="M28 72h44a14 14 0 0 1 14 14v4a14 14 0 0 1-14 14H40l-10 8v-8.6A14 14 0 0 1 14 90v-4a14 14 0 0 1 14-14z" />
           <circle className="reflection-loading__dot" cx="38" cy="88" r="3" />
@@ -154,11 +142,11 @@ function ReflectionLoading({ npcName }) {
           <circle className="reflection-loading__dot" cx="182" cy="88" r="3" />
         </g>
       </svg>
-      <p key={lineIndex} className="reflection-loading__line-text" aria-hidden="true">
-        {lines[lineIndex]}
+      <p className="reflection-loading__line-text" aria-hidden="true">
+        Writing your reflection…
       </p>
       <p className="reflection-panel__loading-note" aria-hidden="true">
-        This usually takes a few seconds.
+        {slow ? "Still writing — this one is taking a little longer." : "This usually takes a few seconds."}
       </p>
     </div>
   );
@@ -182,6 +170,9 @@ function ReflectionLoading({ npcName }) {
  * @param {string} [finishLabel] - Footer button text, "Return to scenarios"
  *   by default; history review passes "Close" instead since there's no
  *   active scenario to exit.
+ * @param {{current: HTMLElement|null}} [fallbackFocusRef] - Where focus goes
+ *   on closing when nothing in particular had it at opening.
+ * @param {Function} [onRetry] - Retry a failed reflection using its original transcript.
  */
 export default function ReflectionPanel({
   open,
@@ -191,27 +182,117 @@ export default function ReflectionPanel({
   npcName,
   onClose,
   onFinish,
+  onRetry,
   subtitle,
   finishLabel = "Return to scenarios",
+  fallbackFocusRef,
 }) {
+  const overlayRef = useRef(null);
+  const closeRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const fallbackFocusRefRef = useRef(fallbackFocusRef);
+  fallbackFocusRefRef.current = fallbackFocusRef;
+
+  // A modal dialog: focus starts on its close button, stays inside it (Tab
+  // and Shift+Tab wrap; the screen behind is inert), Escape closes it, and
+  // focus goes back to wherever it was when the dialog opened. The
+  // Accessibility menu lives outside this screen and stays usable.
+  useEffect(() => {
+    if (!open) return undefined;
+    const overlay = overlayRef.current;
+    const returnTo = document.activeElement;
+    const madeInert = [...(overlay?.parentElement?.children ?? [])].filter(
+      (el) => el !== overlay && !el.inert && !el.querySelector(".a11y-menu")
+    );
+    madeInert.forEach((el) => {
+      el.inert = true;
+    });
+    closeRef.current?.focus({ preventScroll: true });
+    function focusables() {
+      return [...overlay.querySelectorAll("button, [href], input, select, textarea, [tabindex]")].filter(
+        (el) => !el.disabled && el.tabIndex >= 0 && el.getClientRects().length > 0
+      );
+    }
+    function onKeyDown(e) {
+      if (e.key === "Escape" && !e.defaultPrevented) {
+        e.preventDefault();
+        onCloseRef.current?.();
+        return;
+      }
+      if (e.key !== "Tab" || e.defaultPrevented || !overlay) return;
+      if (document.activeElement?.closest(".a11y-menu")) return;
+      const items = focusables();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const inside = overlay.contains(document.activeElement);
+      if (!inside || (e.shiftKey && document.activeElement === first) || (!e.shiftKey && document.activeElement === last)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      madeInert.forEach((el) => {
+        el.inert = false;
+      });
+      const target =
+        returnTo instanceof HTMLElement && returnTo !== document.body && returnTo.isConnected
+          ? returnTo
+          : fallbackFocusRefRef.current?.current;
+      if (!(target instanceof HTMLElement)) return;
+      const restore = () => {
+        if (target.isConnected) target.focus({ preventScroll: true });
+      };
+      restore();
+      // The browser can still treat the just-released background as inert
+      // until its next style update; try once more then, unless focus has
+      // already gone somewhere on purpose.
+      if (document.activeElement !== target) {
+        requestAnimationFrame(() => {
+          if (document.activeElement === document.body || !document.activeElement) restore();
+        });
+      }
+    };
+  }, [open]);
+
   if (!open) return null;
 
   return (
-    <div className="reflection-overlay" role="dialog" aria-modal="true" aria-label="Conversation reflection">
+    <div ref={overlayRef} className="reflection-overlay" role="dialog" aria-modal="true" aria-label="Conversation reflection">
       <div className="reflection-panel">
         <div className="reflection-panel__header">
           <div>
             <h2>Your Reflection</h2>
             {subtitle && <p className="reflection-panel__subtitle">{subtitle}</p>}
           </div>
-          <button className="reflection-panel__close" onClick={onClose} aria-label="Close reflection">
-            &times;
+          <button ref={closeRef} type="button" className="reflection-panel__close" onClick={onClose} aria-label="Close reflection">
+            <CloseIcon size={20} />
           </button>
         </div>
 
         <div className="reflection-panel__body">
-          {status === "loading" && <ReflectionLoading npcName={npcName} />}
-          {status === "error" && <p className="reflection-panel__error">{errorMessage}</p>}
+          {status === "loading" && <ReflectionLoading />}
+          {status === "error" && (
+            <div className="reflection-panel__error">
+              <p role="alert">{errorMessage}</p>
+              {onRetry && (
+                <button
+                  type="button"
+                  className="recovery-button"
+                  onClick={() => {
+                    // Keep focus in the dialog when this button disappears.
+                    closeRef.current?.focus({ preventScroll: true });
+                    onRetry();
+                  }}
+                >
+                  Retry reflection
+                </button>
+              )}
+            </div>
+          )}
 
           {status === "done" && data && (
             <>

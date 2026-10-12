@@ -1,6 +1,7 @@
 import { SCENARIO_ACCENT_CONTRAST } from "./ChatScreen.jsx";
 import TutorialOverlay from "./TutorialOverlay.jsx";
 import HoverWords from "./HoverWords.jsx";
+import { ArrowLeftIcon } from "./icons.jsx";
 
 /** The walkthrough carries on past "Start scenario" -- this is the first
  * place a newcomer meets the typed-vs-spoken choice, and the two option
@@ -46,8 +47,8 @@ export default function ModeSelect({ scenario, onChooseMode, onBack }) {
         aria-hidden="true"
       />
 
-      <button className="mode-select__back" onClick={onBack} aria-label="Back to scenario picker">
-        <span aria-hidden="true">&larr;</span>
+      <button type="button" className="mode-select__back" onClick={onBack} aria-label="Back to scenario picker">
+        <ArrowLeftIcon size={20} />
       </button>
 
       <div className="mode-select__content">
